@@ -1,6 +1,6 @@
 /* $RCSfile: arg.h,v $$Revision: 4.1 $$Date: 92/08/07 17:18:16 $
  *
- *    Copyright (c) 1993, Larry Wall
+ *    Copyright (c) 1991-1994, Larry Wall
  *
  *    You may distribute under the terms of either the GNU General Public
  *    License or the Artistic License, as specified in the README file.
@@ -9,11 +9,11 @@
  */
 
 struct mgvtbl {
-    int		(*svt_get)	P((SV *sv, MAGIC* mg));
-    int		(*svt_set)	P((SV *sv, MAGIC* mg));
-    U32		(*svt_len)	P((SV *sv, MAGIC* mg));
-    int		(*svt_clear)	P((SV *sv, MAGIC* mg));
-    int		(*svt_free)	P((SV *sv, MAGIC* mg));
+    int		(*svt_get)	_((SV *sv, MAGIC* mg));
+    int		(*svt_set)	_((SV *sv, MAGIC* mg));
+    U32		(*svt_len)	_((SV *sv, MAGIC* mg));
+    int		(*svt_clear)	_((SV *sv, MAGIC* mg));
+    int		(*svt_free)	_((SV *sv, MAGIC* mg));
 };
 
 struct magic {
@@ -29,5 +29,6 @@ struct magic {
 
 #define MGf_TAINTEDDIR 1
 #define MGf_REFCOUNTED 2
+#define MGf_GSKIP      4
 #define MgTAINTEDDIR(mg) (mg->mg_flags & MGf_TAINTEDDIR)
 #define MgTAINTEDDIR_on(mg) (mg->mg_flags |= MGf_TAINTEDDIR)

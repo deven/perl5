@@ -1,48 +1,17 @@
 /* $RCSfile: util.c,v $$Revision: 4.1 $$Date: 92/08/07 18:29:00 $
  *
- *    Copyright (c) 1991, Larry Wall
+ *    Copyright (c) 1991-1994, Larry Wall
  *
  *    You may distribute under the terms of either the GNU General Public
  *    License or the Artistic License, as specified in the README file.
  *
  * $Log:	util.c,v $
- * Revision 4.1  92/08/07  18:29:00  lwall
- * 
- * Revision 4.0.1.6  92/06/11  21:18:47  lwall
- * patch34: boneheaded typo in my_bcopy()
- * 
- * Revision 4.0.1.5  92/06/08  16:08:37  lwall
- * patch20: removed implicit int declarations on functions
- * patch20: Perl now distinguishes overlapped copies from non-overlapped
- * patch20: fixed confusion between a *var's real name and its effective name
- * patch20: bcopy() and memcpy() now tested for overlap safety
- * patch20: added Atari ST portability
- * 
- * Revision 4.0.1.4  91/11/11  16:48:54  lwall
- * patch19: study was busted by 4.018
- * patch19: added little-endian pack/unpack options
- * 
- * Revision 4.0.1.3  91/11/05  19:18:26  lwall
- * patch11: safe malloc code now integrated into Perl's malloc when possible
- * patch11: strchr("little", "longer string") could visit faraway places
- * patch11: warn '-' x 10000 dumped core
- * patch11: forked exec on non-existent program now issues a warning
- * 
- * Revision 4.0.1.2  91/06/07  12:10:42  lwall
- * patch4: new copyright notice
- * patch4: made some allowances for "semi-standard" C
- * patch4: strchr() could blow up searching for null string
- * patch4: taintchecks could improperly modify parent in vfork()
- * patch4: exec would close files even if you cleared close-on-exec flag
- * 
- * Revision 4.0.1.1  91/04/12  09:19:25  lwall
- * patch1: random cleanup in cpp namespace
- * 
- * Revision 4.0  91/03/20  01:56:39  lwall
- * 4.0 baseline.
- * 
  */
-/*SUPPRESS 112*/
+
+/*
+ * "Very useful, no doubt, that was to Saruman; yet it seems that he was
+ * not content."  --Gandalf
+ */
 
 #include "EXTERN.h"
 #include "perl.h"
@@ -67,6 +36,10 @@
 #endif
 
 #define FLUSH
+
+#ifdef LEAKTEST
+static void xstat _((void));
+#endif
 
 #ifndef safemalloc
 
@@ -208,7 +181,8 @@ safexrealloc(where,size)
 char *where;
 MEM_SIZE size;
 {
-    return saferealloc(where - ALIGN, size + ALIGN) + ALIGN;
+    register char *new = saferealloc(where - ALIGN, size + ALIGN)
+    return new + ALIGN;
 }
 
 void
@@ -247,7 +221,7 @@ cpytill(to,from,fromend,delim,retlen)
 register char *to;
 register char *from;
 register char *fromend;
-register I32 delim;
+register int delim;
 I32 *retlen;
 {
     char *origto = to;
@@ -314,7 +288,7 @@ char *lend;
     register I32 first = *little;
     register char *littleend = lend;
 
-    if (!first && little > littleend)
+    if (!first && little >= littleend)
 	return big;
     if (bigend - big < littleend - little)
 	return Nullch;
@@ -348,7 +322,7 @@ char *lend;
     register I32 first = *little;
     register char *littleend = lend;
 
-    if (!first && little > littleend)
+    if (!first && little >= littleend)
 	return bigend;
     bigbeg = big;
     big = bigend - (littleend - little++);
@@ -406,7 +380,7 @@ I32 iflag;
 	s--,i++;
     }
     sv_upgrade(sv, SVt_PVBM);
-    sv_magic(sv, 0, 'B', 0, 0);			/* deep magic */
+    sv_magic(sv, Nullsv, 'B', Nullch, 0);			/* deep magic */
     SvVALID_on(sv);
 
     s = (unsigned char*)(SvPVX(sv));		/* deeper magic */
@@ -451,10 +425,11 @@ SV *littlestr;
     register unsigned char *oldlittle;
 
     if (SvTYPE(littlestr) != SVt_PVBM || !SvVALID(littlestr)) {
-	if (!SvPOK(littlestr) || !SvPVX(littlestr))
+	STRLEN len;
+	char *l = SvPV(littlestr,len);
+	if (!len)
 	    return (char*)big;
-	return ninstr((char*)big,(char*)bigend,
-		SvPVX(littlestr), SvPVX(littlestr) + SvCUR(littlestr));
+	return ninstr((char*)big,(char*)bigend, l, l + len);
     }
 
     littlelen = SvCUR(littlestr);
@@ -657,8 +632,8 @@ SV *littlestr;
 
 I32
 ibcmp(a,b,len)
-register char *a;
-register char *b;
+register U8 *a;
+register U8 *b;
 register I32 len;
 {
     while (len--) {
@@ -701,7 +676,7 @@ register I32 len;
     return newaddr;
 }
 
-#if !defined(STANDARD_C) && !defined(I_VARARGS)
+#if !defined(I_STDARG) && !defined(I_VARARGS)
 
 /*
  * Fallback on the old hackers way of doing varargs
@@ -789,9 +764,9 @@ long a1, a2, a3, a4;
     (void)fflush(stderr);
 }
 
-#else /* !defined(STANDARD_C) && !defined(I_VARARGS) */
+#else /* !defined(I_STDARG) && !defined(I_VARARGS) */
 
-#ifdef STANDARD_C
+#ifdef I_STDARG
 char *
 mess(char *pat, va_list *args)
 #else
@@ -868,10 +843,9 @@ croak(pat, va_alist)
 #endif
 {
     va_list args;
-    char *tmps;
     char *message;
 
-#ifdef STANDARD_C
+#ifdef I_STDARG
     va_start(args, pat);
 #else
     va_start(args);
@@ -901,7 +875,7 @@ warn(pat,va_alist)
     va_list args;
     char *message;
 
-#ifdef STANDARD_C
+#ifdef I_STDARG
     va_start(args, pat);
 #else
     va_start(args);
@@ -915,8 +889,9 @@ warn(pat,va_alist)
 #endif
     (void)fflush(stderr);
 }
-#endif /* !defined(STANDARD_C) && !defined(I_VARARGS) */
+#endif /* !defined(I_STDARG) && !defined(I_VARARGS) */
 
+#ifndef VMS  /* VMS' my_setenv() is in VMS.c */
 void
 my_setenv(nam,val)
 char *nam, *val;
@@ -975,6 +950,7 @@ char *nam;
     }					/* potential SEGV's */
     return i;
 }
+#endif /* !VMS */
 
 #ifdef EUNICE
 I32
@@ -1227,7 +1203,7 @@ VTOH(vtohs,short)
 VTOH(vtohl,long)
 #endif
 
-#ifndef DOSISH
+#if  !defined(DOSISH) && !defined(VMS)  /* VMS' my_popen() is in VMS.c */
 FILE *
 my_popen(cmd,mode)
 char	*cmd;
@@ -1279,7 +1255,6 @@ char	*mode;
 		close(fd);
 #endif
 	    do_exec(cmd);	/* may or may not use the shell */
-	    warn("Can't exec \"%s\": %s", cmd, Strerror(errno));
 	    _exit(1);
 	}
 	/*SUPPRESS 560*/
@@ -1359,6 +1334,7 @@ int newfd;
 #endif
 
 #ifndef DOSISH
+#ifndef VMS /* VMS' my_pclose() is in VMS.c */
 I32
 my_pclose(ptr)
 FILE *ptr;
@@ -1369,12 +1345,13 @@ FILE *ptr;
     int (*hstat)(), (*istat)(), (*qstat)();
 #endif
     int status;
-    SV *sv;
+    SV **svp;
     int pid;
 
-    sv = *av_fetch(fdpid,fileno(ptr),TRUE);
-    pid = SvIVX(sv);
-    av_store(fdpid,fileno(ptr),Nullsv);
+    svp = av_fetch(fdpid,fileno(ptr),TRUE);
+    pid = SvIVX(*svp);
+    SvREFCNT_dec(*svp);
+    *svp = &sv_undef;
     fclose(ptr);
 #ifdef UTS
     if(kill(pid, 0) < 0) { return(pid); }   /* HOM 12/23/91 */
@@ -1388,14 +1365,13 @@ FILE *ptr;
     signal(SIGQUIT, qstat);
     return(pid < 0 ? pid : status);
 }
-
+#endif /* !VMS */
 I32
 wait4pid(pid,statusp,flags)
 int pid;
 int *statusp;
 int flags;
 {
-    I32 result;
     SV *sv;
     SV** svp;
     char spid[16];
@@ -1416,7 +1392,7 @@ int flags;
 
 	hv_iterinit(pidstatus);
 	if (entry = hv_iternext(pidstatus)) {
-	    pid = atoi(hv_iterkey(entry,statusp));
+	    pid = atoi(hv_iterkey(entry,(I32*)statusp));
 	    sv = hv_iterval(pidstatus,entry);
 	    *statusp = SvIVX(sv);
 	    sprintf(spid, "%d", pid);
@@ -1424,21 +1400,24 @@ int flags;
 	    return pid;
 	}
     }
-#ifdef HAS_WAIT4
-    return wait4((pid==-1)?0:pid,statusp,flags,Null(struct rusage *));
-#else
 #ifdef HAS_WAITPID
     return waitpid(pid,statusp,flags);
 #else
-    if (flags)
-	croak("Can't do waitpid with flags");
-    else {
-	while ((result = wait(statusp)) != pid && pid > 0 && result >= 0)
-	    pidgone(result,*statusp);
-	if (result < 0)
-	    *statusp = -1;
+#ifdef HAS_WAIT4
+    return wait4((pid==-1)?0:pid,statusp,flags,Null(struct rusage *));
+#else
+    {
+	I32 result;
+	if (flags)
+	    croak("Can't do waitpid with flags");
+	else {
+	    while ((result = wait(statusp)) != pid && pid > 0 && result >= 0)
+		pidgone(result,*statusp);
+	    if (result < 0)
+		*statusp = -1;
+	}
+	return result;
     }
-    return result;
 #endif
 #endif
 }

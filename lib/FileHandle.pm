@@ -1,10 +1,10 @@
 package FileHandle;
 
-BEGIN {
-    require 5.000;
-    require English; import English;
-    require Exporter;
-}
+# Note that some additional FileHandle methods are defined in POSIX.pm.
+
+require 5.000;
+use English;
+use Exporter;
 
 @ISA = (Exporter);
 @EXPORT = qw(

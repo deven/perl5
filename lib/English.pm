@@ -30,6 +30,7 @@ require Exporter;
 	$FORMAT_FORMFEED
 	$CHILD_ERROR
 	$OS_ERROR
+	$ERRNO
 	$EVAL_ERROR
 	$PROCESS_ID
 	$PID
@@ -101,6 +102,7 @@ require Exporter;
 
 	*CHILD_ERROR				= \$?	;
 	*OS_ERROR				= \$!	;
+	    *ERRNO				= \$!	;
 	*EVAL_ERROR				= \$@	;
 
 # Process info.
@@ -131,7 +133,7 @@ require Exporter;
 
 # Deprecated.
 
-	*ARRAY_BASE				= \$[	;
+#	*ARRAY_BASE				= \$[	;
 	*OFMT					= \$#	;
 	*MULTILINE_MATCHING			= \$*	;
 

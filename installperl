@@ -10,8 +10,8 @@ while (@ARGV) {
 
 umask 022;
 
-@scripts = ('cppstdin', 'h2ph', 'c2ph', 'pstruct', 'x2p/s2p', 'x2p/find2perl');
-@manpages = ('perl.man', 'h2ph.man', 'x2p/a2p.man', 'x2p/s2p.man');
+@scripts = ('cppstdin', 'c2ph', 'pstruct', 'x2p/s2p', 'x2p/find2perl');
+@manpages = ('perl.man', 'x2p/a2p.man', 'x2p/s2p.man');
 
 # Read in the config file.
 
@@ -99,11 +99,11 @@ if (-w _ && ($udev != $bdev || $uino != $bino) && !$nonono) {
 
 # Install scripts.
 
-&makedir($installscr);
+&makedir($installscript);
 
 for (@scripts) {
-    &cmd("cp $_ $installscr");
-    s#.*/##; &chmod(0755, "$installscr/$_");
+    &cmd("cp $_ $installscript");
+    s#.*/##; &chmod(0755, "$installscript/$_");
 }
 
 # Install man pages.

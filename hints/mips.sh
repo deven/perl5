@@ -1,7 +1,4 @@
-cmd_cflags='optimize="-g"'
 perl_cflags='optimize="-g"'
-tcmd_cflags='optimize="-g"'
-tperl_cflags='optimize="-g"'
 d_volatile=undef
 d_castneg=undef
 cc=cc

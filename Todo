@@ -1,6 +1,6 @@
-Modules
-	POSIX (in progress)
+Modules needed
 	X/Motif/Tk etc.
+	Curses
 
 Tie Modules
 	VecArray		Implement array using vec()
@@ -9,19 +9,10 @@ Tie Modules
 	ShiftSplice		Defines shift et al in terms of splice method
 
 Bugs
-	Make yyparse recursion longjmp() proof.
 	Make "delete $array{$key} while ($key) = each %array" safe
 	<$handle> doesn't work intuitively if $handle is ARGV
+	debugger X doesn't list arrays of arrays
 	Anything in the Bugs directory
-
-Regexp extensions
-	/m  for multiline
-	/\Afoo/ (beginning of string, or where previous g match left off)
-	/foo\Z/ (end of string only)
-	negative regexp assertions?
-	/<>/x for grouping?
-	/f for fixed variable interpolation?
-	Rewrite regexp parser for better integrated optimization
 
 Would be nice to have
 	Profiler
@@ -29,13 +20,12 @@ Would be nice to have
 	Contiguous bitfields in pack/unpack
 	lexperl
 	Bundled perl preprocessor
-	Make $[ compile-time instead of run-time
 	Use posix calls internally where possible
 	const variables
 	gettimeofday
 	bytecompiler
 	format BOTTOM
-	willcall()
+	$obj->can("method") to probe method inheritance
 	-iprefix.
 	-i rename file only when successfully changed
 	All ARGV input should act like <>
@@ -44,30 +34,31 @@ Would be nice to have
 	report HANDLE [formats].
 	tie(FILEHANDLE, ...)
 	__DATA__
+	support in perlmain to rerun debugger
 
-Possible averments
+Possible pragmas
 	debugger
-	optimize
+	optimize (use less memory, CPU)
 
 Optimizations
-	Optimize switch statements
-	Optimize foreach on array
-	Optimize foreach (1..1000000)
+	switch structures
+	foreach(@array)
+	foreach (1..1000000)
+	foreach(reverse...)
 	Set KEEP on constant split
 	Cache eval tree (unless lexical outer scope used (mark in &compiling?))
 	rcatmaybe
 	Shrink opcode tables via multiple implementations selected in peep
-	Cache hash value?
+	Cache hash value?  (Not a win, according to Guido)
 	Optimize away @_ where possible
 	sfio?
 	"one pass" global destruction
 	Optimize sort by { $a <=> $b }
-
-Need to think more about
-	ref function in list context
-	Populate %SIG at startup if appropriate
+	Rewrite regexp parser for better integrated optimization
 
 Vague possibilities
+	ref function in list context
+	Populate %SIG at startup if appropriate
 	sub mysplice(@, $, $, ...)
 	data prettyprint function?  (or is it, as I suspect, a lib routine?)
 	Nested destructors
@@ -82,3 +73,4 @@ Vague possibilities
 	structured types
 	paren counting in tokener to queue remote expectations
 	autocroak?
+	Modifiable $1 et al

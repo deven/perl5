@@ -1,0 +1,75 @@
+?RCS: $Id: d_suidsafe.U,v $
+?RCS:
+?RCS: $Log: d_suidsafe.U,v $
+?RCS: Original Author Tye McQueen <tye@metronet.com>
+?RCS:
+?MAKE:d_suidsafe: cat contains ls rm test Myread Setvar
+?MAKE:	-pick add $@ %<
+?S:d_suidsafe:
+?S:	This variable conditionally defines SETUID_SCRIPTS_ARE_SECURE_NOW
+?S:	if setuid scripts are secure.  This test looks in /dev/fd/.
+?S:.
+?C:SETUID_SCRIPTS_ARE_SECURE_NOW:
+?C:	This symbol, if defined, indicates that setuid scripts are secure.
+?C:.
+?H:#$d_suidsafe SETUID_SCRIPTS_ARE_SECURE_NOW	/**/
+?H:.
+?LINT: set d_suidsafe
+: see if setuid scripts are secure
+echo " "
+val="$undef"
+if $test -d /dev/fd; then
+	echo "#!$ls" >reflect
+	chmod +x,u+s reflect
+	./reflect >flect 2>&1
+	if $contains "/dev/fd" flect; then
+    	echo "Congratulations, your kernel has secure SUID scripts!" >&4
+    	val="$define"
+	else
+		$cat <<EOM
+Does your kernel have *secure* SUID scripts?
+If you are not sure, I can check but I'll need a username and password
+different from the one you are using right now.  If you don't have such
+a username or don't want me to test, simply enter 'none'.
+
+EOM
+		rp='Other username to test security of SUID scripts with?'
+		dflt='none'
+		. ./myread
+		case "$ans" in
+		n|none)
+			echo "I'll assume SUID scripts are NOT secure." >&4
+			dflt=n 
+			;;
+		*)	$rm -f reflect flect
+    		echo "#!$ls" >reflect
+    		chmod +x,u+s reflect
+    		echo >flect
+    		chmod a+w flect
+    		echo '"su" will (probably) prompt you for '"$ans's password."
+    		su $ans -c './reflect >flect'
+    		if $contains "/dev/fd" flect; then
+				echo "Okay, it looks like SUID scripts are secure." >&4
+				dflt=y
+    		else
+				echo "I don't think SUID scripts are secure." >&4
+				dflt=n
+    		fi
+			;;
+		esac
+		rp='Does your kernel have *secure* SUID scripts?'
+		. ./myread
+		case "$ans" in
+		[yY]*)	val="$define";;
+		*)	val="$undef";;
+		esac
+	fi
+else
+	echo "I don't think SUID scripts are secure." >&4
+	val="$undef"
+fi
+set d_suidsafe
+eval $setvar
+
+$rm -f reflect flect
+

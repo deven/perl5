@@ -27,28 +27,46 @@ $startsh
 
 : In the following dollars and backticks do not need the extra backslash.
 $spitshell >>writemain <<'!NO!SUBS!'
-: This script takes the plain miniperlmain.c and writes out perlmain.c
-: which includes all the extensions.
-: The command line arguments name extensions to be used.
-:  E.g.:  sh writemain SDBM_File POSIX > perlmain.c
-:
-args="$*"
-if test X"$args" = "X" ; then
-    cat miniperlmain.c
-else
-    sed '/Do not delete this line--writemain depends on it/q' miniperlmain.c
-    cat << 'EOP'
+# This script takes the plain miniperlmain.c and writes out perlmain.c
+# which includes all the extensions.
+# The command line arguments name extensions to be used.
+#  E.g.:  sh writemain SDBM_File POSIX > perlmain.c
+#
 
-#ifdef USE_DYNAMIC_LOADING
-    boot_DynamicLoader();
-#endif
+orig="$*"
+args=''
+: Remove any .a suffixes and any leading path components
+for file in `echo $orig | sed 's/\.a//g'` ; do
+	case "$file" in
+	*/*)
+		file=`expr X$file : 'X.*/\(.*\)'`
+		;;
+	esac
+	args="$args $file"
+done
 
-EOP
-    for ext in $args; do
-	echo "    newXSUB(\"${ext}::bootstrap\", 0, boot_${ext}, file);"
+
+sed '/Do not delete this line--writemain depends on it/q' miniperlmain.c
+if test X"$args" != "X" ; then
+    echo "    char *file = __FILE__;"
+    for ext in $args ; do
+        echo "extern void	boot_${ext} _((CV* cv));"
     done
-    echo '}'
+
+    for ext in $args ; do
+	if test "$ext" = "DynaLoader"; then
+	    : Must NOT install 'DynaLoader::boot_DynaLoader' as 'bootstrap'!
+	    : boot_DynaLoader is called directly in DynaLoader.pm
+	    echo "    newXS(\"${ext}::boot_${ext}\", boot_${ext}, file);"
+	else
+	    echo "    newXS(\"${ext}::bootstrap\", boot_${ext}, file);"
+	fi
+    done
 fi
+
+cat << 'EOP'
+}
+EOP
 
 !NO!SUBS!
 chmod 755 writemain

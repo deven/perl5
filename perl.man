@@ -2,44 +2,6 @@
 ''' $RCSfile: perl.man,v $$Revision: 4.1 $$Date: 92/08/07 18:25:59 $
 ''' 
 ''' $Log:	perl.man,v $
-''' Revision 4.1  92/08/07  18:25:59  lwall
-''' 
-''' Revision 4.0.1.6  92/06/08  15:07:29  lwall
-''' patch20: documented that numbers may contain underline
-''' patch20: clarified that DATA may only be read from main script
-''' patch20: relaxed requirement for semicolon at the end of a block
-''' patch20: added ... as variant on ..
-''' patch20: documented need for 1; at the end of a required file
-''' patch20: extended bracket-style quotes to two-arg operators: s()() and tr()()
-''' patch20: paragraph mode now skips extra newlines automatically
-''' patch20: documented PERLLIB and PERLDB
-''' patch20: documented limit on size of regexp
-''' 
-''' Revision 4.0.1.5  91/11/11  16:42:00  lwall
-''' patch19: added little-endian pack/unpack options
-''' 
-''' Revision 4.0.1.4  91/11/05  18:11:05  lwall
-''' patch11: added sort {} LIST
-''' patch11: added eval {}
-''' patch11: documented meaning of scalar(%foo)
-''' patch11: sprintf() now supports any length of s field
-''' 
-''' Revision 4.0.1.3  91/06/10  01:26:02  lwall
-''' patch10: documented some newer features in addenda
-''' 
-''' Revision 4.0.1.2  91/06/07  11:41:23  lwall
-''' patch4: added global modifier for pattern matches
-''' patch4: default top-of-form format is now FILEHANDLE_TOP
-''' patch4: added $^P variable to control calling of perldb routines
-''' patch4: added $^F variable to specify maximum system fd, default 2
-''' patch4: changed old $^P to $^X
-''' 
-''' Revision 4.0.1.1  91/04/11  17:50:44  lwall
-''' patch1: fixed some typos
-''' 
-''' Revision 4.0  91/03/20  01:38:08  lwall
-''' 4.0 baseline.
-''' 
 ''' 
 .de Sh
 .br
@@ -226,13 +188,36 @@ runs the script under the perl debugger.
 See the section on Debugging.
 .TP 5
 .BI \-D number
+.TP 5
+.BI \-D list
 sets debugging flags.
 To watch how it executes your script, use
 .BR \-D14 .
 (This only works if debugging is compiled into your
 .IR perl .)
 Another nice value is \-D1024, which lists your compiled syntax tree.
-And \-D512 displays compiled regular expressions.
+And \-D512 displays compiled regular expressions. As an alternative 
+specify a list of letters instead of numbers (e.g. \-D14
+is equivalent to \-Dtls):
+.nf
+
+        1  p  Tokenizing and Parsing
+        2  s  Stack Snapshots
+        4  l  Label Stack Processing
+        8  t  Trace Execution
+       16  o  Operator Node Construction
+       32  c  String/Numeric Conversions
+       64  P  Print Preprocessor Command for -P
+      128  m  Memory Allocation
+      256  f  Format Processing
+      512  r  Regular Expression Parsing
+     1024  x  Syntax Tree Dump
+     2048  u  Tainting Checks
+     4096  L  Memory Leaks (with \-DLEAKTEST)
+     8192  H  Hash Dump--Usurps values()
+    16384  X  Scratchpad Allocation
+    32768  D  Cleaning Up
+.fi
 .TP 5
 .BI \-e " commandline"
 may be used to enter one line of script.
@@ -1553,8 +1538,8 @@ following a minus are interpreted as file tests.
 .Sp
 The \-T and \-B switches work as follows.
 The first block or so of the file is examined for odd characters such as
-strange control codes or metacharacters.
-If too many odd characters (>10%) are found, it's a \-B file, otherwise it's a \-T file.
+strange control codes or characters with the high bit set.
+If too many odd characters (>30%) are found, it's a \-B file, otherwise it's a \-T file.
 Also, any file containing null in the first block is considered a binary file.
 If \-T or \-B is used on a filehandle, the current stdio buffer is examined
 rather than the first block.
@@ -1749,9 +1734,9 @@ NAME should be a packed address of the proper type for the socket.
 See example in section on Interprocess Communication.
 .Ip "binmode(FILEHANDLE)" 8 4
 .Ip "binmode FILEHANDLE" 8 4
-Arranges for the file to be read in \*(L"binary\*(R" mode in operating systems
+Arranges for the file to be read or written in \*(L"binary\*(R" mode in operating systems
 that distinguish between binary and text files.
-Files that are not read in binary mode have CR LF sequences translated
+Files that are not in binary mode have CR LF sequences translated
 to LF on input and LF translated to CR LF on output.
 Binmode has no effect under Unix.
 If FILEHANDLE is an expression, the value is taken as the name of
@@ -1911,14 +1896,14 @@ Useful for checking the password file for lousy passwords.
 Only the guys wearing white hats should do this.
 .Ip "dbmclose(ASSOC_ARRAY)" 8 6
 .Ip "dbmclose ASSOC_ARRAY" 8
-[This function has be superseded by the untie() function.]
+[This function has been superseded by the untie() function.]
 .Sp
 Breaks the binding between a dbm file and an associative array.
 The values remaining in the associative array are meaningless unless
 you happen to want to know what was in the cache for the dbm file.
 This function is only useful if you have ndbm.
 .Ip "dbmopen(ASSOC,DBNAME,MODE)" 8 6
-[This function has be superseded by the tie() function.]
+[This function has been superseded by the tie() function.]
 .Sp
 This binds a dbm or ndbm file to an associative array.
 ASSOC is the name of the associative array.
@@ -4715,14 +4700,14 @@ Examples:
 	}
 
 .fi
-By default, the ^ character is only guaranteed to match at the beginning
+By default, the ^ character is guaranteed to match only at the beginning
 of the string,
 the $ character only at the end (or before the newline at the end)
 and
 .I perl
 does certain optimizations with the assumption that the string contains
 only one line.
-The behavior of ^ and $ on embedded newlines will be inconsistent.
+Embedded newlines will not be matched by ^ or $.
 You may, however, wish to treat a string as a multi-line buffer, such that
 the ^ will match after any newline within the string, and $ will match
 before any newline.
@@ -4731,6 +4716,10 @@ $* to 1.
 Setting it back to 0 makes
 .I perl
 revert to its old behavior.
+You can use \eA and \eZ to match at the beginning and end of the string,
+in case $* is set.
+A \eG will match where the previous pattern left off, if you used a
+g modifier.
 .PP
 To facilitate multi-line substitutions, the . character never matches a newline
 (even when $* is 0).
@@ -4747,6 +4736,8 @@ If the newline is unwanted, try one of
 	s/.*(some_string)(.|\en)*/$1/;
 	chop; s/.*(some_string).*/$1/;
 	/(some_string)/ && ($_ = $1);
+
+Or you can force . to match newline by using the s modifier.
 
 .fi
 Any item of a regular expression may be followed with digits in curly brackets
@@ -4777,6 +4768,9 @@ Simply quote all the non-alphanumeric characters:
 	$pattern =~ s/(\eW)/\e\e$1/g;
 
 .fi
+You can also use the built-in quotemeta() function to do this.
+An even easier way to quote metacharacters right in the match operator
+is to say /$unquoted\eQ$quoted\eE$unquoted/.
 .Sh "Formats"
 Output record formats for use with the
 .I write

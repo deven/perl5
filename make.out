@@ -1,9 +1,578 @@
 make: Warning: Both `makefile' and `Makefile' exists
-test -f miniperl || make miniperl
-./miniperl ext/xsubpp ext/posix/POSIX.xs >tmp
+`sh  cflags deb.o` deb.c
+	  CCCMD =  gcc -c -Wall -DDEBUGGING -g  
+In file included from perl.h:19, from deb.c:17:
+config.h:92: warning: `/*' within comment
+config.h:100: warning: `/*' within comment
+config.h:130: warning: `/*' within comment
+config.h:160: warning: `/*' within comment
+config.h:178: warning: `/*' within comment
+config.h:191: warning: `/*' within comment
+config.h:210: warning: `/*' within comment
+config.h:267: warning: `/*' within comment
+config.h:371: warning: `/*' within comment
+config.h:438: warning: `/*' within comment
+config.h:457: warning: `/*' within comment
+config.h:470: warning: `/*' within comment
+config.h:513: warning: `/*' within comment
+config.h:548: warning: `/*' within comment
+config.h:584: warning: `/*' within comment
+config.h:623: warning: `/*' within comment
+config.h:634: warning: `/*' within comment
+config.h:693: warning: `/*' within comment
+config.h:699: warning: `/*' within comment
+config.h:705: warning: `/*' within comment
+config.h:741: warning: `/*' within comment
+config.h:772: warning: `/*' within comment
+config.h:774: warning: `/*' within comment
+config.h:775: warning: `/*' within comment
+config.h:776: warning: `/*' within comment
+config.h:813: warning: `/*' within comment
+config.h:819: warning: `/*' within comment
+config.h:833: warning: `/*' within comment
+config.h:835: warning: `/*' within comment
+config.h:849: warning: `/*' within comment
+config.h:851: warning: `/*' within comment
+config.h:873: warning: `/*' within comment
+config.h:962: warning: `/*' within comment
+config.h:963: warning: `/*' within comment
+config.h:1004: warning: `/*' within comment
+config.h:1018: warning: `/*' within comment
+config.h:1024: warning: `/*' within comment
+config.h:1048: warning: `/*' within comment
+config.h:1085: warning: `/*' within comment
+config.h:1109: warning: `/*' within comment
+config.h:1164: warning: `/*' within comment
+config.h:1225: warning: `/*' within comment
+config.h:1237: warning: `/*' within comment
+deb.c: In function `deb':
+deb.c:55: warning: implicit declaration of function `fprintf'
+deb.c:65: warning: implicit declaration of function `vfprintf'
+deb.c: In function `debstackptrs':
+deb.c:82: warning: long unsigned int format, pointer arg (arg 3)
+deb.c:82: warning: long unsigned int format, pointer arg (arg 4)
+deb.c:84: warning: long unsigned int format, pointer arg (arg 3)
+deb.c:84: warning: long unsigned int format, pointer arg (arg 4)
+deb.c:84: warning: long int format, pointer arg (arg 5)
+deb.c: In function `debstack':
+deb.c:110: warning: implicit declaration of function `_flsbuf'
+`sh  cflags run.o` run.c
+	  CCCMD =  gcc -c -Wall -DDEBUGGING -g  
+In file included from perl.h:19, from run.c:2:
+config.h:92: warning: `/*' within comment
+config.h:100: warning: `/*' within comment
+config.h:130: warning: `/*' within comment
+config.h:160: warning: `/*' within comment
+config.h:178: warning: `/*' within comment
+config.h:191: warning: `/*' within comment
+config.h:210: warning: `/*' within comment
+config.h:267: warning: `/*' within comment
+config.h:371: warning: `/*' within comment
+config.h:438: warning: `/*' within comment
+config.h:457: warning: `/*' within comment
+config.h:470: warning: `/*' within comment
+config.h:513: warning: `/*' within comment
+config.h:548: warning: `/*' within comment
+config.h:584: warning: `/*' within comment
+config.h:623: warning: `/*' within comment
+config.h:634: warning: `/*' within comment
+config.h:693: warning: `/*' within comment
+config.h:699: warning: `/*' within comment
+config.h:705: warning: `/*' within comment
+config.h:741: warning: `/*' within comment
+config.h:772: warning: `/*' within comment
+config.h:774: warning: `/*' within comment
+config.h:775: warning: `/*' within comment
+config.h:776: warning: `/*' within comment
+config.h:813: warning: `/*' within comment
+config.h:819: warning: `/*' within comment
+config.h:833: warning: `/*' within comment
+config.h:835: warning: `/*' within comment
+config.h:849: warning: `/*' within comment
+config.h:851: warning: `/*' within comment
+config.h:873: warning: `/*' within comment
+config.h:962: warning: `/*' within comment
+config.h:963: warning: `/*' within comment
+config.h:1004: warning: `/*' within comment
+config.h:1018: warning: `/*' within comment
+config.h:1024: warning: `/*' within comment
+config.h:1048: warning: `/*' within comment
+config.h:1085: warning: `/*' within comment
+config.h:1109: warning: `/*' within comment
+config.h:1164: warning: `/*' within comment
+config.h:1225: warning: `/*' within comment
+config.h:1237: warning: `/*' within comment
+run.c: In function `run':
+run.c:37: warning: implicit declaration of function `fprintf'
+run.c:42: warning: suggest parentheses around assignment used as truth value
+gcc   -o miniperl miniperlmain.o perl.o av.o scope.o op.o doop.o doio.o dump.o hv.o malloc.o mg.o perly.o pp.o regcomp.o regexec.o gv.o sv.o taint.o toke.o util.o deb.o run.o -lnsl -ldbm -ldl -lm -lc -lposix
+sh writemain  > tmp
+sh mv-if-diff tmp perlmain.c
+File perlmain.c not changed.
+`sh  cflags perlmain.o` perlmain.c
+	  CCCMD =  gcc -c -Wall -DDEBUGGING -g  
+In file included from perl.h:19, from perlmain.c:6:
+config.h:92: warning: `/*' within comment
+config.h:100: warning: `/*' within comment
+config.h:130: warning: `/*' within comment
+config.h:160: warning: `/*' within comment
+config.h:178: warning: `/*' within comment
+config.h:191: warning: `/*' within comment
+config.h:210: warning: `/*' within comment
+config.h:267: warning: `/*' within comment
+config.h:371: warning: `/*' within comment
+config.h:438: warning: `/*' within comment
+config.h:457: warning: `/*' within comment
+config.h:470: warning: `/*' within comment
+config.h:513: warning: `/*' within comment
+config.h:548: warning: `/*' within comment
+config.h:584: warning: `/*' within comment
+config.h:623: warning: `/*' within comment
+config.h:634: warning: `/*' within comment
+config.h:693: warning: `/*' within comment
+config.h:699: warning: `/*' within comment
+config.h:705: warning: `/*' within comment
+config.h:741: warning: `/*' within comment
+config.h:772: warning: `/*' within comment
+config.h:774: warning: `/*' within comment
+config.h:775: warning: `/*' within comment
+config.h:776: warning: `/*' within comment
+config.h:813: warning: `/*' within comment
+config.h:819: warning: `/*' within comment
+config.h:833: warning: `/*' within comment
+config.h:835: warning: `/*' within comment
+config.h:849: warning: `/*' within comment
+config.h:851: warning: `/*' within comment
+config.h:873: warning: `/*' within comment
+config.h:962: warning: `/*' within comment
+config.h:963: warning: `/*' within comment
+config.h:1004: warning: `/*' within comment
+config.h:1018: warning: `/*' within comment
+config.h:1024: warning: `/*' within comment
+config.h:1048: warning: `/*' within comment
+config.h:1085: warning: `/*' within comment
+config.h:1109: warning: `/*' within comment
+config.h:1164: warning: `/*' within comment
+config.h:1225: warning: `/*' within comment
+config.h:1237: warning: `/*' within comment
+perlmain.c: In function `perl_init_ext':
+perlmain.c:42: warning: implicit declaration of function `boot_DynamicLoader'
+`sh  cflags dl_sunos.o` dl_sunos.c
+	  CCCMD =  gcc -c -Wall -DDEBUGGING -g  
+In file included from perl.h:19, from dl_sunos.c:2:
+config.h:92: warning: `/*' within comment
+config.h:100: warning: `/*' within comment
+config.h:130: warning: `/*' within comment
+config.h:160: warning: `/*' within comment
+config.h:178: warning: `/*' within comment
+config.h:191: warning: `/*' within comment
+config.h:210: warning: `/*' within comment
+config.h:267: warning: `/*' within comment
+config.h:371: warning: `/*' within comment
+config.h:438: warning: `/*' within comment
+config.h:457: warning: `/*' within comment
+config.h:470: warning: `/*' within comment
+config.h:513: warning: `/*' within comment
+config.h:548: warning: `/*' within comment
+config.h:584: warning: `/*' within comment
+config.h:623: warning: `/*' within comment
+config.h:634: warning: `/*' within comment
+config.h:693: warning: `/*' within comment
+config.h:699: warning: `/*' within comment
+config.h:705: warning: `/*' within comment
+config.h:741: warning: `/*' within comment
+config.h:772: warning: `/*' within comment
+config.h:774: warning: `/*' within comment
+config.h:775: warning: `/*' within comment
+config.h:776: warning: `/*' within comment
+config.h:813: warning: `/*' within comment
+config.h:819: warning: `/*' within comment
+config.h:833: warning: `/*' within comment
+config.h:835: warning: `/*' within comment
+config.h:849: warning: `/*' within comment
+config.h:851: warning: `/*' within comment
+config.h:873: warning: `/*' within comment
+config.h:962: warning: `/*' within comment
+config.h:963: warning: `/*' within comment
+config.h:1004: warning: `/*' within comment
+config.h:1018: warning: `/*' within comment
+config.h:1024: warning: `/*' within comment
+config.h:1048: warning: `/*' within comment
+config.h:1085: warning: `/*' within comment
+config.h:1109: warning: `/*' within comment
+config.h:1164: warning: `/*' within comment
+config.h:1225: warning: `/*' within comment
+config.h:1237: warning: `/*' within comment
+dl_sunos.c: In function `XS_DynamicLoader_bootstrap':
+dl_sunos.c:28: warning: suggest parentheses around assignment used as truth value
+dl_sunos.c: In function `boot_DynamicLoader':
+dl_sunos.c:54: warning: control reaches end of non-void function
+gcc    -o perl perlmain.o perl.o av.o scope.o op.o doop.o doio.o dump.o hv.o malloc.o mg.o perly.o pp.o regcomp.o regexec.o gv.o sv.o taint.o toke.o util.o deb.o run.o dl_sunos.o  -lnsl -ldbm -ldl -lm -lc -lposix
+./miniperl configpm
+	Making NDBM_File
+/tmp_mnt/net/vaccine/export/src/local/lwall/perl5/miniperl ../../ext/xsubpp NDBM_File.xs >tmp
+mv tmp NDBM_File.c
+`sh  ../../cflags NDBM_File.o`  -I../.. NDBM_File.c
+	  CCCMD =  gcc -c -Wall -DDEBUGGING -g  
+In file included from ../../perl.h:19, from NDBM_File.c:2:
+../../config.h:92: warning: `/*' within comment
+../../config.h:100: warning: `/*' within comment
+../../config.h:130: warning: `/*' within comment
+../../config.h:160: warning: `/*' within comment
+../../config.h:178: warning: `/*' within comment
+../../config.h:191: warning: `/*' within comment
+../../config.h:210: warning: `/*' within comment
+../../config.h:267: warning: `/*' within comment
+../../config.h:371: warning: `/*' within comment
+../../config.h:438: warning: `/*' within comment
+../../config.h:457: warning: `/*' within comment
+../../config.h:470: warning: `/*' within comment
+../../config.h:513: warning: `/*' within comment
+../../config.h:548: warning: `/*' within comment
+../../config.h:584: warning: `/*' within comment
+../../config.h:623: warning: `/*' within comment
+../../config.h:634: warning: `/*' within comment
+../../config.h:693: warning: `/*' within comment
+../../config.h:699: warning: `/*' within comment
+../../config.h:705: warning: `/*' within comment
+../../config.h:741: warning: `/*' within comment
+../../config.h:772: warning: `/*' within comment
+../../config.h:774: warning: `/*' within comment
+../../config.h:775: warning: `/*' within comment
+../../config.h:776: warning: `/*' within comment
+../../config.h:813: warning: `/*' within comment
+../../config.h:819: warning: `/*' within comment
+../../config.h:833: warning: `/*' within comment
+../../config.h:835: warning: `/*' within comment
+../../config.h:849: warning: `/*' within comment
+../../config.h:851: warning: `/*' within comment
+../../config.h:873: warning: `/*' within comment
+../../config.h:962: warning: `/*' within comment
+../../config.h:963: warning: `/*' within comment
+../../config.h:1004: warning: `/*' within comment
+../../config.h:1018: warning: `/*' within comment
+../../config.h:1024: warning: `/*' within comment
+../../config.h:1048: warning: `/*' within comment
+../../config.h:1085: warning: `/*' within comment
+../../config.h:1109: warning: `/*' within comment
+../../config.h:1164: warning: `/*' within comment
+../../config.h:1225: warning: `/*' within comment
+../../config.h:1237: warning: `/*' within comment
+NDBM_File.c: In function `XS_NDBM_File_dbm_new':
+NDBM_File.c:21: warning: unused variable `dbtype'
+NDBM_File.c: In function `boot_NDBM_File':
+NDBM_File.c:256: warning: unused variable `items'
+test -d ../../lib/auto || mkdir ../../lib/auto
+test -d ../../lib/auto/NDBM_File || mkdir ../../lib/auto/NDBM_File
+ld  -o ../../lib/auto/NDBM_File/NDBM_File.so NDBM_File.o 
+	Making ODBM_File
+/tmp_mnt/net/vaccine/export/src/local/lwall/perl5/miniperl ../../ext/xsubpp ODBM_File.xs >tmp
+mv tmp ODBM_File.c
+`sh  ../../cflags ODBM_File.o`  -I../.. ODBM_File.c
+	  CCCMD =  gcc -c -Wall -DDEBUGGING -g  
+In file included from ../../perl.h:19, from ODBM_File.c:2:
+../../config.h:92: warning: `/*' within comment
+../../config.h:100: warning: `/*' within comment
+../../config.h:130: warning: `/*' within comment
+../../config.h:160: warning: `/*' within comment
+../../config.h:178: warning: `/*' within comment
+../../config.h:191: warning: `/*' within comment
+../../config.h:210: warning: `/*' within comment
+../../config.h:267: warning: `/*' within comment
+../../config.h:371: warning: `/*' within comment
+../../config.h:438: warning: `/*' within comment
+../../config.h:457: warning: `/*' within comment
+../../config.h:470: warning: `/*' within comment
+../../config.h:513: warning: `/*' within comment
+../../config.h:548: warning: `/*' within comment
+../../config.h:584: warning: `/*' within comment
+../../config.h:623: warning: `/*' within comment
+../../config.h:634: warning: `/*' within comment
+../../config.h:693: warning: `/*' within comment
+../../config.h:699: warning: `/*' within comment
+../../config.h:705: warning: `/*' within comment
+../../config.h:741: warning: `/*' within comment
+../../config.h:772: warning: `/*' within comment
+../../config.h:774: warning: `/*' within comment
+../../config.h:775: warning: `/*' within comment
+../../config.h:776: warning: `/*' within comment
+../../config.h:813: warning: `/*' within comment
+../../config.h:819: warning: `/*' within comment
+../../config.h:833: warning: `/*' within comment
+../../config.h:835: warning: `/*' within comment
+../../config.h:849: warning: `/*' within comment
+../../config.h:851: warning: `/*' within comment
+../../config.h:873: warning: `/*' within comment
+../../config.h:962: warning: `/*' within comment
+../../config.h:963: warning: `/*' within comment
+../../config.h:1004: warning: `/*' within comment
+../../config.h:1018: warning: `/*' within comment
+../../config.h:1024: warning: `/*' within comment
+../../config.h:1048: warning: `/*' within comment
+../../config.h:1085: warning: `/*' within comment
+../../config.h:1109: warning: `/*' within comment
+../../config.h:1164: warning: `/*' within comment
+../../config.h:1225: warning: `/*' within comment
+../../config.h:1237: warning: `/*' within comment
+ODBM_File.c: In function `XS_ODBM_File_odbm_new':
+ODBM_File.c:45: warning: implicit declaration of function `close'
+ODBM_File.c:54: warning: implicit declaration of function `dbminit'
+ODBM_File.c:33: warning: unused variable `dbtype'
+ODBM_File.c: In function `XS_ODBM_File_DESTROY':
+ODBM_File.c:79: warning: implicit declaration of function `dbmclose'
+ODBM_File.c: In function `XS_ODBM_File_odbm_STORE':
+ODBM_File.c:146: warning: implicit declaration of function `store'
+ODBM_File.c: In function `XS_ODBM_File_odbm_DELETE':
+ODBM_File.c:175: warning: implicit declaration of function `delete'
+ODBM_File.c: In function `boot_ODBM_File':
+ODBM_File.c:238: warning: unused variable `items'
+test -d ../../lib/auto || mkdir ../../lib/auto
+test -d ../../lib/auto/ODBM_File || mkdir ../../lib/auto/ODBM_File
+ld  -o ../../lib/auto/ODBM_File/ODBM_File.so ODBM_File.o -ldbm
+	Making POSIX
+/tmp_mnt/net/vaccine/export/src/local/lwall/perl5/miniperl ../../ext/xsubpp POSIX.xs >tmp
 mv tmp POSIX.c
-`sh  cflags POSIX.o`  POSIX.c
-	  CCCMD =  cc -c -DDEBUGGING -g  
-test -d lib/auto/POSIX || mkdir lib/auto/POSIX
-ld  -o lib/auto/POSIX/POSIX.so POSIX.o -lm
-cc    -o perl perlmain.o perl.o av.o scope.o op.o doop.o doio.o dump.o hv.o malloc.o mg.o perly.o pp.o regcomp.o regexec.o gv.o sv.o taint.o toke.o util.o deb.o run.o dl_sunos.o  -ldbm -ldl -lm -lposix
+`sh  ../../cflags POSIX.o`  -I../.. POSIX.c
+	  CCCMD =  gcc -c -Wall -DDEBUGGING -g  
+In file included from ../../perl.h:19, from POSIX.c:2:
+../../config.h:92: warning: `/*' within comment
+../../config.h:100: warning: `/*' within comment
+../../config.h:130: warning: `/*' within comment
+../../config.h:160: warning: `/*' within comment
+../../config.h:178: warning: `/*' within comment
+../../config.h:191: warning: `/*' within comment
+../../config.h:210: warning: `/*' within comment
+../../config.h:267: warning: `/*' within comment
+../../config.h:371: warning: `/*' within comment
+../../config.h:438: warning: `/*' within comment
+../../config.h:457: warning: `/*' within comment
+../../config.h:470: warning: `/*' within comment
+../../config.h:513: warning: `/*' within comment
+../../config.h:548: warning: `/*' within comment
+../../config.h:584: warning: `/*' within comment
+../../config.h:623: warning: `/*' within comment
+../../config.h:634: warning: `/*' within comment
+../../config.h:693: warning: `/*' within comment
+../../config.h:699: warning: `/*' within comment
+../../config.h:705: warning: `/*' within comment
+../../config.h:741: warning: `/*' within comment
+../../config.h:772: warning: `/*' within comment
+../../config.h:774: warning: `/*' within comment
+../../config.h:775: warning: `/*' within comment
+../../config.h:776: warning: `/*' within comment
+../../config.h:813: warning: `/*' within comment
+../../config.h:819: warning: `/*' within comment
+../../config.h:833: warning: `/*' within comment
+../../config.h:835: warning: `/*' within comment
+../../config.h:849: warning: `/*' within comment
+../../config.h:851: warning: `/*' within comment
+../../config.h:873: warning: `/*' within comment
+../../config.h:962: warning: `/*' within comment
+../../config.h:963: warning: `/*' within comment
+../../config.h:1004: warning: `/*' within comment
+../../config.h:1018: warning: `/*' within comment
+../../config.h:1024: warning: `/*' within comment
+../../config.h:1048: warning: `/*' within comment
+../../config.h:1085: warning: `/*' within comment
+../../config.h:1109: warning: `/*' within comment
+../../config.h:1164: warning: `/*' within comment
+../../config.h:1225: warning: `/*' within comment
+../../config.h:1237: warning: `/*' within comment
+In file included from POSIX.c:29:
+/usr/local/lib/gcc-lib/sparc-sun-sunos4.1/2.4.0/include/termios.h:109: warning: `NL0' redefined
+/usr/include/sys/ioctl.h:30: warning: this is the location of the previous definition
+/usr/local/lib/gcc-lib/sparc-sun-sunos4.1/2.4.0/include/termios.h:110: warning: `NL1' redefined
+/usr/include/sys/ioctl.h:31: warning: this is the location of the previous definition
+/usr/local/lib/gcc-lib/sparc-sun-sunos4.1/2.4.0/include/termios.h:112: warning: `CR0' redefined
+/usr/include/sys/ioctl.h:40: warning: this is the location of the previous definition
+/usr/local/lib/gcc-lib/sparc-sun-sunos4.1/2.4.0/include/termios.h:113: warning: `CR1' redefined
+/usr/include/sys/ioctl.h:41: warning: this is the location of the previous definition
+/usr/local/lib/gcc-lib/sparc-sun-sunos4.1/2.4.0/include/termios.h:114: warning: `CR2' redefined
+/usr/include/sys/ioctl.h:42: warning: this is the location of the previous definition
+/usr/local/lib/gcc-lib/sparc-sun-sunos4.1/2.4.0/include/termios.h:115: warning: `CR3' redefined
+/usr/include/sys/ioctl.h:43: warning: this is the location of the previous definition
+/usr/local/lib/gcc-lib/sparc-sun-sunos4.1/2.4.0/include/termios.h:117: warning: `TAB0' redefined
+/usr/include/sys/ioctl.h:35: warning: this is the location of the previous definition
+/usr/local/lib/gcc-lib/sparc-sun-sunos4.1/2.4.0/include/termios.h:118: warning: `TAB1' redefined
+/usr/include/sys/ioctl.h:36: warning: this is the location of the previous definition
+/usr/local/lib/gcc-lib/sparc-sun-sunos4.1/2.4.0/include/termios.h:119: warning: `TAB2' redefined
+/usr/include/sys/ioctl.h:37: warning: this is the location of the previous definition
+/usr/local/lib/gcc-lib/sparc-sun-sunos4.1/2.4.0/include/termios.h:120: warning: `XTABS' redefined
+/usr/include/sys/ioctl.h:38: warning: this is the location of the previous definition
+/usr/local/lib/gcc-lib/sparc-sun-sunos4.1/2.4.0/include/termios.h:123: warning: `BS0' redefined
+/usr/include/sys/ioctl.h:48: warning: this is the location of the previous definition
+/usr/local/lib/gcc-lib/sparc-sun-sunos4.1/2.4.0/include/termios.h:124: warning: `BS1' redefined
+/usr/include/sys/ioctl.h:49: warning: this is the location of the previous definition
+/usr/local/lib/gcc-lib/sparc-sun-sunos4.1/2.4.0/include/termios.h:129: warning: `FF0' redefined
+/usr/include/sys/ioctl.h:45: warning: this is the location of the previous definition
+/usr/local/lib/gcc-lib/sparc-sun-sunos4.1/2.4.0/include/termios.h:130: warning: `FF1' redefined
+/usr/include/sys/ioctl.h:46: warning: this is the location of the previous definition
+/usr/local/lib/gcc-lib/sparc-sun-sunos4.1/2.4.0/include/termios.h:162: warning: `ECHO' redefined
+/usr/include/sys/ioctl.h:23: warning: this is the location of the previous definition
+/usr/local/lib/gcc-lib/sparc-sun-sunos4.1/2.4.0/include/termios.h:166: warning: `NOFLSH' redefined
+/usr/include/sys/ioctl.h:66: warning: this is the location of the previous definition
+/usr/local/lib/gcc-lib/sparc-sun-sunos4.1/2.4.0/include/termios.h:167: warning: `TOSTOP' redefined
+/usr/include/sys/ioctl.h:57: warning: this is the location of the previous definition
+/usr/local/lib/gcc-lib/sparc-sun-sunos4.1/2.4.0/include/termios.h:182: warning: `FLUSHO' redefined
+/usr/include/sys/ioctl.h:58: warning: this is the location of the previous definition
+/usr/local/lib/gcc-lib/sparc-sun-sunos4.1/2.4.0/include/termios.h:183: warning: `PENDIN' redefined
+/usr/include/sys/ioctl.h:64: warning: this is the location of the previous definition
+POSIX.c: In function `XS_FileHandle_fgetpos':
+POSIX.c:2759: warning: unused variable `RETVAL'
+POSIX.c:2758: warning: unused variable `handle'
+POSIX.c: In function `XS_FileHandle_fsetpos':
+POSIX.c:2777: warning: unused variable `pos'
+POSIX.c:2776: warning: unused variable `handle'
+POSIX.c: In function `XS_FileHandle_ungetc':
+POSIX.c:2801: warning: implicit declaration of function `ungetc'
+POSIX.c: In function `XS_FileHandle_fflush':
+POSIX.c:2856: warning: implicit declaration of function `fflush'
+POSIX.c: In function `XS_FileHandle_setbuf':
+POSIX.c:2878: warning: implicit declaration of function `setbuf'
+POSIX.c: In function `XS_FileHandle_setvbuf':
+POSIX.c:2896: warning: implicit declaration of function `setvbuf'
+POSIX.c: In function `XS_POSIX_localeconv':
+POSIX.c:3192: warning: suggest parentheses around assignment used as truth value
+POSIX.c: In function `XS_POSIX_nice':
+POSIX.c:3829: warning: implicit declaration of function `nice'
+POSIX.c: In function `XS_POSIX_pipe':
+POSIX.c:3849: warning: unused variable `RETVAL'
+POSIX.c:3843: warning: unused variable `ax'
+POSIX.c: In function `XS_POSIX_read':
+POSIX.c:3883: warning: value computed is not used
+POSIX.c: In function `XS_POSIX_uname':
+POSIX.c:4023: warning: unused variable `RETVAL'
+POSIX.c:4017: warning: unused variable `ax'
+POSIX.c: In function `XS_POSIX_strcoll':
+POSIX.c:4196: warning: implicit declaration of function `strcoll'
+POSIX.c: In function `XS_POSIX_strxfrm':
+POSIX.c:4217: warning: value computed is not used
+POSIX.c:4214: warning: unused variable `p'
+POSIX.c:4211: warning: unused variable `RETVAL'
+POSIX.c: In function `XS_POSIX_clock':
+POSIX.c:4400: warning: implicit declaration of function `clock'
+POSIX.c: In function `XS_POSIX_difftime':
+POSIX.c:4432: warning: unused variable `time2'
+POSIX.c:4431: warning: unused variable `time1'
+POSIX.c: In function `XS_POSIX_mktime':
+POSIX.c:4488: warning: implicit declaration of function `mktime'
+POSIX.c: In function `XS_POSIX_strftime':
+POSIX.c:4550: warning: implicit declaration of function `strftime'
+POSIX.c:4518: warning: unused variable `RETVAL'
+POSIX.c: In function `XS_POSIX_tzname':
+POSIX.c:4572: warning: unused variable `ax'
+POSIX.c: In function `boot_POSIX':
+POSIX.c:4751: warning: unused variable `items'
+test -d ../../lib/auto || mkdir ../../lib/auto
+test -d ../../lib/auto/POSIX || mkdir ../../lib/auto/POSIX
+ld  -o ../../lib/auto/POSIX/POSIX.so POSIX.o -lm -lposix
+	Making SDBM_File
+/tmp_mnt/net/vaccine/export/src/local/lwall/perl5/miniperl ../../ext/xsubpp SDBM_File.xs >tmp
+mv tmp SDBM_File.c
+`sh  ../../cflags SDBM_File.o`  -I../.. SDBM_File.c
+	  CCCMD =  gcc -c -Wall -DDEBUGGING -g  
+In file included from ../../perl.h:19, from SDBM_File.c:2:
+../../config.h:92: warning: `/*' within comment
+../../config.h:100: warning: `/*' within comment
+../../config.h:130: warning: `/*' within comment
+../../config.h:160: warning: `/*' within comment
+../../config.h:178: warning: `/*' within comment
+../../config.h:191: warning: `/*' within comment
+../../config.h:210: warning: `/*' within comment
+../../config.h:267: warning: `/*' within comment
+../../config.h:371: warning: `/*' within comment
+../../config.h:438: warning: `/*' within comment
+../../config.h:457: warning: `/*' within comment
+../../config.h:470: warning: `/*' within comment
+../../config.h:513: warning: `/*' within comment
+../../config.h:548: warning: `/*' within comment
+../../config.h:584: warning: `/*' within comment
+../../config.h:623: warning: `/*' within comment
+../../config.h:634: warning: `/*' within comment
+../../config.h:693: warning: `/*' within comment
+../../config.h:699: warning: `/*' within comment
+../../config.h:705: warning: `/*' within comment
+../../config.h:741: warning: `/*' within comment
+../../config.h:772: warning: `/*' within comment
+../../config.h:774: warning: `/*' within comment
+../../config.h:775: warning: `/*' within comment
+../../config.h:776: warning: `/*' within comment
+../../config.h:813: warning: `/*' within comment
+../../config.h:819: warning: `/*' within comment
+../../config.h:833: warning: `/*' within comment
+../../config.h:835: warning: `/*' within comment
+../../config.h:849: warning: `/*' within comment
+../../config.h:851: warning: `/*' within comment
+../../config.h:873: warning: `/*' within comment
+../../config.h:962: warning: `/*' within comment
+../../config.h:963: warning: `/*' within comment
+../../config.h:1004: warning: `/*' within comment
+../../config.h:1018: warning: `/*' within comment
+../../config.h:1024: warning: `/*' within comment
+../../config.h:1048: warning: `/*' within comment
+../../config.h:1085: warning: `/*' within comment
+../../config.h:1109: warning: `/*' within comment
+../../config.h:1164: warning: `/*' within comment
+../../config.h:1225: warning: `/*' within comment
+../../config.h:1237: warning: `/*' within comment
+SDBM_File.c: In function `XS_SDBM_File_sdbm_new':
+SDBM_File.c:22: warning: unused variable `dbtype'
+SDBM_File.c: In function `boot_SDBM_File':
+SDBM_File.c:260: warning: unused variable `items'
+`sh  ../../../cflags sdbm.o`  -I../../.. -DSDBM -DDUFF sdbm.c
+	  CCCMD =  gcc -c -Wall -DDEBUGGING -g  
+In file included from sdbm.c:14:
+../../../config.h:92: warning: `/*' within comment
+../../../config.h:100: warning: `/*' within comment
+../../../config.h:130: warning: `/*' within comment
+../../../config.h:160: warning: `/*' within comment
+../../../config.h:178: warning: `/*' within comment
+../../../config.h:191: warning: `/*' within comment
+../../../config.h:210: warning: `/*' within comment
+../../../config.h:267: warning: `/*' within comment
+../../../config.h:371: warning: `/*' within comment
+../../../config.h:438: warning: `/*' within comment
+../../../config.h:457: warning: `/*' within comment
+../../../config.h:470: warning: `/*' within comment
+../../../config.h:513: warning: `/*' within comment
+../../../config.h:548: warning: `/*' within comment
+../../../config.h:584: warning: `/*' within comment
+../../../config.h:623: warning: `/*' within comment
+../../../config.h:634: warning: `/*' within comment
+../../../config.h:693: warning: `/*' within comment
+../../../config.h:699: warning: `/*' within comment
+../../../config.h:705: warning: `/*' within comment
+../../../config.h:741: warning: `/*' within comment
+../../../config.h:772: warning: `/*' within comment
+../../../config.h:774: warning: `/*' within comment
+../../../config.h:775: warning: `/*' within comment
+../../../config.h:776: warning: `/*' within comment
+../../../config.h:813: warning: `/*' within comment
+../../../config.h:819: warning: `/*' within comment
+../../../config.h:833: warning: `/*' within comment
+../../../config.h:835: warning: `/*' within comment
+../../../config.h:849: warning: `/*' within comment
+../../../config.h:851: warning: `/*' within comment
+../../../config.h:873: warning: `/*' within comment
+../../../config.h:962: warning: `/*' within comment
+../../../config.h:963: warning: `/*' within comment
+../../../config.h:1004: warning: `/*' within comment
+../../../config.h:1018: warning: `/*' within comment
+../../../config.h:1024: warning: `/*' within comment
+../../../config.h:1048: warning: `/*' within comment
+../../../config.h:1085: warning: `/*' within comment
+../../../config.h:1109: warning: `/*' within comment
+../../../config.h:1164: warning: `/*' within comment
+../../../config.h:1225: warning: `/*' within comment
+../../../config.h:1237: warning: `/*' within comment
+sdbm.c:39: conflicting types for `malloc'
+/usr/local/lib/gcc-lib/sparc-sun-sunos4.1/2.4.0/include/stdlib.h:29: previous declaration of `malloc'
+sdbm.c:11: warning: `rcsid' defined but not used
+*** Error code 1
+make: Fatal error: Command failed for target `sdbm.o'
+Current working directory /tmp_mnt/net/vaccine/export/src/local/lwall/perl5/ext/SDBM_File/sdbm
+*** Error code 1
+make: Fatal error: Command failed for target `sdbm/libsdbm.a'
+Current working directory /tmp_mnt/net/vaccine/export/src/local/lwall/perl5/ext/SDBM_File
+*** Error code 1
+make: Fatal error: Command failed for target `SDBM_File.so'

@@ -3,21 +3,18 @@
 # $RCSfile: dbm.t,v $$Revision: 4.1 $$Date: 92/08/07 18:27:43 $
 
 {
-    package Any_DBM_File;
-    @ISA = (NDBM_File, ODBM_File, GDBM_File, SDBM_File, DB_File, DBZ_File);
-}
-{
     package XDBM_File;
     sub new { print "new @_\n"; bless {FOO => 'foo'} }
-    sub fetch { print "fetch @_\n"; $_[0]->{$_[1]} }
-    sub store { print "store @_\n"; $_[0]->{$_[1]} = $_[2] }
-    sub delete { print "delete @_\n"; delete ${$_[0]}{$_[1]} }
+    sub FETCH { print "FETCH @_\n"; $_[0]->{$_[1]} }
+    sub STORE { print "STORE @_\n"; $_[0]->{$_[1]} = $_[2] }
+    sub DELETE { print "DELETE @_\n"; delete ${$_[0]}{$_[1]} }
     sub DESTROY { print "DESTROY @_\n"; undef %{$_[0]}; }
 }
 
-init SDBM_File;
+require AnyDBM_File;
+use POSIX 'fcntl_h';
 
-tie %h, SDBM_File, 'Op.sdbm', 0x202, 0640;
+tie %h, AnyDBM_File, 'Op.dbm', O_RDWR|O_CREAT, 0640;
 
 $h{BAR} = 'bar';
 $h{FOO} = 'foo';

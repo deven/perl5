@@ -1,7 +1,6 @@
-cppstdin='/lib/cpp'
 gidtype='gid_t'
 groupstype='gid_t'
-libs='-ldgc'
+libswanted="dgc $libswanted"
 uidtype='uid_t'
 d_index='define'
 cc='gcc'

@@ -1,6 +1,12 @@
 cc='/bin/cc'
 test -f $cc || cc='/usr/ccs/bin/cc'
-ldflags='-L/usr/ucblib'
-mansrc='/usr/share/man/man1'
+ldflags='-L/usr/ccs/lib -L/usr/ucblib'
+test -d /usr/local/man || mansrc='none'
+test -d /usr/local/bin && test -d /usr/local/lib && prefix=/usr/local
 ccflags='-I/usr/include -I/usr/ucbinclude'
-libswanted=`echo $libswanted | sed 's/ ucb/ c ucb/'`
+libswanted=`echo $libswanted | sed -e 's/ malloc//' `
+d_index='undef'
+d_suidsafe=define
+cccdlflags='-Kpic'
+lddlflags="-G $ldflags"
+usevfork='false'

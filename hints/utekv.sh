@@ -9,9 +9,6 @@ usemymalloc='y'
 # /usr/include/rpcsvc is for finding dbm.h
 inclwanted="$inclwanted /usr/include/rpcsvc"
 
-# dont use the wrapper, use the real thing.
-cppstdin=/lib/cpp
-
 echo " "
 echo "NOTE: You may have to take out makefile dependencies on the files in"
 echo "/usr/include (i.e. /usr/include/ctype.h) or the make will fail.  A"

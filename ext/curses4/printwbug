@@ -1,0 +1,43 @@
+Article 23426 of comp.lang.perl:
+Path: netlabs!news.cerf.net!mvb.saic.com!MathWorks.Com!solaris.cc.vt.edu!news.duke.edu!news-feed-1.peachnet.edu!ukma!acs.eku.edu!levan
+Newsgroups: comp.lang.perl
+Subject: printw in curseperl fix!
+Message-ID: <1994Jun17.181516.2709@acs.eku.edu>
+From: levan@falcon.eku.edu (Jerry LeVan)
+Date: 17 Jun 94 18:15:15 -0500
+Organization: Eastern Kentucky University, Richmond KY.
+Nntp-Posting-Host: falcon.eku.edu
+Lines: 30
+
+Hello
+ I earlier reported a problem with the printw routine in
+curseperl.
+
+It turns out that not all items were being printed the
+hack below seems to have fixed the problem.
+
+Note in the call to do_sprint "items" was "items -1" in the
+distributed version of curses.mus.
+
+
+--Jerry LeVan
+  levan@eagle.eku.edu
+
+#ifdef  CURSEFMT
+    case US_printw:
+        if (items < 1)
+            fatal("Usage: &printw($fmt, $arg1, $arg2, ... )");
+        else {
+            int retval;
+            STR*        str =           str_new(0);
+
+            do_sprintf(str, items , st + 1); /* was items -1 */
+            retval = addstr(str->str_ptr);
+            str_numset(st[0], (double) retval);
+            str_free(str);
+        }
+        return sp;
+
+
+
+

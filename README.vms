@@ -1,0 +1,110 @@
+Last revised: 15-Aug-1994 by Charles Bailey  bailey@genetics.upenn.edu
+
+The VMS port of perl5 is still in the early stages of development.  At this
+time, the perl binaries built under VMS handle internal operations properly,
+for the most part, but we're still working on IPC routines (popen(), pclose(),
+and system()) and some file handling differences from Unix.  There are plans at
+present to implement the dynamic loader under VMS, as well as to fold in socket
+routines, so look for these in one of the next few releases.  Over the longer
+term, we'll try to get many of the useful VMS system services integrated as
+well, depending on time and people available.  Of course, if you'd like to add
+something yourself, or join the proting team, we'd love to have you!
+
+The current sources and build procedures have been tested on a VAX using VAXC
+and gcc.  I don't see any reason they won't work on an AXP as well, but would
+welcome confirmation or problem reports.
+
+
+* Other software required
+
+At the moment, in addition to basic VMS, you'll need two things:
+   - a C compiler: VAXC, DECC, or gcc for the VAX; DECC for the AXP
+   - a make tool: DEC's MMS or the free analog MMK (available from ftp.spc.edu)
+     or a standard make utility (e.g. GNU make, also available from
+     ftp.spc.edu).
+
+
+* Building perl under VMS
+
+Since you're reading this, presumable you've unpacked the perl distribution
+into its directory tree, in which you will find a [.vms] subdirectory below
+the directory in which this file is found.  If this isn't the case, then you'll
+need to unpack the distribution properly, or manually edit Descrip.MMS or
+the VMS Makefile. to alter directory paths as necessary.  (I'd advise using the 
+`normal' directory tree, at least for the first time through.)  This
+subdirectory contains several files, among which are the following:
+  Config.VMS   - A prototye C header file set up for VMS.
+  GenConfig.Pl - A perl script to generate Config.SH retrospectively
+                 from Config.VMS, since the Configure shell script which
+                 normally generates Config.SH doesn't run under VMS.
+  Descrip.MMS  - The MMS/MMK dependency file for building perl
+  Makefile.    - The make dependency file for building perl  
+  MMS2Make.Pl  - A perl script used to generate Makefile. from Descrip.MMS
+  VMSish.H     - C header file containing VMS-specific definitions
+  VMS.C        - C source code for VMS-specific routines
+There may also be other files pertaining to features under development; for the
+most part, you can ignore them.
+
+Config.VMS and Decrip.MMS/Makefile. are set up to build a version of perl which
+includes all features known to work when this release was assembled.  If you
+have code at your site which would support additional features (e.g. emulation
+of Unix system calls), feel free to make the appropriate changes to these
+files.  (Note: Do not use or edit config.h in the main perl source directory;
+it is superseded by the current Config.VMS during the build.)  You may also
+wish to make site-specific changes to Descrip.MMS or Makefile. to reflect local
+conventions for naming of files, etc.
+
+To start the build, set default to the main source directory.  Then, if you are
+using MMS or MMK, issue the command
+$ MMS/Descrip=[.VMS] ! or MMK
+If you are using make, issue the command
+$ Make -f [.VMS]Makefile.
+This will build Miniperl.Exe, Perl.Exe, and [.Lib]Config.PM.  Once you've got
+the binaries build, you may wish to `build' the `tidy' or `clean' targets to
+remove extra files.
+
+
+* Installing perl once it's built
+
+Once the build is complete, you'll need to do the following:
+  - Put Perl.Exe in a common directory, and make it world executable
+  - Define a foreign command to invoke perl, using a statement like
+    $ Perl == "$dev:[dir]Perl.Exe"
+  - Place the files from the [.lib] subdirectory in the distribution package
+    into a common directory, make them world readable, and define the logical
+    name PERL_LIBRARY to point to this directory.
+  - If you've got a nroff-like utility running on your system, you may want
+    to copy perl.man to the place where you keep other man files.  Note that
+    perl.man is madly out of date at present; basically, it described perl
+    4.036.  Information on perl5 can be gleaned from the Changes. and
+    Perl5-Notes. files in the main directory,  and the test scripts in
+    the [.t...] subdirectories.
+For now, that's it.
+
+
+* For more information
+
+If you're interested in more information on perl in general, consult the Usenet
+newsgroup comp.lang.perl.  The FAQ for that group provides pointers to other
+online sources of information, as well as books describing perl in depth.
+
+If you're interested in up-to-date information on perl5 development and
+internals, you might want to subscribe to the perl5-porters mailing list.  You
+can do this by sending a message to perl5-porters-request@isi.edu, containing
+the single line
+subscribe perl5-porters Your Name Here
+This is a moderately high-volume list at the moment (25-50 messages/day).
+
+Finally, if you're interested in ongoing information about the VMS port, you
+can subscribe to the VMSperl mailing list by sending a request to
+bailey@genetics.upenn.edu (it's to a human, not a list server - this is a small
+operation at the moment).  And, as always, we welcome any help or code you'd
+like to offer - you can send mail to bailey@genetics.upenn.edu or directly to
+the VMSperl list at vmsperl@genetics.upenn.edu.
+
+Good luck using perl.  Please let us know how it works for you - we can't
+guarantee that we'll be able to fix bugs quickly, but we'll try, and we'd
+certainly like to know they're out there.
+
+Thanks,
+The VMSperl group

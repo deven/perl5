@@ -1,38 +1,16 @@
 /* $RCSfile: perly.y,v $$Revision: 4.1 $$Date: 92/08/07 18:26:16 $
  *
- *    Copyright (c) 1991, Larry Wall
+ *    Copyright (c) 1991-1994, Larry Wall
  *
  *    You may distribute under the terms of either the GNU General Public
  *    License or the Artistic License, as specified in the README file.
  *
  * $Log:	perly.y,v $
- * Revision 4.1  92/08/07  18:26:16  lwall
- * 
- * Revision 4.0.1.5  92/06/11  21:12:50  lwall
- * patch34: expectterm incorrectly set to indicate start of program or block
- * 
- * Revision 4.0.1.4  92/06/08  17:33:25  lwall
- * patch20: one of the backdoors to expectterm was on the wrong reduction
- * 
- * Revision 4.0.1.3  92/06/08  15:18:16  lwall
- * patch20: an expression may now start with a bareword
- * patch20: relaxed requirement for semicolon at the end of a block
- * patch20: added ... as variant on ..
- * patch20: fixed double debug break in foreach with implicit array assignment
- * patch20: if {block} {block} didn't work any more
- * patch20: deleted some minor memory leaks
- * 
- * Revision 4.0.1.2  91/11/05  18:17:38  lwall
- * patch11: extra comma at end of list is now allowed in more places (Hi, Felix!)
- * patch11: once-thru blocks didn't display right in the debugger
- * patch11: debugger got confused over nested subroutine definitions
- * 
- * Revision 4.0.1.1  91/06/07  11:42:34  lwall
- * patch4: new copyright notice
- * 
- * Revision 4.0  91/03/20  01:38:40  lwall
- * 4.0 baseline.
- * 
+ */
+
+/*
+ * 'I see,' laughed Strider.  'I look foul and feel fair.  Is that it?
+ * All that is gold does not glitter, not all those that wander are lost.'
  */
 
 %{
@@ -58,26 +36,27 @@
 
 %token <opval> WORD METHOD THING PMFUNC PRIVATEREF
 %token <pval> LABEL
-%token <ival> FORMAT SUB PACKAGE HINT
+%token <ival> FORMAT SUB ANONSUB PACKAGE USE
 %token <ival> WHILE UNTIL IF UNLESS ELSE ELSIF CONTINUE FOR
 %token <ival> LOOPEX DOTDOT
 %token <ival> FUNC0 FUNC1 FUNC
 %token <ival> RELOP EQOP MULOP ADDOP
-%token <ival> DOLSHARP DO LOCAL DELETE HASHBRACK NOAMP
+%token <ival> DOLSHARP DO LOCAL HASHBRACK NOAMP
 
 %type <ival> prog decl format remember crp crb crhb
 %type <opval> block lineseq line loop cond nexpr else
-%type <opval> expr sexpr term scalar ary hsh arylen star amper sideff
-%type <opval> listexpr indirob
-%type <opval> texpr listop
+%type <opval> expr term scalar ary hsh arylen star amper sideff
+%type <opval> listexpr listexprcom indirob
+%type <opval> texpr listop method
 %type <pval> label
 %type <opval> cont
 
-%left OROP
+%left <ival> OROP
 %left ANDOP
+%left NOTOP
 %nonassoc <ival> LSTOP
 %left ','
-%right '='
+%right <ival> ASSIGNOP
 %right '?' ':'
 %nonassoc DOTDOT
 %left OROR
@@ -124,6 +103,7 @@ block	:	'{' remember lineseq '}'
 			    if (copline > (line_t)$1)
 				copline = $1;
 			    LEAVE_SCOPE($2);
+			    pad_reset_pending = FALSE;
 			    if (needblockscope)
 				hints |= HINT_BLOCK_SCOPE; /* propagate out */
 			    pad_leavemy(comppad_name_fill); }
@@ -136,6 +116,9 @@ remember:	/* NULL */	/* in case they push a package name */
 			    SAVEINT(max_intro_pending);
 			    min_intro_pending = 0;
 			    SAVEINT(comppad_name_fill);
+			    SAVEINT(padix_floor);
+			    padix_floor = padix;
+			    pad_reset_pending = FALSE;
 			    SAVEINT(hints);
 			    hints &= ~HINT_BLOCK_SCOPE; }
 	;
@@ -146,7 +129,8 @@ lineseq	:	/* NULL */
 			{ $$ = $1; }
 	|	lineseq line
 			{   $$ = append_list(OP_LINESEQ,
-				(LISTOP*)$1, (LISTOP*)$2); pad_reset();
+				(LISTOP*)$1, (LISTOP*)$2);
+			    pad_reset_pending = TRUE;
 			    if ($1 && $2) hints |= HINT_BLOCK_SCOPE; }
 	;
 
@@ -273,7 +257,7 @@ decl	:	format
 			{ $$ = 0; }
 	|	package
 			{ $$ = 0; }
-	|	hint
+	|	use
 			{ $$ = 0; }
 	;
 
@@ -295,110 +279,79 @@ package :	PACKAGE WORD ';'
 			{ package(Nullop); }
 	;
 
-hint	:	HINT WORD ';'
-			{ hint($1, $2, Nullop); }
-	|	HINT WORD expr ';'
-			{ hint($1, $2, list(force_list($3))); }
+use	:	USE WORD listexpr ';'
+			{ utilize($1, $2, $3); }
 	;
 
-expr	:	expr ',' sexpr
+expr	:	expr ',' term
 			{ $$ = append_elem(OP_LIST, $1, $3); }
-	|	sexpr
+	|	term
 	;
 
-listop	:	LSTOP indirob listexpr
+listop	:	LSTOP indirob expr
 			{ $$ = convert($1, OPf_STACKED,
 				prepend_elem(OP_LIST, newGVREF($2), $3) ); }
-	|	FUNC '(' indirob listexpr ')'
+	|	FUNC '(' indirob expr crp
 			{ $$ = convert($1, OPf_STACKED,
 				prepend_elem(OP_LIST, newGVREF($3), $4) ); }
-	|	indirob ARROW LSTOP listexpr
-			{ $$ = convert($3, OPf_STACKED,
-				prepend_elem(OP_LIST, newGVREF($1), $4) ); }
-	|	indirob ARROW FUNC '(' listexpr ')'
-			{ $$ = convert($3, OPf_STACKED,
-				prepend_elem(OP_LIST, newGVREF($1), $5) ); }
-	|	term ARROW METHOD '(' listexpr ')'
-			{ $$ = convert(OP_ENTERSUBR, OPf_STACKED|OPf_SPECIAL,
-				prepend_elem(OP_LIST,
-				    newMETHOD($1,$3), list($5))); }
+	|	term ARROW method '(' listexprcom ')'
+			{ $$ = convert(OP_ENTERSUB, OPf_STACKED|OPf_SPECIAL,
+				append_elem(OP_LIST,
+				    prepend_elem(OP_LIST, $1, list($5)),
+				    newUNOP(OP_METHOD, 0, $3))); }
 	|	METHOD indirob listexpr
-			{ $$ = convert(OP_ENTERSUBR, OPf_STACKED|OPf_SPECIAL,
-				prepend_elem(OP_LIST,
-				    newMETHOD($2,$1), list($3))); }
+			{ $$ = convert(OP_ENTERSUB, OPf_STACKED|OPf_SPECIAL,
+				append_elem(OP_LIST,
+				    prepend_elem(OP_LIST, $2, list($3)),
+				    newUNOP(OP_METHOD, 0, $1))); }
 	|	LSTOP listexpr
 			{ $$ = convert($1, 0, $2); }
-	|	FUNC '(' listexpr ')'
+	|	FUNC '(' listexprcom ')'
 			{ $$ = convert($1, 0, $3); }
 	;
 
-sexpr	:	sexpr '=' sexpr
-			{ $$ = newASSIGNOP(OPf_STACKED, $1, $3); }
-	|	sexpr POWOP '=' sexpr
-			{ $$ = newBINOP($2, OPf_STACKED,
-				mod(scalar($1), $2), scalar($4)); }
-	|	sexpr MULOP '=' sexpr
-			{ $$ = newBINOP($2, OPf_STACKED,
-				mod(scalar($1), $2), scalar($4)); }
-	|	sexpr ADDOP '=' sexpr
-			{ $$ = newBINOP($2, OPf_STACKED,
-				mod(scalar($1), $2), scalar($4));}
-	|	sexpr SHIFTOP '=' sexpr
-			{ $$ = newBINOP($2, OPf_STACKED,
-				mod(scalar($1), $2), scalar($4)); }
-	|	sexpr BITANDOP '=' sexpr
-			{ $$ = newBINOP($2, OPf_STACKED,
-				mod(scalar($1), $2), scalar($4)); }
-	|	sexpr BITOROP '=' sexpr
-			{ $$ = newBINOP($2, OPf_STACKED,
-				mod(scalar($1), $2), scalar($4)); }
-	|	sexpr ANDAND '=' sexpr
-			{ $$ = newLOGOP(OP_ANDASSIGN, 0,
-				mod(scalar($1), OP_ANDASSIGN),
-				newUNOP(OP_SASSIGN, 0, scalar($4))); }
-	|	sexpr OROR '=' sexpr
-			{ $$ = newLOGOP(OP_ORASSIGN, 0,
-				mod(scalar($1), OP_ORASSIGN),
-				newUNOP(OP_SASSIGN, 0, scalar($4))); }
+method	:	METHOD
+	|	scalar
+	;
 
-
-	|	sexpr POWOP sexpr
+term	:	term ASSIGNOP term
+			{ $$ = newASSIGNOP(OPf_STACKED, $1, $2, $3); }
+	|	term POWOP term
 			{ $$ = newBINOP($2, 0, scalar($1), scalar($3)); }
-	|	sexpr MULOP sexpr
+	|	term MULOP term
 			{   if ($2 != OP_REPEAT)
 				scalar($1);
 			    $$ = newBINOP($2, 0, $1, scalar($3)); }
-	|	sexpr ADDOP sexpr
+	|	term ADDOP term
 			{ $$ = newBINOP($2, 0, scalar($1), scalar($3)); }
-	|	sexpr SHIFTOP sexpr
+	|	term SHIFTOP term
 			{ $$ = newBINOP($2, 0, scalar($1), scalar($3)); }
-	|	sexpr RELOP sexpr
+	|	term RELOP term
 			{ $$ = newBINOP($2, 0, scalar($1), scalar($3)); }
-	|	sexpr EQOP sexpr
+	|	term EQOP term
 			{ $$ = newBINOP($2, 0, scalar($1), scalar($3)); }
-	|	sexpr BITANDOP sexpr
+	|	term BITANDOP term
 			{ $$ = newBINOP($2, 0, scalar($1), scalar($3)); }
-	|	sexpr BITOROP sexpr
+	|	term BITOROP term
 			{ $$ = newBINOP($2, 0, scalar($1), scalar($3)); }
-	|	sexpr DOTDOT sexpr
+	|	term DOTDOT term
 			{ $$ = newRANGE($2, scalar($1), scalar($3));}
-	|	sexpr ANDAND sexpr
+	|	term ANDAND term
 			{ $$ = newLOGOP(OP_AND, 0, $1, $3); }
-	|	sexpr OROR sexpr
+	|	term OROR term
 			{ $$ = newLOGOP(OP_OR, 0, $1, $3); }
-	|	sexpr ANDOP sexpr
+	|	term ANDOP term
 			{ $$ = newLOGOP(OP_AND, 0, $1, $3); }
-	|	sexpr OROP sexpr
-			{ $$ = newLOGOP(OP_OR, 0, $1, $3); }
-	|	sexpr '?' sexpr ':' sexpr
+	|	term OROP term
+			{ $$ = newLOGOP($2, 0, $1, $3); }
+	|	NOTOP term
+			{ $$ = newUNOP(OP_NOT, 0, scalar($2)); }
+	|	term '?' term ':' term
 			{ $$ = newCONDOP(0, $1, $3, $5); }
-	|	sexpr MATCHOP sexpr
+	|	term MATCHOP term
 			{ $$ = bind_match($2, $1, $3); }
-	|	term
-			{ $$ = $1; }
-	;
 
-term	:	'-' term %prec UMINUS
+	|	'-' term %prec UMINUS
 			{ $$ = newUNOP(OP_NEGATE, 0, scalar($2)); }
 	|	'+' term %prec UMINUS
 			{ $$ = $2; }
@@ -407,7 +360,7 @@ term	:	'-' term %prec UMINUS
 	|	'~' term
 			{ $$ = newUNOP(OP_COMPLEMENT, 0, scalar($2));}
 	|	REFGEN term
-			{ $$ = newUNOP(OP_REFGEN, 0, ref($2,OP_REFGEN)); }
+			{ $$ = newUNOP(OP_REFGEN, 0, mod($2,OP_REFGEN)); }
 	|	term POSTINC
 			{ $$ = newUNOP(OP_POSTINC, 0,
 					mod(scalar($1), OP_POSTINC)); }
@@ -420,7 +373,7 @@ term	:	'-' term %prec UMINUS
 	|	PREDEC term
 			{ $$ = newUNOP(OP_PREDEC, 0,
 					mod(scalar($2), OP_PREDEC)); }
-	|	LOCAL sexpr	%prec UNIOP
+	|	LOCAL term	%prec UNIOP
 			{ $$ = localize($2,$1); }
 	|	'(' expr crp
 			{ $$ = sawparens($2); }
@@ -434,6 +387,8 @@ term	:	'-' term %prec UMINUS
 			{ $$ = newANONHASH($2); }
 	|	HASHBRACK ';' '}'				%prec '('
 			{ $$ = newANONHASH(Nullop); }
+	|	ANONSUB block				%prec '('
+			{ $$ = newANONSUB($1, $2); }
 	|	scalar	%prec '('
 			{ $$ = $1; }
 	|	star	%prec '('
@@ -445,7 +400,7 @@ term	:	'-' term %prec UMINUS
 					ref(newAVREF($1),OP_RV2AV),
 					scalar($4));}
 	|	term '[' expr ']'	%prec '('
-			{ $$ = newBINOP(OP_AELEM, 0,
+			{ assertref($1); $$ = newBINOP(OP_AELEM, 0,
 					ref(newAVREF($1),OP_RV2AV),
 					scalar($3));}
 	|	hsh 	%prec '('
@@ -463,7 +418,7 @@ term	:	'-' term %prec UMINUS
 					jmaybe($4));
 			    expect = XOPERATOR; }
 	|	term '{' expr ';' '}'	%prec '('
-			{ $$ = newBINOP(OP_HELEM, 0,
+			{ assertref($1); $$ = newBINOP(OP_HELEM, 0,
 					ref(newHVREF($1),OP_RV2HV),
 					jmaybe($3));
 			    expect = XOPERATOR; }
@@ -474,74 +429,62 @@ term	:	'-' term %prec UMINUS
 	|	ary '[' expr ']'	%prec '('
 			{ $$ = prepend_elem(OP_ASLICE,
 				newOP(OP_PUSHMARK, 0),
-				list(
 				    newLISTOP(OP_ASLICE, 0,
 					list($3),
-					ref($1, OP_ASLICE)))); }
+					ref($1, OP_ASLICE))); }
 	|	ary '{' expr ';' '}'	%prec '('
 			{ $$ = prepend_elem(OP_HSLICE,
 				newOP(OP_PUSHMARK, 0),
-				list(
 				    newLISTOP(OP_HSLICE, 0,
 					list($3),
-					ref(oopsHV($1), OP_HSLICE))));
-			    expect = XOPERATOR; }
-	|	DELETE scalar '{' expr ';' '}'	%prec '('
-			{ $$ = newBINOP(OP_DELETE, 0, oopsHV($2), jmaybe($4));
-			    expect = XOPERATOR; }
-	|	DELETE '(' scalar '{' expr ';' '}' ')'	%prec '('
-			{ $$ = newBINOP(OP_DELETE, 0, oopsHV($3), jmaybe($5));
+					ref(oopsHV($1), OP_HSLICE)));
 			    expect = XOPERATOR; }
 	|	THING	%prec '('
 			{ $$ = $1; }
 	|	amper
-			{ $$ = newUNOP(OP_ENTERSUBR, 0,
+			{ $$ = newUNOP(OP_ENTERSUB, 0,
 				scalar($1)); }
 	|	amper '(' ')'
-			{ $$ = newUNOP(OP_ENTERSUBR, OPf_STACKED, scalar($1)); }
+			{ $$ = newUNOP(OP_ENTERSUB, OPf_STACKED, scalar($1)); }
 	|	amper '(' expr crp
-			{ $$ = newUNOP(OP_ENTERSUBR, OPf_STACKED,
-			    list(prepend_elem(OP_LIST, scalar($1), $3))); }
+			{ $$ = newUNOP(OP_ENTERSUB, OPf_STACKED,
+			    list(append_elem(OP_LIST, $3, scalar($1)))); }
 	|	NOAMP WORD listexpr
-			{ $$ = newUNOP(OP_ENTERSUBR, OPf_STACKED,
-			    list(prepend_elem(OP_LIST,
-				newCVREF(scalar($2)), $3))); }
-	|	NOAMP WORD indirob listexpr
-			{ $$ = convert(OP_ENTERSUBR, OPf_STACKED|OPf_SPECIAL,
-				prepend_elem(OP_LIST,
-				    newMETHOD($3,$2), list($4))); }
-	|	DO sexpr	%prec UNIOP
+			{ $$ = newUNOP(OP_ENTERSUB, OPf_STACKED,
+			    list(append_elem(OP_LIST,
+				$3, newCVREF(scalar($2))))); }
+	|	DO term	%prec UNIOP
 			{ $$ = newUNOP(OP_DOFILE, 0, scalar($2)); }
 	|	DO block	%prec '('
 			{ $$ = newUNOP(OP_NULL, OPf_SPECIAL, scope($2)); }
 	|	DO WORD '(' ')'
-			{ $$ = newUNOP(OP_ENTERSUBR, OPf_SPECIAL|OPf_STACKED,
+			{ $$ = newUNOP(OP_ENTERSUB, OPf_SPECIAL|OPf_STACKED,
 			    list(prepend_elem(OP_LIST,
 				scalar(newCVREF(scalar($2))), Nullop))); }
 	|	DO WORD '(' expr crp
-			{ $$ = newUNOP(OP_ENTERSUBR, OPf_SPECIAL|OPf_STACKED,
-			    list(prepend_elem(OP_LIST,
-				scalar(newCVREF(scalar($2))),
-				$4))); }
+			{ $$ = newUNOP(OP_ENTERSUB, OPf_SPECIAL|OPf_STACKED,
+			    list(append_elem(OP_LIST,
+				$4,
+				scalar(newCVREF(scalar($2)))))); }
 	|	DO scalar '(' ')'
-			{ $$ = newUNOP(OP_ENTERSUBR, OPf_SPECIAL|OPf_STACKED,
+			{ $$ = newUNOP(OP_ENTERSUB, OPf_SPECIAL|OPf_STACKED,
 			    list(prepend_elem(OP_LIST,
 				scalar(newCVREF(scalar($2))), Nullop)));}
 	|	DO scalar '(' expr crp
-			{ $$ = newUNOP(OP_ENTERSUBR, OPf_SPECIAL|OPf_STACKED,
+			{ $$ = newUNOP(OP_ENTERSUB, OPf_SPECIAL|OPf_STACKED,
 			    list(prepend_elem(OP_LIST,
-				scalar(newCVREF(scalar($2))),
-				$4))); }
+				$4,
+				scalar(newCVREF(scalar($2)))))); }
 	|	LOOPEX
 			{ $$ = newOP($1, OPf_SPECIAL);
 			    hints |= HINT_BLOCK_SCOPE; }
-	|	LOOPEX sexpr
+	|	LOOPEX term
 			{ $$ = newLOOPEX($1,$2); }
 	|	UNIOP
 			{ $$ = newOP($1, 0); }
 	|	UNIOP block
 			{ $$ = newUNOP($1, 0, $2); }
-	|	UNIOP sexpr
+	|	UNIOP term
 			{ $$ = newUNOP($1, 0, $2); }
 	|	FUNC0
 			{ $$ = newOP($1, 0); }
@@ -551,9 +494,9 @@ term	:	'-' term %prec UMINUS
 			{ $$ = newOP($1, OPf_SPECIAL); }
 	|	FUNC1 '(' expr ')'
 			{ $$ = newUNOP($1, 0, $3); }
-	|	PMFUNC '(' sexpr ')'
+	|	PMFUNC '(' term ')'
 			{ $$ = pmruntime($1, $3, Nullop); }
-	|	PMFUNC '(' sexpr ',' sexpr ')'
+	|	PMFUNC '(' term ',' term ')'
 			{ $$ = pmruntime($1, $3, $5); }
 	|	WORD
 	|	listop
@@ -562,6 +505,14 @@ term	:	'-' term %prec UMINUS
 listexpr:	/* NULL */
 			{ $$ = Nullop; }
 	|	expr
+			{ $$ = $1; }
+	;
+
+listexprcom:	/* NULL */
+			{ $$ = Nullop; }
+	|	expr
+			{ $$ = $1; }
+	|	expr ','
 			{ $$ = $1; }
 	;
 

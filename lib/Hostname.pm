@@ -3,6 +3,7 @@
 
 package Hostname;
 
+require Carp;
 require Exporter;
 @ISA = (Exporter);
 @EXPORT = (hostname);
@@ -17,14 +18,17 @@ sub hostname {
 
     # method 2 - syscall is preferred since it avoids tainting problems
     eval {
-	require "syscall.ph";
+	{
+	    package main;
+	    require "syscall.ph";
+	}
 	$host = "\0" x 65; ## preload scalar
-	syscall(&SYS_gethostname, $host, 65) == 0;
+	syscall(&main::SYS_gethostname, $host, 65) == 0;
     }
 
     # method 3 - trusty old hostname command
     || eval {
-	$host = `hostname 2>/dev/null`; # bsdish
+	$host = `(hostname) 2>/dev/null`; # bsdish
     }
 
     # method 4 - sysV uname command (may truncate)
@@ -38,7 +42,7 @@ sub hostname {
     }
 
     # bummer
-    || die "Cannot get host name of local machine\n";  
+    || Carp::croak "Cannot get host name of local machine";  
 
     # remove garbage 
     $host =~ tr/\0\r\n//d;

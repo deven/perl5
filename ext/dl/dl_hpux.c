@@ -1,19 +1,16 @@
 /*
-Date: Mon, 25 Apr 94 14:15:30 PDT
-From: Jeff Okamoto <okamoto@hpcc101.corp.hp.com>
-To: doughera@lafcol.lafayette.edu
-Cc: okamoto@hpcc101.corp.hp.com, Jarkko.Hietaniemi@hut.fi, ram@acri.fr,
-     john@WPI.EDU, k@franz.ww.TU-Berlin.DE, dmm0t@rincewind.mech.virginia.edu,
-     lwall@netlabs.com
-Subject: dl.c.hpux
+ * Author: Jeff Okamoto (okamoto@corp.hp.com)
+ */
 
-This is what I hacked around and came up with for HP-UX.  (Or maybe it should
-be called dl_hpux.c).  Notice the change in suffix from .so to .sl (the
-default suffix for HP-UX shared libraries).
-
-Jeff
-*/
+#ifdef __hp9000s300
+#define magic hpux_magic
+#define MAGIC HPUX_MAGIC
+#endif
 #include <dl.h>
+#ifdef __hp9000s300
+#undef magic
+#undef MAGIC
+#endif
 
 #include "EXTERN.h"
 #include "perl.h"
@@ -34,6 +31,7 @@ register int items;
 	int (*bootproc)();
 	char tmpbuf[1024];
 	char tmpbuf2[128];
+	char tmpbuf3[128];
 	AV *av = GvAVn(incgv);
 	I32 i;
 
@@ -41,16 +39,29 @@ register int items;
 	    (void)sprintf(tmpbuf, "%s/auto/%s/%s.sl",
 		SvPVx(*av_fetch(av, i, TRUE), na), package, package);
 	    if (obj = shl_load(tmpbuf,
-		BIND_IMMEDIATE | BIND_NONFATAL | BIND_NOSTART,0L))
+		BIND_IMMEDIATE | BIND_NONFATAL | BIND_NOSTART | BIND_VERBOSE, 0L))
 		break;
 	}
-	if (obj != (shl_t) NULL)
-	    croak("Can't find loadable object for package %s in @INC", package);
+	if (obj == (shl_t) NULL) {
+	    sprintf(tmpbuf2, "%s", Strerror(errno));
+	    croak("Can't find loadable object for package %s in @INC (library %s, %s)",
+		package, tmpbuf, tmpbuf2);
+	}
 
+#ifdef __hp9000s300
+	sprintf(tmpbuf2, "_boot_%s", package);
+#else
 	sprintf(tmpbuf2, "boot_%s", package);
+#endif
 	i = shl_findsym(&obj, tmpbuf2, TYPE_PROCEDURE, &bootproc);
-	if (i == -1)
-	    croak("Shared object %s contains no %s function", tmpbuf, tmpbuf2);
+	if (i == -1) {
+	    if (errno == 0) {
+		croak("Shared object %s contains no %s function", tmpbuf, tmpbuf2);
+	    } else {
+		sprintf(tmpbuf3, "%s", Strerror(errno));
+		croak("Shared object %s contains no %s function (%s)", tmpbuf, tmpbuf2, tmpbuf3);
+	    }
+	}
 	bootproc();
 
 	ST(0) = sv_mortalcopy(&sv_yes);
@@ -68,4 +79,3 @@ int items;
 
     newXSUB("DynamicLoader::bootstrap", 0, XS_DynamicLoader_bootstrap, file);
 }
-

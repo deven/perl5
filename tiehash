@@ -1,0 +1,30 @@
+#!./perl
+
+# $RCSfile: dbm.t,v $$Revision: 4.1 $$Date: 92/08/07 18:27:43 $
+
+{
+    package XDBM_File;
+    sub new { print "new @_\n"; bless {FOO => 'foo'} }
+    sub FETCH { print "FETCH @_\n"; $_[0]->{$_[1]} }
+    sub STORE { print "STORE @_\n"; $_[0]->{$_[1]} = $_[2] }
+    sub DELETE { print "DELETE @_\n"; delete ${$_[0]}{$_[1]} }
+    sub FIRSTKEY { print "FIRSTKEY @_\n"; each %{$_[0]} }
+    sub NEXTKEY { print "NEXTKEY @_\n"; each %{$_[0]} }
+    sub DESTROY { print "DESTROY @_\n"; undef %{$_[0]}; }
+}
+
+tie %h, XDBM_File;
+
+$h{BAR} = 'bar';
+$h{FOO} = 'foo';
+#print $h{BAR}, "\n";
+#delete $h{BAR};
+#print $h{BAR}, "\n";
+
+while (($key,$val) = each %h) { print "$key => $val\n"; }
+@keys = sort keys %h;
+@values = sort values %h;
+print "@keys\n@values\n";
+
+untie %h;
+

@@ -17,8 +17,8 @@
 ?X:	  cc -c +z module_b.c
 ?X:	  ld -b module_a.o module_b.o -o module.sl
 ?X:  
-?MAKE:usedl dlsrc dlobj dldir cccdlflags lddlflags ccdlflags \
-	shlibsuffix: Getfile Myread test osname sed i_dlfcn Findhdr cc
+?MAKE:usedl dlsrc cccdlflags lddlflags ccdlflags: \
+	Getfile Myread test osname sed i_dld d_dlopen Findhdr cc cat
 ?MAKE:	-pick add $@ %<
 ?S:usedl:
 ?S:	This variable contains indicates if the the system supports dynamic
@@ -27,14 +27,6 @@
 ?S:dlsrc:
 ?S:	This variable contains the name of the dynamic loading file that
 ?S:	will be used with the package.
-?S:.
-?S:dlobj:
-?S:	This variable contains the name of the dynamic loading object
-?S:	file that will be used with the package.  This is used in Makefile.
-?S:.
-?S:dldir:
-?S:	This variable contains the directory from which to fetch dlsrc.
-?S:	It is up to the makefile to use it.
 ?S:.
 ?S:cccdlflags:
 ?S:	This variable contains any special flags that might need to be
@@ -54,11 +46,6 @@
 ?S:	It is up to the makefile to use it.  For sunos 4.1, it should
 ?S:	be empty.
 ?S:.
-?S:shlibsuffix:
-?S:	Shared libraries are built by Makefile in the form
-?S:	lib/auto/xxx/xxx${shsuffix}, where xxx is
-?S:	the name of the library, e.g. /lib/auto/POSIX/POSIX.so 
-?S:.
 ?C:USE_DYNAMIC_LOADING ~ %<:
 ?C:	This symbol, if defined, indicates that dynamic loading of
 ?C:	some sort is available.
@@ -66,72 +53,73 @@
 ?H:?%<:#$usedl USE_DYNAMIC_LOADING		/**/
 ?H:.
 ?W:%<:dlopen
-?INIT:: File to use for dynamic loading
-?INIT:usedl=''
-?T:xxx
-?X:
-?X:  We select a default of 'define' for usedl if either dl_$osname.c
-?X:  exists or if i_dlfcn is defined (which probably means dl_sunos.c
-?X:  will work.)
-?X:
+?T:dldir
 : determine which dynamic loading, if any, to compile in
 echo " "
+dldir="ext/DynaLoader"
 case "$usedl" in
-'') case "$i_dlfcn" in
+$define|y|true)
+	dflt='y'
+	usedl="$define"
+	;;
+*) 
+	dflt='n'
+	case "$d_dlopen" in
     define) dflt='y' ;;
-    *)      dflt='n' ;;
     esac
-    : Does a dl.c file exist for this operating system
-    $test -f ../ext/dl/dl_${osname}.c && dflt='y'
-    ;;
-define|y|true) dflt='y'
-    usedl="$define"
-    ;;
-*)  dflt='n'
+	case "$i_dld" in
+    define) dflt='y' ;;
+    esac
+    : Does a dl_xxx.xs file exist for this operating system
+    $test -f ../$dldir/dl_${osname}.xs && dflt='y'
     ;;
 esac
-rp="Do you wish to attempt to use dynamic loading?"
+rp="Do you wish to use dynamic loading?"
 . ./myread
 usedl="$ans"
 case "$ans" in
 y*) usedl="$define"
-    if $test -f ../ext/dl/dl_${osname}.c ; then
-	dflt="ext/dl/dl_${osname}.c"
-    else
-	dflt='ext/dl/dl.c'
-    fi
+	if $test -f ../$dldir/dl_${osname}.xs ; then
+		dflt="$dldir/dl_${osname}.xs"
+	elif $test "$d_dlopen" = "$define" ; then
+		dflt="$dldir/dl_dlopen.xs"
+	elif $test "$i_dld" = "$define" ; then
+		dflt="$dldir/dl_dld.xs"
+	else
+		dflt=''
+	fi
     echo "The following dynamic loading files are available:"
-    cd ..; ls -C ext/dl/dl*.c; cd UU
+?X: Can't go over to $dldir because getfile has path hard-coded in.
+    cd ..; ls -C $dldir/dl*.xs; cd UU
     rp="Source file to use for dynamic loading"
     fn="fne~"
     . ./getfile
-    : emulate  basename and dirname
-    xxx=`echo $ans | $sed -e 's@.*/\([^/]*\)$@\1@' -e 's@\.c$@@'`
-    dlobj=$xxx.o
-    dlsrc=$xxx.c
-    dldir=`echo $ans | $sed 's@\(.*\)/[^/]*$@\1@'`
-    case "$dldir" in
-    '') dldir="." ;;
-    *) ;;
-    esac
-    if $test -f ../$dldir/$dlsrc; then
-        usedl="$define"
-    else
-	echo "File $dlsrc does not exist -- ignored"
-	usedl="$undef"
-    fi
-
-    cat << EOM
+	usedl="$define"
+	: emulate basename
+	dlsrc=`echo $ans | $sed -e 's@.*/\([^/]*\)$@\1@'`
+    $cat << EOM
 
 Some systems may require passing special flags to $cc -c to
 compile modules that will be used to create a shared library.
 To use no flags, say "none".
+
 EOM
     case "$cccdlflags" in
     ''|' ') case "$osname" in
 			hpux)  dflt='+z' ;;
 			next)  dflt='none' ;;
-			sunos) dflt='none' ;;
+			sunos) 
+				case "$cc" in
+				*gcc*)	dflt='-fpic' ;;
+				*)		dflt='-pic' ;;
+				esac
+				;;
+			solaris) 
+				case "$cc" in
+				*gcc*)	dflt='-fpic' ;;
+				*)		dflt='-K pic' ;;
+				esac
+				;;
 	        *)     dflt='none' ;;
 			esac
 			;;
@@ -146,15 +134,18 @@ EOM
 
     cat << 'EOM'
 
-Some systems may require passing special flags to ld to
-create a shared library.  To use no flags, say "none".
+Some systems may require passing special flags to ld to create 
+a shared library.  To use no flags, say "none".
+
 EOM
 ?X: I have received one report that NeXT requires -r here.
 ?X: On SunOS 4.1.3, that makes the library no longer shared.
+?X: This stuff probably all belongs in hints files anyway.
     case "$lddlflags" in
     ''|' ') case "$osname" in
 			hpux)  dflt='-b' ;;
 			next)  dflt='none' ;;
+			solaris) dflt='-G' ;;
 			sunos) dflt='none' ;;
 	        *)     dflt='none' ;;
 			esac
@@ -171,7 +162,9 @@ EOM
 	cat <<EOM
 
 Some systems may require passing special flags to $cc to indicate that
-dynamic linking will be used.  To use no flags, say "none".
+the resulting executable will use dynamic linking.  To use no flags,
+say "none".
+
 EOM
     case "$ccdlflags" in
     ''|' ')
@@ -191,40 +184,12 @@ EOM
     none) ccdlflags='' ;;
     *) ccdlflags="$ans" ;;
     esac
-	cat <<EOM
-
-Some systems may require using a special suffix for shared libraries.
-To create the shared library for POSIX, for example, you may need to
-actually build the file POSIX.so.
-
-EOM
-    case "$shlibsuffix" in
-	'')
-		case "$osname" in
-		hpux)  dflt='.sl' ;;
-		next)  dflt='.so' ;;
-		sunos) dflt='.so' ;;
-		*)     dflt='.so' ;;
-		esac
-		;;
-    *)  dflt="$shlibsuffix"
-	;;
-    esac
-    rp="What is the suffix used for shared libraries?"
-    . ./myread
-    case "$ans" in
-    none) shlibsuffix='' ;;
-    *) shlibsuffix="$ans" ;;
-    esac
     ;;
 ?X: End of usedl=y section
 *)  usedl="$undef"
-    : These are currently not used.
-    dlsrc=''
-    dlobj=''
-    dldir=''
+    dlsrc='dl_none.xs'
     lddlflags=''
     ccdlflags=''
-    shlibsuffix='.o'
     ;;
 esac
+

@@ -1,4 +1,4 @@
-?RCS: $Id: libc.U,v 3.0.1.3 1994/01/24 14:12:17 ram Exp $
+?RCS: $Id: libc.U,v 3.0.1.5 1994/06/20 07:03:24 ram Exp $
 ?RCS:
 ?RCS: Copyright (c) 1991-1993, Raphael Manfredi
 ?RCS: 
@@ -9,6 +9,13 @@
 ?RCS: of the source tree for dist 3.0.
 ?RCS:
 ?RCS: $Log: libc.U,v $
+?RCS: Revision 3.0.1.5  1994/06/20  07:03:24  ram
+?RCS: patch30: checks are now presented by succession of if/elif
+?RCS: patch30: uniformized checks for shared objects with new so symbol
+?RCS:
+?RCS: Revision 3.0.1.4  1994/05/06  15:06:33  ram
+?RCS: patch23: added shared library knowledge (ADO and WED)
+?RCS:
 ?RCS: Revision 3.0.1.3  1994/01/24  14:12:17  ram
 ?RCS: patch16: can now export nm_extract as an internal-use only variable
 ?RCS:
@@ -22,7 +29,7 @@
 ?RCS: Baseline for dist 3.0 netwide release.
 ?RCS:
 ?MAKE:libc +nm_extract: echo n c rm test grep Getfile Myread Oldconfig Loc \
-	sed libs incpath libpth runnm nm_opt contains plibpth xlibpth
+	sed libs incpath libnames libpth runnm nm_opt contains xlibpth so
 ?MAKE:	-pick add $@ %<
 ?S:libc:
 ?S:	This variable contains the location of the C library.
@@ -32,8 +39,8 @@
 ?S:	the output of nm and yield the list of defined symbols. It is used
 ?S:	internally by Configure.
 ?S:.
-?T:thislib try libnames xxx xscan xrun thisname com tans
-?LINT:change libpth nm_opt
+?T:xxx xscan xrun thisname com tans
+?LINT:change nm_opt libnames
 case "$runnm" in
 true)
 ?X: indentation is wrong on purpose--RAM
@@ -46,37 +53,7 @@ case "$libc" in
 	esac
 	;;
 esac
-libpth="$plibpth $libpth"
-libnames='';
-case "$libs" in
-'') ;;
-*)  for thislib in $libs; do
-	case "$thislib" in
-	-l*)
-		thislib=`expr X$thislib : 'X-l\(.*\)'`
-		try=`./loc lib$thislib.a blurfl/dyick $libpth`
-		if test ! -f $try; then
-			try=`./loc lib$thislib blurfl/dyick $libpth`
-			if test ! -f $try; then
-				try=`./loc lib$thislib.so.'*' blurfl/dyick $libpth`
-				if test ! -f $try; then
-					try=`./loc $thislib blurfl/dyick $libpth`
-					if test ! -f $try; then
-						try=`./loc Slib$thislib.a blurfl/dyick $xlibpth`
-						if test ! -f $try; then
-							try=''
-						fi
-					fi
-				fi
-			fi
-		fi
-		libnames="$libnames $try"
-		;;
-	*) libnames="$libnames $thislib" ;;
-	esac
-	done
-	;;
-esac
+
 ?X:
 ?X: Some systems (e.g. DG/UX) use "environmental" links, which make the test
 ?X: -f fail. Ditto for symbolic links. So in order to reliably check the
@@ -90,10 +67,13 @@ esac
 xxx=normal
 case "$libc" in
 unknown)
-	set /usr/ccs/lib/libc.so
-	$test -r $1 || set /usr/lib/libc.so
-	$test -r $1 || set /usr/shlib/libc.so
-	$test -r $1 || set /usr/lib/libc.so.[0-9]*
+	set /usr/ccs/lib/libc.$so
+	$test -r $1 || set /usr/lib/libc.$so
+	$test -r $1 || set /usr/shlib/libc.$so
+	$test -r $1 || set /usr/lib/libc.$so.[0-9]*
+	$test -r $1 || set /lib/libc.$so
+	$test -r $1 || set /lib/libc_s.a
+	$test -r $1 || set /usr/lib/libc_s.a
 	$test -r $1 || set /lib/libsys_s.a
 	eval set \$$#
 	;;

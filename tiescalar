@@ -4,8 +4,8 @@
 {
     package SOMEPACK;
     sub new { local($x); bless \$x }
-    sub fetch { warn "fetch @_\n"; ${$_[0]} }
-    sub store { warn "store @_\n"; ${$_[0]} = $_[1] }
+    sub FETCH { warn "fetch @_\n"; ${$_[0]} }
+    sub STORE { warn "store @_\n"; ${$_[0]} = $_[1] }
     sub DESTROY { warn "DESTROY @_\n" }
 }
 

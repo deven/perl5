@@ -1,3 +1,91 @@
+#!./miniperl -w
+
+@ARGV = "./config.sh";
+$config_pm = 'lib/Config.pm';
+
+# list names to put first (and hence lookup fastest)
+@fast = qw(osname osvers so libpth
+	sharpbang startsh shsharp
+	dynamic_ext static_ext extensions
+	sig_name ccflags cppflags intsize);
+
+
+open CONFIG, ">$config_pm" or die "Can't open $config_pm: $!\n";
+$myver = sprintf("%.3f", $]);
+print CONFIG <<"ENDOFBEG";
+package Config;
+require Exporter;
+\@ISA = (Exporter);
+\@EXPORT = qw(%Config);
+
+\$] == $myver or die sprintf
+    "Perl lib version ($myver) doesn't match executable version (%.3f)\\n", \$];
+
+# This file was created by configpm when Perl was built. Any changes
+# made to this file will be lost the next time perl is built.
+
+\$config_sh=<<'!END!OF!CONFIG!';
+ENDOFBEG
+
+@fast{@fast} = @fast;
+@delayed=();
+
+while (<>) {
+    next if m:^#!/bin/sh:;
+    # Catch CONFIG=true and PATCHLEVEL=n line from Configure.
+    s/^(\w+)=(true|\d+)\s*$/$1='$2'\n/;
+    unless (m/^(\w+)='(.*)'\s*$/){
+	push(@delayed, "#$_"); # not a name='value' line
+	next;
+    }
+    if (!$fast{$1}){ push(@delayed, $_); next; }
+    print CONFIG $_;
+}
+foreach(@delayed){ print CONFIG $_ }
+
+print CONFIG <<'ENDOFEND';
+!END!OF!CONFIG!
+
+tie %Config, Config;
+sub new { bless {} }
+sub FETCH {
+    my($value);
+    return $value if defined($value = $_[0]->{$_[1]}); # if cached
+    ($value) = $config_sh =~ m/^$_[1]='(.*)'\s*$/m;    # else search
+    $value = undef if $value && $value eq 'undef' ; # So we can say "if $Config{'foo'}".
+    $_[0]->{$_[1]} = $value; # then cache, even if not matched
+    return $value;
+}
+
+sub STORE { die "\%Config::Config is read-only\n" ;}
+sub DELETE { die "\%Config::Config is read-only\n" }
+
+
+1;
+ENDOFEND
+
+close(CONFIG);
+
+# Now do some simple tests on the Config.pm file we have created
+push(@INC,'lib');
+require $config_pm;
+import Config;
+
+die "$0: $config_pm not valid"
+	unless $Config{'CONFIG'} eq 'true';
+
+die "$0: error processing $config_pm"
+	if defined($Config{'an impossible name'})
+	or $Config{'CONFIG'} ne 'true' # test cache
+	;
+
+die "$0: error processing $config_pm"
+	if eval '$Config{"cc"} = 1' 
+	or eval 'delete $Config{"cc"}' 
+	;
+
+
+exit 0;
 #!./miniperl
 
 @ARGV = "./config.sh";

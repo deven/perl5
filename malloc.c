@@ -1,31 +1,9 @@
 /* $RCSfile: malloc.c,v $$Revision: 4.1 $$Date: 92/08/07 18:24:25 $
  *
  * $Log:	malloc.c,v $
- * Revision 4.1  92/08/07  18:24:25  lwall
- * 
- * Revision 4.0.1.4  92/06/08  14:28:38  lwall
- * patch20: removed implicit int declarations on functions
- * patch20: hash tables now split only if the memory is available to do so
- * patch20: realloc(0, size) now does malloc in case library routines call it
- * 
- * Revision 4.0.1.3  91/11/05  17:57:40  lwall
- * patch11: safe malloc code now integrated into Perl's malloc when possible
- * 
- * Revision 4.0.1.2  91/06/07  11:20:45  lwall
- * patch4: many, many itty-bitty portability fixes
- * 
- * Revision 4.0.1.1  91/04/11  17:48:31  lwall
- * patch1: Configure now figures out malloc ptr type
- * 
- * Revision 4.0  91/03/20  01:28:52  lwall
- * 4.0 baseline.
- * 
  */
 
 #ifndef lint
-/*SUPPRESS 592*/
-static char sccsid[] = "@(#)malloc.c	4.3 (Berkeley) 9/16/83";
-
 #ifdef DEBUGGING
 #define RCHECK
 #endif
@@ -43,9 +21,6 @@ static char sccsid[] = "@(#)malloc.c	4.3 (Berkeley) 9/16/83";
 
 #include "EXTERN.h"
 #include "perl.h"
-
-static int findbucket();
-static int morecore();
 
 /* I don't much care whether these are defined in sys/types.h--LAW */
 
@@ -80,6 +55,12 @@ union	overhead {
 #define	ov_size		ovu.ovu_size
 #define	ov_rmagic	ovu.ovu_rmagic
 };
+
+#ifdef debug
+static void botch _((char *s));
+#endif
+static void morecore _((int bucket));
+static int findbucket _((union overhead *freep, int srchlen));
 
 #define	MAGIC		0xff		/* magic # on accounting info */
 #define RMAGIC		0x55555555	/* magic # on range info */
@@ -214,7 +195,7 @@ malloc(nbytes)
 /*
  * Allocate more memory to the indicated bucket.
  */
-static
+static void
 morecore(bucket)
 	register int bucket;
 {

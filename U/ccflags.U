@@ -1,4 +1,4 @@
-?RCS: $Id: ccflags.U,v 3.0.1.3 1993/09/13 15:58:29 ram Exp $
+?RCS: $Id: ccflags.U,v 3.0.1.4 1994/05/06 14:28:45 ram Exp $
 ?RCS:
 ?RCS: Copyright (c) 1991-1993, Raphael Manfredi
 ?RCS: 
@@ -9,6 +9,11 @@
 ?RCS: of the source tree for dist 3.0.
 ?RCS:
 ?RCS: $Log: ccflags.U,v $
+?RCS: Revision 3.0.1.4  1994/05/06  14:28:45  ram
+?RCS: patch23: -fpcc-struct-return only needed in gcc 1.x (ADO)
+?RCS: patch23: cppflags now computed on an option-by-option basis
+?RCS: patch23: magically added cc flags now only done the first time
+?RCS:
 ?RCS: Revision 3.0.1.3  1993/09/13  15:58:29  ram
 ?RCS: patch10: explicitely mention -DDEBUG just in case they need it (WAD)
 ?RCS: patch10: removed all the "tans" variable usage (WAD)
@@ -23,7 +28,8 @@
 ?RCS: Baseline for dist 3.0 netwide release.
 ?RCS:
 ?MAKE:ccflags ldflags lkflags cppflags optimize: test cat Myread Guess \
-	Oldconfig cc gccversion mips_type +usrinc package contains
+	Oldconfig +cc +gccversion mips_type +usrinc package contains rm \
+	cppstdin cppminus cpprun cpplast
 ?MAKE:	-pick add $@ %<
 ?S:ccflags:
 ?S:	This variable contains any additional C compiler flags desired by
@@ -45,7 +51,7 @@
 ?S:	This variable contains any additional C partial linker flags desired by
 ?S:	the user.  It is up to the Makefile to use this.
 ?S:.
-?T:inctest thisincl xxx flag inclwanted
+?T:inctest thisincl xxx flag inclwanted ftry previous
 ?D:cppflags=''
 ?D:ccflags=''
 ?D:ldflags=''
@@ -54,8 +60,8 @@
 ?INIT:
 : determine optimize, if desired, or use for debug flag also
 case "$optimize" in
-' ') dflt="none";;
-'') dflt="-g";;
+' ') dflt='none';;
+'') dflt='-O';;
 *) dflt="$optimize";;
 esac
 $cat <<EOH
@@ -77,9 +83,11 @@ esac
 dflt=''
 case "$ccflags" in
 '')	case "$cc" in
-	*gcc*) if $test "$gccversion" = "1"; then
+	*gcc*)
+		if $test "$gccversion" = '1'; then
 			dflt='-fpcc-struct-return'
-		   fi ;;
+		fi
+		;;
 	esac
 	case "$optimize" in
 	*-g*) dflt="$dflt -DDEBUGGING";;
@@ -153,10 +161,11 @@ Your C compiler may want other flags.  For this question you should include
 -I/whatever and -DWHATEVER flags and any other flags used by the C compiler,
 but you should NOT include libraries or ld flags like -lwhatever.  If you
 want $package to honor its debug switch, you should include -DDEBUGGING here.
+Your C compiler might also need additional flags, such as -DJMPCLOBBER,
+-D_POSIX_SOURCE, -DHIDEMYMALLOC or -DCRIPPLED_CC.
+
 To use no flags, specify the word "none".
 
-Your C compiler might also need additional flags, such as -DJMPCLOBBER,
--DHIDEMYMALLOC or -DCRIPPLED_CC.
 EOH
 ?X: strip leading space
 set X $dflt
@@ -172,9 +181,10 @@ esac
 : the following weeds options from ccflags that are of no interest to cpp
 cppflags="$ccflags"
 case "$cc" in
-*gcc*)  case "$gccversion" in
-	1) cppflags="$cppflags -D__GNUC__" ;;
-	esac
+*gcc*)
+	if $test "$gccversion" = "1"; then
+		cppflags="$cppflags -D__GNUC__"
+	fi
 	;;
 esac
 case "$mips_type" in
@@ -183,17 +193,49 @@ case "$mips_type" in
 esac
 case "$cppflags" in
 '');;
-*)  set X $cppflags
+*)
+	echo " "
+	echo "Let me guess what the preprocessor flags are..." >&4
+	set X $cppflags
+	shift
 	cppflags=''
-	for flag
+	$cat >cpp.c <<'EOM'
+#define BLURFL foo
+
+BLURFL xx LFRULB
+EOM
+?X:
+?X: For each cc flag, try it out with both cppstdin and cpprun, since the
+?X: first is almost surely a cc wrapper. We have to try both in case
+?X: of cc flags like '-Olimit 2900' that are actually two words...
+?X:
+	previous=''
+	for flag in $*
 	do
-		case $flag in
-		-D*|-I*|-traditional|-ansi|-nostdinc|-posix|-Xp) cppflags="$cppflags $flag";;
+		case "$flag" in
+		-*) ftry="$flag";;
+		*) ftry="$previous $flag";;
 		esac
+		if $cppstdin -DLFRULB=bar $ftry $cppminus <cpp.c \
+			>cpp1.out 2>/dev/null && \
+			$cpprun -DLFRULB=bar $ftry $cpplast <cpp.c \
+			>cpp2.out 2>/dev/null && \
+			$contains 'foo.*xx.*bar' cpp1.out >/dev/null 2>&1 && \
+			$contains 'foo.*xx.*bar' cpp2.out >/dev/null 2>&1
+		then
+			cppflags="$cppflags $ftry"
+			previous=''
+		else
+			previous="$flag"
+		fi
 	done
+	set X $cppflags
+	shift
+	cppflags=${1+"$@"}
 	case "$cppflags" in
-	*-*)  echo "(C preprocessor flags: $cppflags)";;
+	*-*)  echo "They appear to be: $cppflags";;
 	esac
+	$rm -f cpp.c cpp?.out
 	;;
 esac
 
@@ -204,6 +246,9 @@ case "$ldflags" in
 	else
 		dflt='none'
 	fi
+	case "$ccflags" in
+	*-posix*) dflt="$dflt -posix" ;;
+	esac
 	;;
 *) dflt="$ldflags";;
 esac
@@ -230,7 +275,7 @@ rp="Partial linking flags to be used (NOT including -r)?"
 . ./myread
 case "$ans" in
 none) lkflags='';;
-*)    lkflags="$ans";;
+*) lkflags="$ans";;
 esac
 
 @end

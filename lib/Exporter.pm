@@ -2,6 +2,8 @@ package Exporter;
 
 require 5.000;
 
+$ExportLevel = 0;
+
 sub import {
     my ($callpack, $callfile, $callline) = caller($ExportLevel);
     my $pack = shift;
@@ -14,6 +16,9 @@ sub import {
 	if (!%exports) {
 	    grep(s/^&//, @exports);
 	    @exports{@exports} = (1) x  @exports;
+	    foreach $extra (@{"${pack}::EXPORT_OK"}) {
+		$exports{$extra} = 1;
+	    }
 	}
 	foreach $sym (@imports) {
 	    if (!$exports{$sym}) {

@@ -1,31 +1,46 @@
 #include "EXTERN.h"
 #include "perl.h"
 
+/*
+ * "Until it joins some larger way/Where many paths and errands meet."  --Bilbo
+ */
+
 char **watchaddr = 0;
 char *watchok;
 
 #ifndef DEBUGGING
 
+int
 run() {
+    SAVEI32(runlevel);
+    runlevel++;
+
     while ( op = (*op->op_ppaddr)() ) ;
+    return 0;
 }
 
 #else
 
+int
 run() {
     if (!op) {
 	warn("NULL OP IN RUN");
-	return;
+	return 0;
     }
+
+    SAVEI32(runlevel);
+    runlevel++;
+
     do {
 	if (debug) {
 	    if (watchaddr != 0 && *watchaddr != watchok)
 		fprintf(stderr, "WARNING: %lx changed from %lx to %lx\n",
-		    watchaddr, watchok, *watchaddr);
+		    (long)watchaddr, (long)watchok, (long)*watchaddr);
 	    DEBUG_s(debstack());
 	    DEBUG_t(debop(op));
 	}
     } while ( op = (*op->op_ppaddr)() );
+    return 0;
 }
 
 #endif
@@ -51,6 +66,8 @@ OP *op;
 	else
 	    fprintf(stderr, "(NULL)");
 	break;
+    default:
+	break;
     }
     fprintf(stderr, "\n");
     return 0;
@@ -63,5 +80,5 @@ char **addr;
     watchaddr = addr;
     watchok = *addr;
     fprintf(stderr, "WATCHING, %lx is currently %lx\n",
-	watchaddr, watchok);
+	(long)watchaddr, (long)watchok);
 }

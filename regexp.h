@@ -8,20 +8,6 @@
 /* $RCSfile: regexp.h,v $$Revision: 4.1 $$Date: 92/08/07 18:26:35 $
  *
  * $Log:	regexp.h,v $
- * Revision 4.1  92/08/07  18:26:35  lwall
- * 
- * Revision 4.0.1.2  91/11/05  18:24:31  lwall
- * patch11: minimum match length calculation in regexp is now cumulative
- * patch11: initial .* in pattern had dependency on value of $*
- * 
- * Revision 4.0.1.1  91/06/07  11:51:18  lwall
- * patch4: new copyright notice
- * patch4: // wouldn't use previous pattern if it started with a null character
- * patch4: $` was busted inside s///
- * 
- * Revision 4.0  91/03/20  01:39:23  lwall
- * 4.0 baseline.
- * 
  */
 
 typedef struct regexp {

@@ -1,6 +1,11 @@
+/*
+ * "The Road goes ever on and on, down from the door where it began."
+ */
+
 #include "INTERN.h"
 #include "perl.h"
 
+int
 main(argc, argv, env)
 int argc;
 char **argv;
@@ -31,6 +36,5 @@ char **env;
 void
 perl_init_ext()
 {
-    char *file = __FILE__;
     /* Do not delete this line--writemain depends on it */
 }

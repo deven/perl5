@@ -1,0 +1,104 @@
+Article 23526 of comp.lang.perl:
+Path: netlabs!news.cerf.net!usc!howland.reston.ans.net!xlink.net!zib-berlin.de!zrz.TU-Berlin.DE!w250zrz!koen1830
+From: koen1830@w250zrz.zrz.tu-berlin.de (Andreas Koenig)
+Newsgroups: comp.lang.perl
+Subject: Re: tie questions
+Date: 21 Jun 1994 07:04:36 GMT
+Organization: mal franz, mal anna
+Lines: 85
+Message-ID: <2u63e4$1fp@brachio.zrz.TU-Berlin.DE>
+References: <2u4d7kINNa15@life.ai.mit.edu> <ERIC.94Jun21014859@sun.com>
+Reply-To: k@franz.ww.TU-Berlin.DE
+NNTP-Posting-Host: w250zrz.zrz.tu-berlin.de
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 8bit
+Fcc: /u/k/Mailboxes/NNoutgoing.mbox/mbox
+Apparently-To: koen1830@w203zrz.zrz.tu-berlin.de
+
+
+In article <ERIC.94Jun21014859@sun.com>,
+Eric Arnold <eric.arnold@sun.com> wrote:
+>
+>What should this do?:
+>	
+>	tie $x, S1;
+>	$x = \@a;		# optionally
+>	$x->[0] = 3;
+>
+>It causes either an error or a destroy/untie.  Shouldn't it assign an
+>[anon] list reference to $x?  I'd like it to, but I don't know if it ever
+>will, since it mightn't be a bug.  Also, this dumps core:
+
+Hey, the things you are trying to do are a bit too complicated for an
+alpha version. Try to keep it simpler, then you can more easily
+distinguish between bugs and features. Try this S1 (the bare minimum):
+
+package S1;
+sub new     { print "S1 new \@_=(@_) \n";       bless \"" }
+sub fetch   { print "S1 fetch \@_=(@_) \n";     @_ }
+sub store   { print "S1 store \@_=(@_) \n";     $_[0] = $_[1] }
+sub DESTROY { print "S1 destroy \@_=(@_) \n";}
+
+package main;
+	tie $x, S1;     # gives a new
+	$x = \@a;	# gives a store
+	$x->[0] = 3;    # silent
+print $x->[0], "\n";    # gives a `3'
+print $x, "\n";         # Boom!
+
+You get a bus error and you can write a neat bug report. Larry, so me
+thinks, loves such ``simple'' cases to fix.
+
+>
+>	tie %x, H1;
+>	$x{"A"}->[0] = 3;
+>	package H1;
+>	sub new{ bless {} }
+>with message:
+>	Attempt to free temp prematurely at ./tsttie5 line 2.	
+>
+
+I think you hit another bug. Tim has encountered a similar
+situation in his DBperl testbed.
+But if you change the second line to
+
+	$x{"A"} = 3;
+
+you get a nice message:
+
+Undefined element A at ...
+
+as you have specified in your H1. So maybe it can be reduced to the
+same bug as above???
+
+>I'd also like to understand just what's supposed to be going on with a
+>tied variable.  A tied variable looks superficially like an "object",
+>since the tie package "new" function "bless"es a reference like an
+>object package does.  However, a tied variable behaves differently in
+>other ways to an object.  For example, you can't do:
+>	$x->fetch();
+
+Try 
+
+$ref = tie $x PACKAGE;
+
+then you open the backdoor, you can run 
+
+$ref->fetch() 
+
+but that's supposed to be a dirty trick, at least for *some* people.
+The reference that is provided by the tie goes into a magical list
+associated with the scalar $x. You don't need it under normal
+conditions, because that's what tie is designed for, it just gives you
+some magic about a variable.
+
+[...]
+Before I digest the rest of your posting I'd like to offer you
+another short cut:
+
+~> perl -le 'print $x-[0]'
+-779184
+
+--Andreas
+
+

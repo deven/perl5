@@ -1,0 +1,18 @@
+#!./perl
+
+tie $r, TIED;
+
+$r = 'outside';
+{
+    local($r);
+    $r = 'inside';
+    print "INSIDE ".$r."\n";
+}
+print "OUTSIDE ".$r."\n";
+
+package TIED;
+
+sub new { bless [] };
+sub FETCH { print "fetch @_\n"; $_[0][0] }
+sub STORE { print "store @_\n"; $_[0][0] = $_[1]; }
+DESTROY { print "DESTROY @_\n" }

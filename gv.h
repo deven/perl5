@@ -1,27 +1,11 @@
 /* $RCSfile: gv.h,v $$Revision: 4.1 $$Date: 92/08/07 18:26:42 $
  *
- *    Copyright (c) 1991, Larry Wall
+ *    Copyright (c) 1991-1994, Larry Wall
  *
  *    You may distribute under the terms of either the GNU General Public
  *    License or the Artistic License, as specified in the README file.
  *
  * $Log:	gv.h,v $
- * Revision 4.1  92/08/07  18:26:42  lwall
- * 
- * Revision 4.0.1.3  92/06/08  15:33:44  lwall
- * patch20: fixed confusion between a *var's real name and its effective name
- * patch20: ($<,$>) = ... didn't work on some architectures
- * 
- * Revision 4.0.1.2  91/11/05  18:36:15  lwall
- * patch11: length($x) was sometimes wrong for numeric $x
- * 
- * Revision 4.0.1.1  91/06/07  11:56:35  lwall
- * patch4: new copyright notice
- * patch4: length($`), length($&), length($') now optimized to avoid string copy
- * 
- * Revision 4.0  91/03/20  01:39:49  lwall
- * 4.0 baseline.
- * 
  */
 
 struct gp {
@@ -104,3 +88,4 @@ HV *GvHVn();
 #define DM_EGID   0x020
 #define DM_DELAY 0x100
 
+#define GVf_INTRO 0x01

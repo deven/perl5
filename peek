@@ -16,12 +16,14 @@ $foo = "stuff";
 
 ($any, $refcnt, $type, $flags, $storage, $private) =
 	unpackmem(\$foo, 12, "L2 C4");
+#	unpackmem(\$foo, 24, "L2 x4 C4"); # UNICOS
 
 printf "SV = any %lx refcnt %d type %d flags %x storage '%c' private %x\n",
 	$any, $refcnt, $type, $flags, $storage, $private;
 
 if ($type >= 4) {
     ($pv, $cur, $len) = unpackmem($any, 12, "L3");
+#    ($pv, $cur, $len) = unpackmem($any, 24, "L3"); # UNICOS
 
     printf "XPV = pv %lx cur %d len %d\n", $pv,$cur,$len;
 

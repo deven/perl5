@@ -1,35 +1,22 @@
 /* $RCSfile: hash.c,v $$Revision: 4.1 $$Date: 92/08/07 18:21:48 $
  *
- *    Copyright (c) 1991, Larry Wall
+ *    Copyright (c) 1991-1994, Larry Wall
  *
  *    You may distribute under the terms of either the GNU General Public
  *    License or the Artistic License, as specified in the README file.
  *
  * $Log:	hash.c,v $
- * Revision 4.1  92/08/07  18:21:48  lwall
- * 
- * Revision 4.0.1.3  92/06/08  13:26:29  lwall
- * patch20: removed implicit int declarations on functions
- * patch20: delete could cause %array to give too low a count of buckets filled
- * patch20: hash tables now split only if the memory is available to do so
- * 
- * Revision 4.0.1.2  91/11/05  17:24:13  lwall
- * patch11: saberized perl
- * 
- * Revision 4.0.1.1  91/06/07  11:10:11  lwall
- * patch4: new copyright notice
- * 
- * Revision 4.0  91/03/20  01:22:26  lwall
- * 4.0 baseline.
- * 
+ */
+
+/*
+ * "I sit beside the fire and think of all that I have seen."  --Bilbo
  */
 
 #include "EXTERN.h"
 #include "perl.h"
 
-static void hsplit();
-
-static void hfreeentries();
+static void hsplit _((HV *hv));
+static void hfreeentries _((HV *hv));
 
 SV**
 hv_fetch(hv,key,klen,lval)
@@ -52,10 +39,6 @@ I32 lval;
 	if (mg_find((SV*)hv,'P')) {
 	    sv = sv_newmortal();
 	    mg_copy((SV*)hv, sv, key, klen);
-	    if (!lval) {
-		mg_get(sv);
-		sv_unmagic(sv,'p');
-	    }
 	    Sv = sv;
 	    return &Sv;
 	}
@@ -63,7 +46,11 @@ I32 lval;
 
     xhv = (XPVHV*)SvANY(hv);
     if (!xhv->xhv_array) {
-	if (lval)
+	if (lval 
+#ifdef DYNAMIC_ENV_FETCH  /* if it's an %ENV lookup, we may get it on the fly */
+	         || (HvNAME(hv) && strEQ(HvNAME(hv),ENV_HV_NAME))
+#endif
+	                                                          )
 	    Newz(503,xhv->xhv_array, sizeof(HE*) * (xhv->xhv_max + 1), char);
 	else
 	    return 0;
@@ -75,7 +62,7 @@ I32 lval;
     while (i--)
 	hash = hash * 33 + *s++;
 
-    entry = ((HE**)xhv->xhv_array)[hash & xhv->xhv_max];
+    entry = ((HE**)xhv->xhv_array)[hash & (I32) xhv->xhv_max];
     for (; entry; entry = entry->hent_next) {
 	if (entry->hent_hash != hash)		/* strings can't be equal */
 	    continue;
@@ -85,6 +72,21 @@ I32 lval;
 	    continue;
 	return &entry->hent_val;
     }
+#ifdef DYNAMIC_ENV_FETCH  /* %ENV lookup?  If so, try to fetch the value now */
+    if (HvNAME(hv) && strEQ(HvNAME(hv),ENV_HV_NAME)) {
+      char *gotenv, *tmp;
+
+      /* We need a NUL-terminated string for getenv */
+      New(507,tmp,klen+1,char *);
+      strncpy(tmp,key,klen);
+      gotenv = getenv(tmp);
+      safefree(tmp);
+      if (gotenv != NULL) {
+        sv = newSVpv(gotenv,strlen(gotenv));
+        return hv_store(hv,key,klen,sv,hash);
+      }
+    }
+#endif
     if (lval) {		/* gonna assign to this, so it better be there */
 	sv = NEWSV(61,0);
 	return hv_store(hv,key,klen,sv,hash);
@@ -112,8 +114,14 @@ register U32 hash;
     xhv = (XPVHV*)SvANY(hv);
     if (SvMAGICAL(hv)) {
 	mg_copy((SV*)hv, val, key, klen);
+#ifndef OVERLOAD
 	if (!xhv->xhv_array)
 	    return 0;
+#else
+	if (!xhv->xhv_array && (SvMAGIC(hv)->mg_type != 'A'
+				|| SvMAGIC(hv)->mg_moremagic))
+	  return 0;
+#endif /* OVERLOAD */
     }
     if (!hash) {
     i = klen;
@@ -125,7 +133,7 @@ register U32 hash;
     if (!xhv->xhv_array)
 	Newz(505, xhv->xhv_array, sizeof(HE**) * (xhv->xhv_max + 1), char);
 
-    oentry = &((HE**)xhv->xhv_array)[hash & xhv->xhv_max];
+    oentry = &((HE**)xhv->xhv_array)[hash & (I32) xhv->xhv_max];
     i = 1;
 
     for (entry = *oentry; entry; i=0, entry = entry->hent_next) {
@@ -177,6 +185,10 @@ U32 klen;
     if (SvRMAGICAL(hv)) {
 	sv = *hv_fetch(hv, key, klen, TRUE);
 	mg_clear(sv);
+	if (mg_find(sv, 'p')) {
+	    sv_unmagic(sv, 'p');	/* No longer an element */
+	    return sv;
+	}
     }
     xhv = (XPVHV*)SvANY(hv);
     if (!xhv->xhv_array)
@@ -187,7 +199,7 @@ U32 klen;
     while (i--)
 	hash = hash * 33 + *s++;
 
-    oentry = &((HE**)xhv->xhv_array)[hash & xhv->xhv_max];
+    oentry = &((HE**)xhv->xhv_array)[hash & (I32) xhv->xhv_max];
     entry = *oentry;
     i = 1;
     for (; entry; i=0, oentry = &entry->hent_next, entry = *oentry) {
@@ -208,12 +220,60 @@ U32 klen;
     return Nullsv;
 }
 
+bool
+hv_exists(hv,key,klen)
+HV *hv;
+char *key;
+U32 klen;
+{
+    register XPVHV* xhv;
+    register char *s;
+    register I32 i;
+    register I32 hash;
+    register HE *entry;
+    SV *sv;
+
+    if (!hv)
+	return 0;
+
+    if (SvRMAGICAL(hv)) {
+	if (mg_find((SV*)hv,'P')) {
+	    sv = sv_newmortal();
+	    mg_copy((SV*)hv, sv, key, klen); 
+	    magic_existspack(sv, mg_find(sv, 'p'));
+	    return SvTRUE(sv);
+	}
+    }
+
+    xhv = (XPVHV*)SvANY(hv);
+    if (!xhv->xhv_array)
+	return 0; 
+
+    i = klen;
+    hash = 0;
+    s = key;
+    while (i--)
+	hash = hash * 33 + *s++;
+
+    entry = ((HE**)xhv->xhv_array)[hash & (I32) xhv->xhv_max];
+    for (; entry; entry = entry->hent_next) {
+	if (entry->hent_hash != hash)		/* strings can't be equal */
+	    continue;
+	if (entry->hent_klen != klen)
+	    continue;
+	if (bcmp(entry->hent_key,key,klen))	/* is this it? */
+	    continue;
+	return TRUE;
+    }
+    return FALSE;
+}
+
 static void
 hsplit(hv)
 HV *hv;
 {
     register XPVHV* xhv = (XPVHV*)SvANY(hv);
-    I32 oldsize = xhv->xhv_max + 1;
+    I32 oldsize = (I32) xhv->xhv_max + 1; /* sic(k) */
     register I32 newsize = oldsize * 2;
     register I32 i;
     register HE **a;
@@ -256,9 +316,8 @@ newHV()
     register HV *hv;
     register XPVHV* xhv;
 
-    Newz(502,hv, 1, HV);
-    SvREFCNT(hv) = 1;
-    sv_upgrade(hv, SVt_PVHV);
+    hv = (HV*)newSV(0);
+    sv_upgrade((SV *)hv, SVt_PVHV);
     xhv = (XPVHV*)SvANY(hv);
     SvPOK_off(hv);
     SvNOK_off(hv);
@@ -303,30 +362,43 @@ HV *hv;
     xhv->xhv_fill = 0;
     if (xhv->xhv_array)
 	(void)memzero(xhv->xhv_array, (xhv->xhv_max + 1) * sizeof(HE*));
+
+    if (SvRMAGICAL(hv))
+	mg_clear((SV*)hv); 
 }
 
 static void
 hfreeentries(hv)
 HV *hv;
 {
-    register XPVHV* xhv;
+    register HE **array;
     register HE *hent;
     register HE *ohent = Null(HE*);
+    I32 riter;
+    I32 max;
 
     if (!hv)
 	return;
-    xhv = (XPVHV*)SvANY(hv);
-    if (!xhv->xhv_array)
+    if (!HvARRAY(hv))
 	return;
-    (void)hv_iterinit(hv);
-    /*SUPPRESS 560*/
-    while (hent = hv_iternext(hv)) {	/* concise but not very efficient */
-	he_free(ohent);
-	ohent = hent;
+
+    riter = 0;
+    max = HvMAX(hv);
+    array = HvARRAY(hv);
+    hent = array[0];
+    for (;;) {
+	if (hent) {
+	    ohent = hent;
+	    hent = hent->hent_next;
+	    he_free(ohent);
+	}
+	if (!hent) {
+	    if (++riter > max)
+		break;
+	    hent = array[riter];
+	} 
     }
-    he_free(ohent);
-    if (SvMAGIC(hv))
-	mg_clear((SV*)hv);
+    (void)hv_iterinit(hv);
 }
 
 void
@@ -346,7 +418,9 @@ HV *hv;
     xhv->xhv_array = 0;
     xhv->xhv_max = 7;		/* it's a normal associative array */
     xhv->xhv_fill = 0;
-    (void)hv_iterinit(hv);	/* so each() will start off right */
+
+    if (SvRMAGICAL(hv))
+	mg_clear((SV*)hv); 
 }
 
 I32
@@ -380,10 +454,10 @@ HV *hv;
             Newz(504,entry, 1, HE);
             xhv->xhv_eiter = entry;
         }
-	magic_nextpack(hv,mg,key);
+	magic_nextpack((SV*) hv,mg,key);
         if (SvOK(key)) {
 	    STRLEN len;
-	    entry->hent_key = SvPV(key, len);
+	    entry->hent_key = SvPV_force(key, len);
 	    entry->hent_klen = len;
 	    SvPOK_off(key);
 	    SvPVX(key) = 0;
@@ -402,7 +476,7 @@ HV *hv;
 	if (entry)
 	    entry = entry->hent_next;
 	if (!entry) {
-	    xhv->xhv_riter++;
+	    ++xhv->xhv_riter;
 	    if (xhv->xhv_riter > xhv->xhv_max) {
 		xhv->xhv_riter = -1;
 		break;
@@ -433,8 +507,6 @@ register HE *entry;
 	if (mg_find((SV*)hv,'P')) {
 	    SV* sv = sv_newmortal();
 	    mg_copy((SV*)hv, sv, entry->hent_key, entry->hent_klen);
-	    mg_get(sv);
-	    sv_unmagic(sv,'p');
 	    return sv;
 	}
     }
@@ -445,7 +517,7 @@ void
 hv_magic(hv, gv, how)
 HV* hv;
 GV* gv;
-I32 how;
+int how;
 {
-    sv_magic((SV*)hv, (SV*)gv, how, 0, 0);
+    sv_magic((SV*)hv, (SV*)gv, how, Nullch, 0);
 }

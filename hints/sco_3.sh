@@ -1,7 +1,6 @@
+# Try to use libdbm.nfs.a since it has dbmclose.
 yacc='/usr/bin/yacc -Sm11000'
-libswanted=`echo $libswanted | sed 's/ x / /'`
-ccflags="$ccflags -U M_XENIX"
-cppstdin='/lib/cpp -Di386 -DM_I386 -Dunix -DM_UNIX -DM_INTERNAT -DLAI_TCP'
-cppminus=''
+libswanted=`echo dbm.nfs $libswanted | sed 's/ x$/ /'`
+ccflags="$ccflags -W0 -U M_XENIX"
 i_varargs=undef
 d_rename='undef'

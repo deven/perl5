@@ -1,0 +1,258 @@
+Article 22422 of comp.lang.perl:
+Path: netlabs!news.cerf.net!ihnp4.ucsd.edu!munnari.oz.au!bunyip.cc.uq.oz.au!harbinger.cc.monash.edu.au!news.cs.su.oz.au!metro!ipso!gsms01.alcatel.oz.au!gsms01.alcatel.oz.au!not-for-mail
+From: jeremyp@gsms01.alcatel.oz.au (Peter Jeremy)
+Newsgroups: comp.lang.perl
+Subject: Bugs in perl, oraperl and a2p
+Date: 24 May 1994 16:03:16 +1000
+Organization: Alcatel Australia Limited
+Lines: 243
+Distribution: inet
+Message-ID: <2qn834$2fr@gsms01.alcatel.oz.au>
+NNTP-Posting-Host: gsms01.alcatel.oz.au
+Disclaimer: The views expressed herein are those of the author only
+
+In the process of converting a large awk script to perl, I have bumped
+into several misfeatures.  I am using perl 4.034 and oraperl version 2
+patchlevel 4 on SunOS 4.1.3.
+
+----------------------------------------------------------------
+1) The perl problem is that setting $# to '%d' causes numeric output to
+   be corrupted unless some non-numeric characters exist in the output,
+   even if a different format is specified in a printf.
+
+gsms01% perl -ew '$# = "%d"; $a = 1; printf " %.0fx", $a; print "($a)\n";'
+ 1x(1)
+gsms01% perl -ew '$# = "%d"; $a = 1; printf " %.0fx\n", $a; print "($a)\n";'
+ 1x
+(1)
+gsms01% perl -ew '$# = "%d"; $a = 1; printf " %.0f\n", $a; print "($a)\n";'
+1072693248(1)
+gsms01% perl -ew '$# = "%d"; $a = 1; printf " %d\n", $a; print "($a)\n";'
+1072693248(1)
+gsms01% perl -ew '$# = "%.0f"; $a = 1; printf " %d\n", $a; print "($a)\n";'
+1(1)
+gsms01% perl -ew '$a = 1; printf " %d\n", $a; print "($a)\n";'
+ 1
+(1)
+gsms01% 
+
+Note that when $# is set to either '%d' or '%.0f', all whitespace is
+lost.  With $# set to '%d', the value printed is 0x7ff00000, which is
+the high word of a double precision 1.0.
+
+
+----------------------------------------------------------------
+2) The oraperl problem relates to LONG datatypes.  oraperl internally
+   uses shorts for the field lengths.  From my reading of Oracle
+   behaviour (and I don't have an up-to-date Pro*C manual handy to confirm),
+   this should be an unsigned short (to allow up to 65535 bytes).  This
+   causes problems trying to read tables with LONG columns > 32K in
+   length.
+
+I believe the following patch solves the problem, but I have not fully tested
+it yet.
+--- debug/orafns.c	Wed Apr 27 15:00:44 1994
++++ orafns.c	Tue May 10 15:54:39 1994
+@@ -228,7 +228,7 @@
+ 	int i;
+ 	struct cursor *csr;
+ 	struct cursor *lda = (struct cursor *)strtoul(lda_s, (char **) NULL, 0);
+-	short dsize;
++	word dsize;
+ 
+ 	DBUG_ENTER("ora_open");
+ 	DBUG_PRINT("entry", ("ora_open(%s, \"%s\", %d)", lda_s, stmt, cache));
+@@ -280,8 +280,8 @@
+ 	i = 0;
+ 	do
+ 	{
+-		odsc(csr->csr, ++i, (short *) 0, (short *) 0, (short *) 0,
+-			(short *) 0, (char *) 0, (short *) 0, (short *) 0);
++		odsc(csr->csr, ++i, (word *) 0, (word *) 0, (word *) 0,
++			(word *) 0, (char *) 0, (word *) 0, (word *) 0);
+ 	} while (csr->csr->csrrc == 0);
+ 	--i;
+ 	ora_err.no = 0;
+@@ -317,7 +317,7 @@
+ 		     i, i * sizeof(char *), (long) csr->data));
+ 		*csr->data = (char *) NULL;
+ 
+-		if ((csr->len = (short *) malloc(i * sizeof(short))) == NULL)
++		if ((csr->len = (word *) malloc(i * sizeof(word))) == NULL)
+ 		{
+ 			DBUG_PRINT("malloc", ("insufficient memory for len"));
+ 			oclose(csr->csr);
+@@ -327,9 +327,9 @@
+ 			DBUG_RETURN((char *) NULL);
+ 		}
+ 		DBUG_PRINT("malloc", ("got len array %d items %d bytes at %#lx",
+-		     i, i * sizeof(short), (long) csr->len));
++		     i, i * sizeof(word), (long) csr->len));
+ 
+-		if ((csr->rcode = (short **) malloc(i*sizeof(short *))) == NULL)
++		if ((csr->rcode = (word **) malloc(i*sizeof(word *))) == NULL)
+ 		{
+ 			DBUG_PRINT("malloc", ("insufficient memory for rcode"));
+ 			oclose(csr->csr);
+@@ -340,9 +340,9 @@
+ 		}
+ 		DBUG_PRINT("malloc",
+ 		    ("got rcode array %d items %d bytes at %#lx",
+-		     i, i * sizeof(short *), (long) csr->rcode));
++		     i, i * sizeof(word *), (long) csr->rcode));
+ 
+-		if ((csr->type = (short *) malloc(i * sizeof(short))) == NULL)
++		if ((csr->type = (word *) malloc(i * sizeof(word))) == NULL)
+ 		{
+ 			DBUG_PRINT("malloc", ("insufficient memory for type"));
+ 			oclose(csr->csr);
+@@ -352,15 +352,15 @@
+ 			DBUG_RETURN((char *) NULL);
+ 		}
+ 		DBUG_PRINT("malloc",("got type array %d items %d bytes at %#lx",
+-		     i, i * sizeof(short), (long) csr->type));
++		     i, i * sizeof(word), (long) csr->type));
+ 
+ 		csr->nfields = i;
+ 
+ 		for (i = 0 ; i < csr->nfields ; i++)
+ 		{
+-			odsc(csr->csr, i + 1, (short *) 0, (short *) 0,
+-			    (short *) 0, &csr->type[i], (char *) 0,
+-			    (short *) 0, &dsize);
++			odsc(csr->csr, i + 1, (word *) 0, (word *) 0,
++			    (word *) 0, &csr->type[i], (char *) 0,
++			    (word *) 0, &dsize);
+ 
+ 			if ((csr->type[i] == 8) || (csr->type[i] == 24))
+ 			{
+@@ -386,7 +386,7 @@
+ 			     i, (dsize + 1) * cache, csr->data[i]));
+ 
+ 			if ((csr->rcode[i] =
+-			    (short *) malloc(sizeof(short) * cache)) == NULL)
++			    (word *) malloc(sizeof(word) * cache)) == NULL)
+ 			{
+ 				DBUG_PRINT("malloc",
+ 				    ("insufficient memory for rcode[%d]", i));
+@@ -397,10 +397,10 @@
+ 				DBUG_RETURN((char *) NULL);
+ 			}
+ 			DBUG_PRINT("malloc", ("got rcode %d, %d bytes at %#lx",
+-			     i, sizeof(short) * cache, csr->rcode[i]));
++			     i, sizeof(word) * cache, csr->rcode[i]));
+ 
+ 			odefin(csr->csr, i + 1, csr->data[i], dsize + 1, 5, 0,
+-				(short *) 0, (char *) 0, 0, 0, (short *) 0,
++				(word *) 0, (char *) 0, 0, 0, (word *) 0,
+ 				csr->rcode[i]);
+ 			csr->len[i] = dsize;
+ 
+@@ -468,7 +468,7 @@
+ int truncate;
+ {
+ 	int i;
+-	short len;
++	word len;
+ 	struct cursor *csr = (struct cursor *)strtoul(csr_s, (char **) NULL, 0);
+ 
+ 	static	int	 n_titles	= 0;
+@@ -533,7 +533,7 @@
+ 	for (i = 0 ; i < csr->nfields ; i++)
+ 	{
+ 		len = (truncate) ? csr->len[i] : 256;
+-		oname(csr->csr, i + 1, (char *) -1, (short *) -1,
++		oname(csr->csr, i + 1, (char *) -1, (word *) -1,
+ 		      &titles[256 * i], &len);
+ 		ora_result[i] = &titles[256 * i];
+ 		ora_result[i][len] = '\0';
+@@ -559,7 +559,7 @@
+ char *csr_s;
+ {
+ 	int i;
+-	short len;
++	word len;
+ 	struct cursor *csr = (struct cursor *)strtoul(csr_s, (char **) NULL, 0);
+ 
+ 	DBUG_ENTER("ora_lengths");
+--- debug/orafns.h	Wed Apr 27 15:00:44 1994
++++ orafns.h	Tue May 10 15:54:36 1994
+@@ -10,6 +10,8 @@
+  */
+ 
+ 
++typedef unsigned short	word;
++
+ /* public functions to be called by Perl programs */
+ 
+ void		ora_version();
+@@ -77,7 +79,7 @@
+ 	struct	csrdef	*csr;
+ 	char		*hda,		/* used if this cursor is an lda     */
+ 			**data;		/* used to receive database contents */
+-	short		**rcode,	/* used to receive fetch error codes */
++	word		**rcode,	/* used to receive fetch error codes */
+ 			*type,		/* used to receive data types	     */
+ 			*len;		/* used to receive field lengths     */
+ 	int		cache_size,	/* how many rows to cache	     */
+
+----------------------------------------------------------------
+3) a2p does not accept the following awk script:
+
+BEGIN {
+	printf "hello\n"
+	do {
+		if ((getline) <= 0)
+			exit;
+		foo += $0
+	} while (1)
+}
+END {
+	printf "%d", foo
+	print "the end"
+}
+
+unless there is a semicolon following the `while (1)' (it says
+	parse error in file /mnt/x1 at line 7
+	Translation aborted due to syntax errors.
+).  When the semicolon is added, the following script is produced, which
+includes a reference to an undefined label `line':
+
+#!/usr/local/bin/perl
+eval "exec /usr/local/bin/perl -S $0 $*"
+    if $running_under_some_shell;
+			# this emulates #! processing on NIH machines.
+			# (remove #! line above if indigestible)
+
+eval '$'.$1.'$2;' while $ARGV[0] =~ /^([A-Za-z_]+=)(.*)/ && shift;
+			# process any FOO=bar switches
+
+$, = ' ';		# set output field separator
+$\ = "\n";		# set output record separator
+
+printf "hello\n";
+do {
+    if ((($_ = &Getline0(),$getline_ok)) <= 0) {
+	last line;
+    }
+    $foo += $_;
+} while (1);
+
+while (<>) { }		# (no line actions)
+
+printf '%d', $foo;
+print 'the end';
+
+sub Getline0 {
+    if ($getline_ok = (($_ = <>) ne '')) {
+	chop;	# strip record separator
+    }
+    $_;
+}
+-- 
+Peter Jeremy (VK2PJ)			peter@titan.alcatel.oz.au
+Alcatel Australia Limited		jeremyp@gsms01.alcatel.oz.au
+41 Mandible St				Phone: +61 2 690 5019
+ALEXANDRIA  NSW  2015			Fax:   +61 2 690 5247
+
+

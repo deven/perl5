@@ -5,6 +5,19 @@
  * are not checked by the configuration script, but are directly defined
  * here.
  */
+
+/* HAS_IOCTL:
+ *	This symbol, if defined, indicates that the ioctl() routine is
+ *	available to set I/O characteristics
+ */
+#define	HAS_IOCTL		/**/
+ 
+/* HAS_UTIME:
+ *	This symbol, if defined, indicates that the routine utime() is
+ *	available to update the access and modification times of files.
+ */
+#define HAS_UTIME		/**/
+
 #define HAS_ALARM
 #define HAS_CHOWN
 #define HAS_CHROOT

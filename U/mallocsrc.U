@@ -1,4 +1,4 @@
-?RCS: $Id: mallocsrc.U,v 3.0 1993/08/18 12:09:12 ram Exp $
+?RCS: $Id: mallocsrc.U,v 3.0.1.1 1994/05/06 15:10:46 ram Exp $
 ?RCS:
 ?RCS: Copyright (c) 1991-1993, Raphael Manfredi
 ?RCS: 
@@ -9,17 +9,22 @@
 ?RCS: of the source tree for dist 3.0.
 ?RCS:
 ?RCS: $Log: mallocsrc.U,v $
+?RCS: Revision 3.0.1.1  1994/05/06  15:10:46  ram
+?RCS: patch23: added support for MYMALLOC, mainly  for perl5 (ADO)
+?RCS:
 ?RCS: Revision 3.0  1993/08/18  12:09:12  ram
 ?RCS: Baseline for dist 3.0 netwide release.
 ?RCS:
-?MAKE:mallocsrc mallocobj usemymalloc malloctype d_mymalloc: Myread Oldconfig package \
-	Guess Setvar test rm cat +cc +ccflags Findhdr
+?MAKE:mallocsrc mallocobj usemymalloc malloctype d_mymalloc: Myread \
+	Oldconfig package Guess Setvar test rm cat +cc +ccflags Findhdr \
+	sed libs
 ?MAKE:	-pick add $@ %<
 ?S:usemymalloc:
 ?S:	This variable contains y if the malloc that comes with this package
 ?S:	is desired over the system's version of malloc.  People often include
 ?S:	special versions of malloc for effiency, but such versions are often
 ?S:	less portable.  See also mallocsrc and mallocobj.
+?S:	If this is 'y', then -lmalloc is removed from $libs.
 ?S:.
 ?S:mallocsrc:
 ?S:	This variable contains the name of the malloc.c that comes with
@@ -51,38 +56,49 @@
 ?C:.
 ?H:#$d_mymalloc MYMALLOC			/**/
 ?H:.
+?LINT:change libs
 ?X: Cannot test for mallocsrc; it is the unit's name and there is a bug in
 ?X: the interpreter which defines all the names, even though they are not used.
 @if mallocobj
 : determine which malloc to compile in
-:  Old versions had dflt='y' only for bsd or v7.
 echo " "
 case "$usemymalloc" in
-'')
-	if bsd || v7; then
-		dflt='y'
-	else
-		dflt='y'
-	fi
-	;;
-*)  dflt="$usemymalloc"
-	;;
+''|y*|true)	dflt='y' ;;
+n*|false)	dflt='n' ;;
+*)	dflt="$usemymalloc" ;;
 esac
 rp="Do you wish to attempt to use the malloc that comes with $package?"
 . ./myread
 usemymalloc="$ans"
 case "$ans" in
-y*) mallocsrc='malloc.c'
-    mallocobj='malloc.o'
-    d_mymalloc="$define"
-    ;;
-*) mallocsrc=''
-   mallocobj=''
-   d_mymalloc="$undef"
-   ;;
+y*|true)
+	usemymalloc='y'
+	mallocsrc='malloc.c'
+	mallocobj='malloc.o'
+	d_mymalloc="$define"
+?X:	Maybe libs.U should be dependent on mallocsrc.U, but then
+?X:	most packages that use dist probably don't supply their own
+?X:	malloc, so this is probably an o.k. comprpomise
+	case "$libs" in
+	*-lmalloc*)
+		: Remove malloc from list of libraries to use
+		echo "Removing unneeded -lmalloc from library list" >&4
+		set `echo X $libs | $sed -e 's/-lmalloc / /' -e 's/-lmalloc$//'`
+		shift
+		libs="$*"
+		echo "libs = $libs" >&4
+		;;
+	esac
+	;;
+*)
+	usemymalloc='n'
+	mallocsrc=''
+	mallocobj=''
+	d_mymalloc="$undef"
+	;;
 esac
-@end
 
+@end
 @if MALLOCPTRTYPE || Malloc_t
 : compute the type returned by malloc
 echo " "

@@ -14,65 +14,22 @@ $header = '$RCSfile: perldb.pl,v $$Revision: 4.1 $$Date: 92/08/07 18:24:07 $';
 # have a breakpoint.  It also inserts a do 'perldb.pl' before the first line.
 #
 # $Log:	perldb.pl,v $
-# Revision 4.1  92/08/07  18:24:07  lwall
-# 
-# Revision 4.0.1.3  92/06/08  13:43:57  lwall
-# patch20: support for MSDOS folded into perldb.pl
-# patch20: perldb couldn't debug file containing '-', such as STDIN designator
-# 
-# Revision 4.0.1.2  91/11/05  17:55:58  lwall
-# patch11: perldb.pl modified to run within emacs in perldb-mode
-# 
-# Revision 4.0.1.1  91/06/07  11:17:44  lwall
-# patch4: added $^P variable to control calling of perldb routines
-# patch4: debugger sometimes listed wrong number of lines for a statement
-# 
-# Revision 4.0  91/03/20  01:25:50  lwall
-# 4.0 baseline.
-# 
-# Revision 3.0.1.6  91/01/11  18:08:58  lwall
-# patch42: @_ couldn't be accessed from debugger
-# 
-# Revision 3.0.1.5  90/11/10  01:40:26  lwall
-# patch38: the debugger wouldn't stop correctly or do action routines
-# 
-# Revision 3.0.1.4  90/10/15  17:40:38  lwall
-# patch29: added caller
-# patch29: the debugger now understands packages and evals
-# patch29: scripts now run at almost full speed under the debugger
-# patch29: more variables are settable from debugger
-# 
-# Revision 3.0.1.3  90/08/09  04:00:58  lwall
-# patch19: debugger now allows continuation lines
-# patch19: debugger can now dump lists of variables
-# patch19: debugger can now add aliases easily from prompt
-# 
-# Revision 3.0.1.2  90/03/12  16:39:39  lwall
-# patch13: perl -d didn't format stack traces of *foo right
-# patch13: perl -d wiped out scalar return values of subroutines
-# 
-# Revision 3.0.1.1  89/10/26  23:14:02  lwall
-# patch1: RCS expanded an unintended $Header in lib/perldb.pl
-# 
-# Revision 3.0  89/10/18  15:19:46  lwall
-# 3.0 baseline
-# 
-# Revision 2.0  88/06/05  00:09:45  root
-# Baseline version 2.0.
-# 
-#
 
 if (-e "/dev/tty") {
     $console = "/dev/tty";
     $rcfile=".perldb";
 }
-else {
+elsif (-e "con") {
     $console = "con";
+    $rcfile="perldb.ini";
+}
+else {
+    $console = "sys\$command";
     $rcfile="perldb.ini";
 }
 
 open(IN, "<$console") || open(IN,  "<&STDIN");	# so we don't dingle stdin
-open(OUT,">$console") || open(OUT, "<&STDERR")
+open(OUT,">$console") || open(OUT, ">&STDERR")
     || open(OUT, ">&STDOUT");	# so we don't dongle stdout
 select(OUT);
 $| = 1;				# for DB::OUT
@@ -81,7 +38,7 @@ $| = 1;				# for real STDOUT
 $sub = '';
 
 # Is Perl being run from Emacs?
-$emacs = $main::ARGV[$[] eq '-emacs';
+$emacs = $main::ARGV[0] eq '-emacs';
 shift(@main::ARGV) if $emacs;
 
 $header =~ s/.Header: ([^,]+),v(\s+\S+\s+\S+).*$/$1$2/;
@@ -94,7 +51,7 @@ print OUT "\nEnter h for help.\n\n";
 sub DB {
     &save;
     ($package, $filename, $line) = caller;
-    $usercontext = '($@, $!, $[, $,, $/, $\) = @saved;' .
+    $usercontext = '($@, $!, $,, $/, $\) = @saved;' .
 	"package $package;";		# this won't let them modify, alas
     local(*dbline) = "::_<$filename";
     $max = $#dbline;
@@ -520,12 +477,12 @@ command		Execute as a perl statement in current package.
 	    $evalarg = $post; &eval;
 	}
     }
-    ($@, $!, $[, $,, $/, $\) = @saved;
+    ($@, $!, $,, $/, $\) = @saved;
 }
 
 sub save {
-    @saved = ($@, $!, $[, $,, $/, $\);
-    $[ = 0; $, = ""; $/ = "\n"; $\ = "";
+    @saved = ($@, $!, $,, $/, $\);
+    $, = ""; $/ = "\n"; $\ = "";
 }
 
 # The following takes its argument via $evalarg to preserve current @_
