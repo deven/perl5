@@ -6,9 +6,10 @@ perldata - Perl data structures
 
 =head2 Variable names
 
-I<Perl> has three data structures: scalars, arrays of scalars, and
+Perl has three data structures: scalars, arrays of scalars, and
 associative arrays of scalars, known as "hashes".  Normal arrays are
-indexed by number, and hash arrays by string.
+indexed by number, starting with 0.  (Negative subscripts count from
+the end.)  Hash arrays are indexed by string.
 
 Scalar values are always named with '$', even when referring to a scalar
 that is part of an array.  It works like the English word "the".  Thus
@@ -47,9 +48,9 @@ the "reserved" words aren't in fact reserved with respect to variable
 names.  (They ARE reserved with respect to labels and filehandles,
 however, which don't have an initial special character.  You can't have
 a filehandle named "log", for instance.  Hint: you could say
-open(LOG,'logfile') rather than open(log,'logfile').  Using uppercase
+C<open(LOG,'logfile')> rather than C<open(log,'logfile')>.  Using uppercase
 filehandles also improves readability and protects you from conflict
-with future reserved words.)  Case IS significant--"FOO", "Foo" and
+with future reserved words.)  Case I<IS> significant--"FOO", "Foo" and
 "foo" are all different names.  Names that start with a letter or
 underscore may also contain digits and underscores.
 
@@ -60,12 +61,12 @@ of this, see L<perlref>.
 Names that start with a digit may only contain more digits.  Names
 which do not start with a letter, underscore,  or digit are limited to
 one character, e.g.  "$%" or "$$".  (Most of these one character names
-have a predefined significance to I<perl>.  For instance, $$ is the
+have a predefined significance to Perl.  For instance, $$ is the
 current process id.)
 
 =head2 Context
 
-The interpretation of operations and values in perl sometimes depends
+The interpretation of operations and values in Perl sometimes depends
 on the requirements of the context around the operation or value.
 There are two major contexts: scalar and list.  Certain operations
 return list values in contexts wanting a list, and scalar values
@@ -103,7 +104,7 @@ list context.
 User defined subroutines may choose to care whether they are being
 called in a scalar or list context, but most subroutines do not
 need to care, because scalars are automatically interpolated into
-lists.  More on that later.
+lists.  See L<perlfunc/wantarray>.
 
 =head2 Scalar values
 
@@ -119,21 +120,21 @@ A scalar value is interpreted as TRUE in the Boolean sense if it is not
 the null string or the number 0 (or its string equivalent, "0").  The
 Boolean context is just a special kind of scalar context.
 
-There are actually two varieties of null string: defined and
-undefined.  Undefined null strings are returned when there is no real
+There are actually two varieties of null scalars: defined and
+undefined.  Undefined null scalars are returned when there is no real
 value for something, such as when there was an error, or at end of
 file, or when you refer to an uninitialized variable or element of an
-array.  An undefined null string may become defined the first time you
+array.  An undefined null scalar may become defined the first time you
 use it as if it were defined, but prior to that you can use the
 defined() operator to determine whether the value is defined or not.
 
 The length of an array is a scalar value.  You may find the length of
-array @days by evaluating "$#days", as in I<csh>.  (Actually, it's not
+array @days by evaluating C<$#days>, as in B<csh>.  (Actually, it's not
 the length of the array, it's the subscript of the last element, since
-there is (ordinarily) a 0th element.)  Assigning to $#days changes the
+there is (ordinarily) a 0th element.)  Assigning to C<$#days> changes the
 length of the array.  Shortening an array by this method destroys
 intervening values.  Lengthening an array that was previously shortened
-no longer recovers the values that were in those elements.  (It used to
+I<NO LONGER> recovers the values that were in those elements.  (It used to
 in Perl 4, but we had to break this make to make sure destructors were
 called when expected.)  You can also gain some measure of efficiency by
 preextending an array that is going to get big.  (You can also extend
@@ -150,60 +151,47 @@ last value, like the C comma operator.)  The following is always true:
 
     scalar(@whatever) == $#whatever - $[ + 1;
 
-The semantics of $[ are changed in Perl 5 such that any file that
-doesn't set the value of $[ doesn't need to worry about it.  (It's more
-or less deprecated, in other words.)  So in general you can just assume
-that
+Version 5 of Perl changed the semantics of $[: files that don't set
+the value of $[ no longer need to worry about whether another
+file changed its value.  (In other words, use of $[ is deprecated.)
+So in general you can just assume that
 
     scalar(@whatever) == $#whatever + 1;
 
 If you evaluate a hash in a scalar context, it returns a value which is
 true if and only if the hash contains any key/value pairs.  (If there
 are any key/value pairs, the value returned is a string consisting of
-the number of used buckets and the number of allocated buckets,
-separated by a slash.)
+the number of used buckets and the number of allocated buckets, separated
+by a slash.  This is pretty much only useful to find out whether Perl's
+(compiled in) hashing algorithm is performing poorly on your data set.
+For example, you stick 10,000 things in a hash, but evaluating %HASH in
+scalar context reveals "1/16", which means only one out of sixteen buckets
+has been touched, and presumably contains all 10,000 of your items.  This
+isn't supposed to happen.)
 
-=head2 Scalar literals
+=head2 Scalar value constructors
 
-Numeric literals are specified in any of the usual floating point or
+Numeric literals are specified in any of the customary floating point or
 integer formats:
 
 
     12345
     12345.67
     .23E-10
-    0xffff	# hex
-    0377	# octal
-    4_294_967_296
+    0xffff		# hex
+    0377		# octal
+    4_294_967_296	# underline for legibility
 
 String literals are delimited by either single or double quotes.  They
 work much like shell quotes:  double-quoted string literals are subject
 to backslash and variable substitution; single-quoted strings are not
-(except for \' and \\).  The usual backslash rules apply for making
+(except for "C<\'>" and "C<\\>").  The usual Unix backslash rules apply for making
 characters such as newline, tab, etc., as well as some more exotic
-forms:
-
-    \t		tab
-    \n		newline
-    \r		return
-    \f		form feed
-    \v		vertical tab, whatever that is
-    \b		backspace
-    \a		alarm (bell)
-    \e		escape
-    \033	octal char
-    \x1b	hex char
-    \c[		control char
-    \l		lowercase next char
-    \u		uppercase next char
-    \L		lowercase till \E
-    \U		uppercase till \E
-    \E		end case modification
-    \Q		quote regexp metacharacters till \E
+forms.  See L<perlop/qq> for a list.
 
 You can also embed newlines directly in your strings, i.e. they can end
 on a different line than they begin.  This is nice, but if you forget
-your trailing quote, the error will not be reported until I<perl> finds
+your trailing quote, the error will not be reported until Perl finds
 another line containing the quote character, which may be much further
 on in the script.  Variable substitution inside strings is limited to
 scalar variables, arrays, and array slices.  (In other words,
@@ -211,14 +199,14 @@ identifiers beginning with $ or @, followed by an optional bracketed
 expression as a subscript.)  The following code segment prints out "The
 price is $100."
 
-
     $Price = '$100';	# not interpreted
     print "The price is $Price.\n";	# interpreted
 
-Note that you can put curly brackets around the identifier to delimit
-it from following alphanumerics.  Also note that a single quoted string
-must be separated from a preceding word by a space, since single quote
-is a valid character in an identifier (see Packages).
+As in some shells, you can put curly brackets around the identifier to
+delimit it from following alphanumerics.  Also note that a
+single-quoted string must be separated from a preceding word by a
+space, since single quote is a valid (though discouraged) character in
+an identifier (see L<perlmod/Packages>).
 
 Two special literals are __LINE__ and __FILE__, which represent the
 current line number and filename at that point in your program.  They
@@ -231,15 +219,22 @@ required file or evaluated string.)  The two control characters ^D and
 ^Z are synonyms for __END__.
 
 A word that doesn't have any other interpretation in the grammar will
-be treated as if it had single quotes around it.  For this purpose, a
-word consists only of alphanumeric characters and underline, and must
-start with an alphabetic character.  As with filehandles and labels, a
-bare word that consists entirely of lowercase letters risks conflict
-with future reserved words, and if you use the B<-w> switch, Perl will
-warn you about any such words.
+be treated as if it were a quoted string.  These are known as
+"barewords".  As with filehandles and labels, a bareword that consists
+entirely of lowercase letters risks conflict with future reserved
+words, and if you use the B<-w> switch, Perl will warn you about any
+such words.  Some people may wish to outlaw barewords entirely.  If you
+say
+
+    use strict 'subs';
+
+then any bareword that would NOT be interpreted as a subroutine call
+produces a compile-time error instead.  The restriction lasts to the
+end of the enclosing block.  An inner block may countermand this 
+by saying C<no strict 'subs'>.
 
 Array variables are interpolated into double-quoted strings by joining all
-the elements of the array with the delimiter specified in the $"
+the elements of the array with the delimiter specified in the C<$">
 variable, space by default.  The following are equivalent:
 
     $temp = join($",@ARGV);
@@ -248,40 +243,40 @@ variable, space by default.  The following are equivalent:
     system "echo @ARGV";
 
 Within search patterns (which also undergo double-quotish substitution)
-there is a bad ambiguity:  Is /$foo[bar]/ to be interpreted as
-/${foo}[bar]/ (where [bar] is a character class for the regular
-expression) or as /${foo[bar]}/ (where [bar] is the subscript to array
+there is a bad ambiguity:  Is C</$foo[bar]/> to be interpreted as
+C</${foo}[bar]/> (where C<[bar]> is a character class for the regular
+expression) or as C</${foo[bar]}/> (where C<[bar]> is the subscript to array
 @foo)?  If @foo doesn't otherwise exist, then it's obviously a
-character class.  If @foo exists, perl takes a good guess about [bar],
+character class.  If @foo exists, Perl takes a good guess about C<[bar]>,
 and is almost always right.  If it does guess wrong, or if you're just
 plain paranoid, you can force the correct interpretation with curly
 brackets as above.
 
-A line-oriented form of quoting is based on the shell here-is syntax.
-Following a << you specify a string to terminate the quoted material,
+A line-oriented form of quoting is based on the shell "here-doc" syntax.
+Following a C<E<lt>E<lt>> you specify a string to terminate the quoted material,
 and all lines following the current line down to the terminating string
 are the value of the item.  The terminating string may be either an
 identifier (a word), or some quoted text.  If quoted, the type of
 quotes you use determines the treatment of the text, just as in regular
 quoting.  An unquoted identifier works like double quotes.  There must
-be no space between the << and the identifier.  (If you put a space it
+be no space between the C<E<lt>E<lt>> and the identifier.  (If you put a space it
 will be treated as a null identifier, which is valid, and matches the
-first blank line--see Merry Christmas example below.)  The terminating
+first blank line--see the Merry Christmas example below.)  The terminating
 string must appear by itself (unquoted and with no surrounding
 whitespace) on the terminating line.
 
-	print <<EOF;		# same as above
+	print <<EOF;	# same as above
     The price is $Price.
     EOF
 
-	print <<"EOF";		# same as above
+	print <<"EOF";	# same as above
     The price is $Price.
     EOF
 
-	print << x 10;		# null identifier is delimiter
+	print << x 10;	# Legal but discouraged.  Use <<"".
     Merry Christmas!
 
-	print <<`EOC`;		# execute commands
+	print <<`EOC`;	# execute commands
     echo hi there
     echo lo there
     EOC
@@ -292,7 +287,24 @@ whitespace) on the terminating line.
     I said bar.
     bar
 
-=head2 List literals
+	myfunc(<<"THIS", 23, <<'THAT'');
+    Here's a line
+    or two.
+    THIS
+    and here another.
+    THAT
+
+Just don't forget that you have to put a semicolon on the end 
+to finish the statement, as Perl doesn't know you're not going to 
+try to do this:
+
+	print <<ABC
+    179231
+    ABC
+	+ 20;
+
+
+=head2 List value constructors
 
 List values are denoted by separating individual values by commas
 (and enclosing the list in parentheses where precedence requires it):
@@ -300,7 +312,7 @@ List values are denoted by separating individual values by commas
     (LIST)
 
 In a context not requiring an list value, the value of the list
-literal is the value of the final element, as in the C comma operator.
+literal is the value of the final element, as with the C comma operator.
 For example,
 
     @foo = ('cc', '-E', $bar);
@@ -325,24 +337,37 @@ list literal, so that you can say:
 	3,
     );
 
-When a LIST is evaluated, each element of the list is evaluated in a
-list context, and the resulting list value is interpolated into LIST
-just as if each individual element were a member of LIST.  Thus arrays
-lose their identity in a LIST--the list
+LISTs do automatic interpolation of sublists.  That is, when a LIST is
+evaluated, each element of the list is evaluated in a list context, and
+the resulting list value is interpolated into LIST just as if each
+individual element were a member of LIST.  Thus arrays lose their
+identity in a LIST--the list
 
     (@foo,@bar,&SomeSub)
 
 contains all the elements of @foo followed by all the elements of @bar,
 followed by all the elements returned by the subroutine named SomeSub.
+To make a list reference that does I<NOT> interpolate, see L<perlref>.
 
-A list value may also be subscripted like a normal array.  Examples:
+The null list is represented by ().  Interpolating it in a list
+has no effect.  Thus ((),(),()) is equivalent to ().  Similarly,
+interpolating an array with no elements is the same as if no
+array had been interpolated at that point.
 
-    $time = (stat($file))[8];	# stat returns array value
-    $digit = ('a','b','c','d','e','f')[$digit-10];
+A list value may also be subscripted like a normal array.  You must
+put the list in parentheses to avoid ambiguity.  Examples:
+
+    # Stat returns list value.
+    $time = (stat($file))[8];
+
+    # Find a hex digit.
+    $hexdigit = ('a','b','c','d','e','f')[$digit-10];
+
+    # A "reverse comma operator".
     return (pop(@foo),pop(@foo))[0];
 
 Lists may be assigned to if and only if each element of the list
-is a legal lvalue:
+is legal to assign to:
 
     ($a, $b, $c) = (1, 2, 3);
 
@@ -363,12 +388,15 @@ as a key and a value:
     # same as map assignment above
     %map = ('red',0x00f,'blue',0x0f0,'green',0xf00);
 
-It's often much more readable to use the => operator, which is nothing
-more than a synonym for comma:
+It is often more readable to use the C<=E<gt>> operator between key/value pairs
+(the C<=E<gt>> operator is actually nothing more than a more visually 
+distinctive synonym for a comma):
 
-    %map = ('red'   => 0x00f,
-	    'blue'  => 0x0f0,
-	    'green' => 0xf00);
+    %map = (
+	     'red'   => 0x00f,
+	     'blue'  => 0x0f0,
+	     'green' => 0xf00,
+	   );
 
 Array assignment in a scalar context returns the number of elements
 produced by the expression on the right side of the assignment:
@@ -376,4 +404,5 @@ produced by the expression on the right side of the assignment:
     $x = (($foo,$bar) = (3,2,1));	# set $x to 3, not 2
 
 This is very handy when you want to do a list assignment in a Boolean
-context, since most list functions return a null list when finished.
+context, since most list functions return a null list when finished,
+which when assigned produces a 0, which is interpreted as FALSE.

@@ -5,9 +5,11 @@
 # Edit the static information after __END__ to reflect your site and options
 # that went into your perl binary.
 #
-# Rev. 15-Aug-1994  Charles Bailey  bailey@genetics.upenn.edu
+# Rev. 30-Sep-1994  Charles Bailey  bailey@genetics.upenn.edu
 #
 
+unshift(@INC,'lib');  # In case someone didn't define Perl_Root
+                      # before the build
 require 'ctime.pl' || die "Couldn't execute ctime.pl: $!\n";
 
 if (-f "config.vms") { $infile = "config.vms"; $outdir = "[-]"; }
@@ -65,7 +67,7 @@ while (<IN>) {
 close IN;
 
 while (<DATA>) {
-  next if /^#/ or /^\s*$/;
+  next if /^\s*#/ or /^\s*$/;
   s/#.*$//;  s/\s*$//;
   ($key,$val) = split('=',$_,2);
   print "$key=\'$val\'\n";
@@ -78,22 +80,33 @@ __END__
 # options chosen when building perl or site-specific data; these should
 # be hand-edited appropriately.  Someday, perhaps, we'll get this automated.
 
-arch=VMS/VAX
-osname=VMS
-osvers=5.5-2
+# The definitions in this block are constant across most systems, and
+# should only rarely need to be changed.
+osname=VMS  # DO NOT CHANGE THIS! Tests elsewhere depend on this to identify
+            # VMS.  Use the 'arch' item below to specify hardware version.
 CONFIG=true
 PATCHLEVEL=0
-cppflags=/Define=(DEBUGGING)
 dldir=/ext/dl
 dlobj=dl_vms.obj
 dlsrc=dl_vms.c
 so=exe
+dlext=exe
 libpth=/sys$share /sys$library
 hintfile=
 intsize=4
 alignbytes=8
-libs=
-myhostname=nowhere.loopback.edu
+shrplib=define
 signal_t=void
 timetype=long
 usemymalloc=n
+builddir=perl_root:[000000]
+
+# The definitions in this block are site-specific, and will probably need to
+# be changed on most systems.
+myhostname=nowhere.loopback.edu
+arch=VAX
+osvers=5.5-2
+cppflags=/Define=(DEBUGGING)
+d_vms_do_sockets=undef  #=define if perl5 built with socket support
+d_has_sockets=undef  # This should have the same value as d_vms_do_sockets
+libs=  # This should list RTLs other than the C RTL and IMAGELIB (e.g. socket RTL)

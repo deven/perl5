@@ -3,7 +3,7 @@ d_suidsafe=define
 ccflags="$ccflags"
 set `echo $glibpth | sed -e 's@/usr/ucblib@@'`
 glibpth="$*"
-set `echo " $libswanted " | sed -e 's@ ld @@'`
+set `echo " $libswanted " | sed -e 's@ ld @ @' -e 's@ ucb @ @'`
 libswanted="$*"
 
 # Look for architecture name.  We want to suggest a useful default

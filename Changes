@@ -56,7 +56,8 @@ New things
     New "and" and "or" operators work just like && and || but with
     a precedence lower than comma, so they work better with list operators.
 
-    New functions include: abs(), chr(), uc(), ucfirst(), lc(), lcfirst()
+    New functions include: abs(), chr(), uc(), ucfirst(), lc(), lcfirst(),
+    chomp(), glob()
 
     require with a number checks to see that the version of Perl that is
     currently running is at least that number.
@@ -115,6 +116,11 @@ New things
     thing must be "stuff".  (?!nonsense) indicates that the next thing
     must not be "nonsense".
 
+    The negation operator now treats non-numeric strings specially.
+    A -"text" is turned into "-text", so that -bareword is the same
+    as "-bareword".  If the string already begins with a + or -, it
+    is flipped to the other sign.
+
 Incompatibilities
 -----------------
     @ now always interpolates an array in double-quotish strings.  Some programs
@@ -166,7 +172,10 @@ Incompatibilities
 
     The ** operator now binds more tightly than unary minus.
 
-    Setting $#array lower now discards array elements.
+    Setting $#array lower now discards array elements so that destructors
+    work reasonably.
 
     delete is not guaranteed to return the old value for tied arrays,
     since this capability may be onerous for some modules to implement.
+
+    Attempts to set $1 through $9 now result in a run-time error.

@@ -1,11 +1,10 @@
-/* $RCSfile: hash.c,v $$Revision: 4.1 $$Date: 92/08/07 18:21:48 $
+/*    hv.c
  *
  *    Copyright (c) 1991-1994, Larry Wall
  *
  *    You may distribute under the terms of either the GNU General Public
  *    License or the Artistic License, as specified in the README file.
  *
- * $Log:	hash.c,v $
  */
 
 /*
@@ -74,13 +73,9 @@ I32 lval;
     }
 #ifdef DYNAMIC_ENV_FETCH  /* %ENV lookup?  If so, try to fetch the value now */
     if (HvNAME(hv) && strEQ(HvNAME(hv),ENV_HV_NAME)) {
-      char *gotenv, *tmp;
+      char *gotenv;
 
-      /* We need a NUL-terminated string for getenv */
-      New(507,tmp,klen+1,char *);
-      strncpy(tmp,key,klen);
-      gotenv = getenv(tmp);
-      safefree(tmp);
+      gotenv = my_getenv(key);
       if (gotenv != NULL) {
         sv = newSVpv(gotenv,strlen(gotenv));
         return hv_store(hv,key,klen,sv,hash);
@@ -525,6 +520,19 @@ register HE *entry;
 	}
     }
     return entry->hent_val;
+}
+
+SV *
+hv_iternextsv(hv, key, retlen)
+    HV *hv;
+    char **key;
+    I32 *retlen;
+{
+    HE *he;
+    if ( (he = hv_iternext(hv)) == NULL)
+	return NULL;
+    *key = hv_iterkey(he, retlen);
+    return hv_iterval(hv, he);
 }
 
 void

@@ -397,7 +397,7 @@ char * string ;
 	    svp = hv_fetch(action, "bval", 4, FALSE);
             if (svp && SvOK(*svp))
             {
-                if (SvPOKp(*svp))
+                if (SvPOK(*svp))
 		    info.recno.bval = (u_char)*SvPV(*svp, na) ;
 		else
 		    info.recno.bval = (u_char)(unsigned long) SvIV(*svp) ;

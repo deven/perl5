@@ -70,11 +70,20 @@ sub DB {
 	if ($emacs) {
 	    print OUT "\032\032$filename:$line:0\n";
 	} else {
-	    print OUT "${package}::" unless $sub =~ /'|::/;
-	    print OUT "$sub($filename:$line):\t",$dbline[$line];
+	    $prefix = $sub =~ /'|::/ ? "" : "${package}::";
+	    $prefix .= "$sub($filename:";
+	    if (length($prefix) > 30) {
+		print OUT "$prefix$line):\n$line:\t",$dbline[$line];
+		$prefix = "";
+		$infix = ":\t";
+	    }
+	    else {
+		$infix = "):\t";
+		print OUT "$prefix$line$infix",$dbline[$line];
+	    }
 	    for ($i = $line + 1; $i <= $max && $dbline[$i] == 0; ++$i) {
 		last if $dbline[$i] =~ /^\s*(}|#|\n)/;
-		print OUT "$sub($filename:$i):\t",$dbline[$i];
+		print OUT "$prefix$i$infix",$dbline[$i];
 	    }
 	}
     }
@@ -357,16 +366,19 @@ command		Execute as a perl statement in current package.
 		$cmd =~ /^T$/ && do {
 		    local($p,$f,$l,$s,$h,$a,@a,@sub);
 		    for ($i = 1; ($p,$f,$l,$s,$h,$w) = caller($i); $i++) {
-			@a = @args;
-			for (@a) {
+			@a = ();
+			for $arg (@args) {
+			    $_ = "$arg";
 			    s/'/\\'/g;
-			    s/([^\0]*)/'$1'/ unless /^-?[\d.]+$/;
+			    s/([^\0]*)/'$1'/
+				unless /^(?: -?[\d.]+ | \*[\w:]* )$/x;
 			    s/([\200-\377])/sprintf("M-%c",ord($1)&0177)/eg;
 			    s/([\0-\37\177])/sprintf("^%c",ord($1)^64)/eg;
+			    push(@a, $_);
 			}
 			$w = $w ? '@ = ' : '$ = ';
 			$a = $h ? '(' . join(', ', @a) . ')' : '';
-			push(@sub, "$w&$s$a from file $f line $l\n");
+			push(@sub, "$w$s$a from file $f line $l\n");
 			last if $signal;
 		    }
 		    for ($i=0; $i <= $#sub; $i++) {
@@ -529,9 +541,7 @@ sub sub {
     }
 }
 
-$single = 1;			# so it stops on first executable statement
-$signal = 0;			# uninitialized warning suppression
-$trace = 0;			# uninitialized warning suppression
+$trace = $signal = $single = 0;	# uninitialized warning suppression
 
 @hist = ('?');
 $SIG{'INT'} = "DB::catch";

@@ -16,9 +16,8 @@ echo "Extracting makedir (with variable substitutions)"
 rm -f makedir
 $spitshell >makedir <<!GROK!THIS!
 $startsh
-# $RCSfile: makedir.SH,v $$Revision: 4.1 $$Date: 92/08/07 18:24:23 $
+# makedir.SH
 # 
-# $Log:	makedir.SH,v $
 
 export PATH || (echo "OOPS, this isn't sh.  Desperation time.  I will feed myself to sh."; sh \$0; kill \$\$)
 

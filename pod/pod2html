@@ -5,16 +5,20 @@ chop($wd=`pwd`);
 $type="<A HREF=\"file://localhost".$wd."/";
 $debug=0;
 $/ = "";
-
-
+$p=\%p;
+@exclusions=("perldebug","perlform","perlobj","perlstyle","perltrap","perlmod");
 $indent=0;
 opendir(DIR,".");
-@pods=grep(/pod$/,readdir(DIR));
+@{$p->{"pods"}}=grep(/\.pod$/,readdir(DIR));
 closedir(DIR);
-foreach $pod (@pods){
-    open(POD,"<$pod");
-    $pod=~s/\.pod$//;
-    $pods{$pod}=1;
+
+# learn the important stuff
+
+foreach $tmpod (@{$p->{"pods"}}){
+    ($pod=$tmpod)=~s/\.pod$//;
+    $p->{"podnames"}->{$pod}=1;
+    next if grep(/$pod/,@exclusions);
+    open(POD,"<$tmpod");
     while(<POD>){
 	s/B<([^<>]*)>/$1/g;         # bold
 	s/I<([^<>]*)>/$1/g;         # bold
@@ -24,70 +28,67 @@ foreach $pod (@pods){
 	    ($cmd, $_) = split(' ', $_, 2);
  	    if ($cmd eq  "item") {
 		($what,$rest)=split(' ', $_, 2);
-		next if defined $items{$what};
+		$what=~s#(-.).*#$1#;
 		$what=~s/\s*$//;
-		$items{$what} = $pod."_".$i++;
+		next if defined $p->{"items"}->{$what};
+		$p->{"items"}->{$what} = $pod."_".$i++;
 	    }
 	    elsif($cmd =~ /^head/){
-		next if defined $headers{$_};
 		$_=~s/\s*$//;
-		$headers{$_} = $pod.'_'.$i++;
+		next if defined($p->{"headers"}->{$_});
+		$p->{"headers"}->{$_} = $pod."_".$i++;
 	    }
 	}
     }
 }
 
-opendir(DIR,".");
-@pods=grep(/pod$/,readdir(DIR));
-closedir(DIR);
-foreach $pod (@pods){
-    open(POD,"<$pod") || die "cant open $pod";
-    $pod=~s/\.pod$//;
+$/="";
+    
+# parse the pods, produce html
+foreach $tmpod (@{$p->{"pods"}}){
+    open(POD,"<$tmpod") || die "cant open $pod";
+    ($pod=$tmpod)=~s/\.pod$//;
     open(HTML,">$pod.html");
     print HTML "<!-- \$RCSfile\$\$Revision\$\$Date\$ -->\n";
     print HTML "<!-- \$Log\$ -->\n";
     print HTML "<HTML>\n";
     print HTML "<TITLE> \U$pod\E </TITLE>\n";
+    $cutting = 1;
     while (<POD>) {
+	if ($cutting) {
+	    next unless /^=/;
+	    $cutting = 0;
+	}
 	chop;
 	length || (print "\n") && next;
 	# Translate verabatim paragraph
 
 	if (/^\s/) {
 	    $unordered=0;
+	    &pre_escapes;
+	    &post_escapes;
 	    @lines = split(/\n/);
-	    if($lines[0]=~/^\s+(\w*)\t(.*)/){  # listing
+	    if($lines[0]=~/^\s+(\w*)\t(.*)/){  # listing or unordered list
 		($key,$rest)=($1,$2);
-		if(defined($pods{$key})){
+		if(defined($p->{"podnames"}->{$key})){
 		    print HTML "\n<ul>\n";
 		    $unordered = 1;
 		}
 		else{
 		    print HTML  "\n<listing>\n";
 		}
-		for(@lines){
-		    /^\s+(\w*)\t(.*)/ && (($key,$rest)=($1,$2));
-		    if(defined($pods{$key})){
-	    		print HTML  "<li>$type$key.html\">$key<\/A>\t$rest\n"; 
-		    }
-		    else{
-			print HTML "$_";
-			print HTML "\n";
-		    }
+		foreach $line (@lines){
+		    ($line =~ /^\s+(\w*)\t(.*)/) && (($key,$rest)=($1,$2));
+		    print HTML defined($p->{"podnames"}->{$key}) ?
+	    		"<li>$type$key.html\">$key<\/A>\t$rest\n" : "$line \n";
 		}
-		if($unordered){
-		    print HTML "</ul>\n";
-		}
-		else{
-		    print HTML "</listing>\n";
-		}
+		print HTML $unordered ? "</ul>\n" : "</listing>\n";
 		next;
 	    }else{                 # preformatted text
 		print HTML "<pre>\n";
 		for(@lines){
-		    &pre_escapes;
-		    &post_escapes;
-		    print HTML ' ' x 5;
+		    s/^/    /;
+		    s/\t/        /g;
 		    print HTML  $_,"\n";
 	        }
             print  HTML "</pre>\n";
@@ -96,15 +97,18 @@ foreach $pod (@pods){
 	}
 	&pre_escapes;
 	s/S<([^<>]*)>/$1/g;              # embedded special
-#	s/I<([^<>]*)>/<I>$1<\/I>/g;         # italic
 	$_ = &Do_refs($_,$pod);
 	s/Z<>/<p>/g; # ?
+	s/E<([^<>]*)>/\&$1\;/g;              # embedded special
 	&post_escapes;
 	if (s/^=//) {
 	    s/\n$//s;
 	    s/\n/ /g;
 	    ($cmd, $_) = split(' ', $_, 2);
-	    if ($cmd eq 'head1') {
+	    if ($cmd eq 'cut') {
+		$cutting = 1;
+	    }
+	    elsif ($cmd eq 'head1') {
 		print HTML  qq{<h2>$_</h2>\n};
 	    }
 	    elsif ($cmd eq 'head2') {
@@ -124,7 +128,10 @@ foreach $pod (@pods){
 	    elsif ($cmd eq 'item') {
 		($what,$rest)=split(' ', $_, 2);
 		$what=~s/\s*$//;
-	        print HTML  "\n<A NAME=\"".$items{$what}."\"></A>\n";
+		if($justdid ne $what){
+		    print HTML "\n<A NAME=\"".$p->{"items"}->{$what}."\"></A>\n";
+		    $justdid=$what;
+		}
 		print  HTML qq{<dt><B>$_</B> </dt>\n};
 		$next_para=1;
 	    }
@@ -147,7 +154,7 @@ print HTML "\n</HTML>\n";
 sub pre_escapes {
     s/\&/\&amp\;/g;
     s/<</\&lt\;\&lt\;/g;
-    s/([^SIBLC])</$1\&lt\;/g;
+    s/([^ESIBLCF])</$1\&lt\;/g;
 }
 
 sub post_escapes{
@@ -165,34 +172,26 @@ foreach $char ("L","C","I","B"){
         next unless $ar[$this] =~ /${char}<([^<>]*)>/;
 	$key=$1;
 
-	if((defined($pods{$key})) && ($char eq "L")){
+	if((defined($p->{"podnames"}->{$key})) && ($char eq "L")){
 	    $ar[$this] = "\n$type$key.html\">\nthe $key manpage<\/A>\n"; # 
 	}
-	elsif(defined($items{$key})){
-	    ($pod2,$num)=split(/_/,$items{$key},2);
-	    if($pod2 eq $pod){
-	        defined($items{$key}) && 
-		($ar[$this - 1] =~ /=item\s*$/) &&
-		($ar[$this] = "\n<A NAME=\"".$items{$key}."\">\n$key</A>\n");
-	    }
-	    else{
-		$ar[$this] = "\n$type$pod2.html\#".$items{$key}."\">$key<\/A>\n";
-	    }
+	elsif(defined($p->{"items"}->{$key})){
+	    ($pod2,$num)=split(/_/,$p->{"items"}->{$key},2);
+		$ar[$this] = (($pod2 eq $pod) && ($para=~/^\=item/)) ?
+		"\n<A NAME=\"".$p->{"items"}->{$key}."\">\n$key</A>\n"
+	        :
+		"\n$type$pod2.html\#".$p->{"items"}->{$key}."\">$key<\/A>\n";
         }
-	elsif(defined($headers{$key})){
-	    ($pod2,$num)=split(/_/,$headers{$key},2);
-	    if($pod2 eq $pod){
-	        defined($headers{$key})  && 
-		($ar[$this - 1] =~ /=head([1-2])\s*$/) &&
-		( $ar[$this] = "\n<A NAME=\"".$headers{$key}."\">\n$key</A>\n");
-	    }
-	    else{
-		$ar[$this] = "\n$type$pod2.html\#".$headers{$key}."\">$key<\/A>\n";
-            }
+	elsif(defined($p->{"headers"}->{$key})){
+	    ($pod2,$num)=split(/_/,$p->{"headers"}->{$key},2);
+		$ar[$this] = (($pod eq $pod2) && ($para=~/^\=head/)) ? 
+		"\n<A NAME=\"".$p->{"headers"}->{$key}."\">\n$key</A>\n"
+		:
+		"\n$type$pod2.html\#".$p->{"headers"}->{$key}."\">$key<\/A>\n";
 	}
 	else{
-	    (warn "Undefined $char<> reference, $ar[$this]\n") if $debug;
-	    if(($char eq "B") || ($char eq "C")){
+	    (warn "No \"=item\" or \"=head\" reference for $ar[$this] in $pod\n") if $debug;
+	    if($char =~ /^[BCF]$/){
 		$ar[$this]="<B>$key</B>";
 	    }
 	    elsif($char eq "L"){
@@ -207,3 +206,4 @@ foreach $char ("L","C","I","B"){
 }
 $para;
 }
+sub wait{1;}

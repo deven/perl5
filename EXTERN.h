@@ -1,11 +1,10 @@
-/* $RCSfile: EXTERN.h,v $$Revision: 4.1 $$Date: 92/08/07 17:18:03 $
+/*    EXTERN.h
  *
  *    Copyright (c) 1991-1994, Larry Wall
  *
  *    You may distribute under the terms of either the GNU General Public
  *    License or the Artistic License, as specified in the README file.
  *
- * $Log:	EXTERN.h,v $
  */
 
 #undef EXT

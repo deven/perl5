@@ -1,11 +1,10 @@
-/* $RCSfile: pp.h,v $$Revision: 4.1 $$Date: 92/08/07 18:29:03 $
+/*    pp.h
  *
  *    Copyright (c) 1991-1994, Larry Wall
  *
  *    You may distribute under the terms of either the GNU General Public
  *    License or the Artistic License, as specified in the README file.
  *
- * $Log:	pp.h,v $
  */
 
 #define ARGS
@@ -182,7 +181,7 @@
 #define RvDEEPCP(rv) do { SV* ref=SvRV(rv);      \
   if (SvREFCNT(ref)>1) {                 \
     SvREFCNT_dec(ref);                   \
-    SvRV(rv)=AMG_CALLun(rv,copy);        \
+    SvRV(rv)=newSVsv(ref);               \
   } } while (0)
 #else
 

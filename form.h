@@ -1,11 +1,10 @@
-/* $RCSfile: form.h,v $$Revision: 4.1 $$Date: 92/08/07 18:20:43 $
+/*    form.h
  *
  *    Copyright (c) 1991-1994, Larry Wall
  *
  *    You may distribute under the terms of either the GNU General Public
  *    License or the Artistic License, as specified in the README file.
  *
- * $Log:	form.h,v $
  */
 
 #define FF_END		0

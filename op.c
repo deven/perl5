@@ -1,11 +1,10 @@
-/* $RCSfile: cmd.h,v $$Revision: 4.1 $$Date: 92/08/07 17:19:19 $
+/*    op.c
  *
  *    Copyright (c) 1991-1994, Larry Wall
  *
  *    You may distribute under the terms of either the GNU General Public
  *    License or the Artistic License, as specified in the README file.
  *
- * $Log:	cmd.h,v $
  */
 
 /*
@@ -27,7 +26,6 @@ static OP *scalarboolean _((OP *op));
 static OP *too_few_arguments _((OP *op));
 static OP *too_many_arguments _((OP *op));
 static void null _((OP* op));
-static void unlist _((OP* op));
 
 static OP *
 no_fh_allowed(op)
@@ -74,10 +72,14 @@ void
 assertref(op)
 OP *op;
 {
-    if (op->op_type != OP_AELEM && op->op_type != OP_HELEM) {
-	sprintf(tokenbuf, "Can't use %s as left arg of an implicit ->",
-	    op_name[op->op_type]);
+    int type = op->op_type;
+    if (type != OP_AELEM && type != OP_HELEM) {
+	sprintf(tokenbuf, "Can't use %s as left arg of implicit ->",
+	    op_name[type]);
 	yyerror(tokenbuf);
+	if (type == OP_RV2HV || type == OP_ENTERSUB)
+	    warn("(Did you mean $ instead of %c?)\n",
+		type == OP_RV2HV ? '%' : '&');
     }
 }
 
@@ -122,7 +124,7 @@ char *name;
     SV **svp = AvARRAY(comppad_name);
     register I32 i;
     register CONTEXT *cx;
-    bool saweval;
+    int saweval;
     AV *curlist;
     AV *curname;
     CV *cv;
@@ -145,14 +147,14 @@ char *name;
      * XXX This will also probably interact badly with eval tree caching.
      */
 
-    saweval = FALSE;
+    saweval = 0;
     for (i = cxstack_ix; i >= 0; i--) {
 	cx = &cxstack[i];
 	switch (cx->cx_type) {
 	default:
 	    break;
 	case CXt_EVAL:
-	    saweval = TRUE;
+	    saweval = i;
 	    break;
 	case CXt_SUB:
 	    if (!saweval)
@@ -160,7 +162,7 @@ char *name;
 	    cv = cx->blk_sub.cv;
 	    if (debstash && CvSTASH(cv) == debstash)	/* ignore DB'* scope */
 		continue;
-	    seq = cxstack[i+1].blk_oldcop->cop_seq;
+	    seq = cxstack[saweval].blk_oldcop->cop_seq;
 	    curlist = CvPADLIST(cv);
 	    curname = (AV*)*av_fetch(curlist, 0, FALSE);
 	    svp = AvARRAY(curname);
@@ -188,6 +190,31 @@ char *name;
 	}
     }
 
+    if (!saweval)
+	return 0;
+
+    /* It's stupid to dup this code.  main should be stored in a CV. */
+    seq = cxstack[saweval].blk_oldcop->cop_seq;
+    svp = AvARRAY(padname);
+    for (off = AvFILL(padname); off > 0; off--) {
+	if ((sv = svp[off]) &&
+	    sv != &sv_undef &&
+	    seq <= SvIVX(sv) &&
+	    seq > (I32)SvNVX(sv) &&
+	    strEQ(SvPVX(sv), name))
+	{
+	    PADOFFSET newoff = pad_alloc(OP_PADSV, SVs_PADMY);
+	    SV *oldsv = *av_fetch(pad, off, TRUE);
+	    SV *sv = NEWSV(1103,0);
+	    sv_upgrade(sv, SVt_PVNV);
+	    sv_setpv(sv, name);
+	    av_store(comppad_name, newoff, sv);
+	    SvNVX(sv) = (double)curcop->cop_seq;
+	    SvIVX(sv) = 999999999;	/* A ref, intro immediately */
+	    av_store(comppad, newoff, SvREFCNT_inc(oldsv));
+	    return newoff;
+	}
+    }
     return 0;
 }
 
@@ -379,18 +406,6 @@ OP* op;
     op->op_ppaddr = ppaddr[OP_NULL];
 }
 
-static void
-unlist(op)
-OP* op;
-{
-    OP* kid = cLISTOP->op_first;
-    assert(kid->op_type == OP_PUSHMARK);
-    null(kid);
-    if (op->op_type != OP_LIST ||
-      !((op->op_flags & (OPf_KNOW|OPf_LIST)) == OPf_KNOW))
-	null(op);
-}
-
 /* Contextualizers */
 
 #define LINKLIST(o) ((o)->op_next ? (o)->op_next : linklist((OP*)o))
@@ -472,8 +487,10 @@ OP *op;
 	    scalar(kid);
 	break;
     case OP_SPLIT:
-	if (!((PMOP*)op)->op_pmreplroot)
-	    deprecate("implicit split to @_");
+	if ((kid = ((LISTOP*)op)->op_first) && kid->op_type == OP_PUSHRE) {
+	    if (!kPMOP->op_pmreplroot)
+		deprecate("implicit split to @_");
+	}
 	/* FALL THROUGH */
     case OP_MATCH:
     case OP_SUBST:
@@ -534,6 +551,7 @@ OP *op;
     case OP_SV2LEN:
     case OP_REF:
     case OP_REFGEN:
+    case OP_SREFGEN:
     case OP_DEFINED:
     case OP_HEX:
     case OP_OCT:
@@ -619,6 +637,7 @@ OP *op;
 		useless = 0;
 	    else if (SvPOK(sv)) {
 		if (strnEQ(SvPVX(sv), "di", 2) ||
+		    strnEQ(SvPVX(sv), "ds", 2) ||
 		    strnEQ(SvPVX(sv), "ig", 2))
 			useless = 0;
 	    }
@@ -667,8 +686,10 @@ OP *op;
 	    scalarvoid(kid);
 	break;
     case OP_SPLIT:
-	if (!((PMOP*)op)->op_pmreplroot)
-	    deprecate("implicit split to @_");
+	if ((kid = ((LISTOP*)op)->op_first) && kid->op_type == OP_PUSHRE) {
+	    if (!kPMOP->op_pmreplroot)
+		deprecate("implicit split to @_");
+	}
 	break;
     }
     if (useless && dowarn)
@@ -1212,7 +1233,7 @@ I32 lex;
 	if (dowarn && bufptr > oldbufptr && bufptr[-1] == ',') {
 	    char *s;
 	    for (s = bufptr; *s && (isALNUM(*s) || strchr("@$%, ",*s)); s++) ;
-	    if (*s == ';' || *s == '=' && (s[1] == '@' || s[2] == '@'))
+	    if (*s == ';' || *s == '=')
 		warn("Parens missing around \"%s\" list", lex ? "my" : "local");
 	}
     }
@@ -1545,8 +1566,6 @@ OP* first;
 	first = newOP(OP_STUB, 0); 
     if (opargs[type] & OA_MARK)
 	first = force_list(first);
-    else if (first->op_type == OP_LIST && type != OP_SCALAR)
-	unlist(first);
 
     Newz(1101, unop, 1, UNOP);
     unop->op_type = type;
@@ -2532,9 +2551,9 @@ CV *cv;
 	    while (i >= 0) {
 		SV** svp = av_fetch(CvPADLIST(cv), i--, FALSE);
 		if (svp)
-		    sv_free(*svp);
+		    SvREFCNT_dec(*svp);
 	    }
-	    sv_free((SV*)CvPADLIST(cv));
+	    SvREFCNT_dec((SV*)CvPADLIST(cv));
 	}
 	SvREFCNT_dec(CvGV(cv));
 	LEAVE;
@@ -2549,7 +2568,7 @@ OP *block;
 {
     register CV *cv;
     char *name = op ? SvPVx(cSVOP->op_sv, na) : "__ANON__";
-    GV *gv = gv_fetchpv(name,2, SVt_PVCV);
+    GV *gv = gv_fetchpv(name, GV_ADDMULTI, SVt_PVCV);
     AV* av;
     char *s;
     I32 ix;
@@ -2692,7 +2711,7 @@ void (*subaddr) _((CV*));
 char *filename;
 {
     register CV *cv;
-    GV *gv = gv_fetchpv((name ? name : "__ANON__"), 2, SVt_PVCV);
+    GV *gv = gv_fetchpv((name ? name : "__ANON__"), GV_ADDMULTI, SVt_PVCV);
     char *s;
 
     if (name)

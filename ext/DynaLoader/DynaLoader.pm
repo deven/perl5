@@ -33,7 +33,7 @@ $dl_dlext = $Config{'dlext'}; # suffix for dynamic modules
 # (VMS support by Charles Bailey <bailey@HMIVAX.HUMGEN.UPENN.EDU>)
 # See dl_expandspec() for more details. Should be harmless but
 # inefficient to define on systems that don't need it.
-$do_expand= $Config{'osname'} =~ /VMS/;
+$do_expand = ($Config{'osname'} eq 'VMS');
 
 @dl_require_symbols = ();       # names of symbols we need
 @dl_resolve_using   = ();       # names of files to link with
@@ -54,7 +54,7 @@ push(@dl_library_path, split(/:/, $ENV{'LD_LIBRARY_PATH'}))
 
 
 # No prizes for guessing why we don't say 'bootstrap DynaLoader;' here.
-boot_DynaLoader;
+&boot_DynaLoader if defined &boot_DynaLoader;
 
 print STDERR "DynaLoader.pm loaded (@dl_library_path)\n"
     if ($dl_debug >= 2);
@@ -155,6 +155,7 @@ sub dl_findfile {
     my (@args) = @_;
     my (@dirs,  $dir);   # which directories to search
     my (@found);         # full paths to real files we have found
+    my ($vms) = ($Config{'osname'} eq 'VMS');
 
     print STDERR "dl_findfile(@args)\n" if $dl_debug;
 
@@ -173,6 +174,9 @@ sub dl_findfile {
         #  Otherwise we try to try to spot directories by a heuristic
         #  (this is a more complicated issue than it first appears)
         if (m:/: && -d $_){   push(@dirs, $_); next; }
+        # VMS: we may be using native VMS directry syntax instead of
+        # Unix emulation, so check this as well
+        if ($vms && /[:>\]]/ && -d $_){   push(@dirs, $_); next; }
 
         #  Only files should get this far...
         my(@names, $name);    # what filenames to look for
@@ -203,7 +207,7 @@ sub dl_findfile {
     }
     if ($dl_debug) {
         foreach(@dirs) {
-            print STDERR " dl_findfile ignored non-existant directory: $_\n" unless -d $_;
+            print STDERR " dl_findfile ignored non-existent directory: $_\n" unless -d $_;
         }
         print STDERR "dl_findfile found: @found\n";
     }
@@ -229,7 +233,7 @@ sub dl_expandspec{
     my($file)   = $spec; # default output to input
     my($osname) = $Config{'osname'};
 
-    if ($osname =~ /VMS/){ # dl_expandspec should be defined in dl_vms.xs
+    if ($osname eq 'VMS'){ # dl_expandspec should be defined in dl_vms.xs
 	croak "dl_expandspec: should be defined in XS file!\n";
     }else{
 	return undef unless -f $file;

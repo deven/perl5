@@ -25,7 +25,7 @@ sed <<!GROK!THIS! >config.h -e 's!^#undef!/\*#define!' -e 's!^#un-def!#undef!'
  * that running config.h.SH again will wipe out any changes you've made.
  * For a more permanent change edit config.sh and rerun config.h.SH.
  *
- * \$Id: Config_h.U,v 3.0.1.2 1993/08/24 12:13:20 ram Exp $
+ * Config_h.U
  */
 
 /* Configuration time: $cf_time
@@ -523,12 +523,6 @@ sed <<!GROK!THIS! >config.h -e 's!^#undef!/\*#define!' -e 's!^#un-def!#undef!'
  *	available to set process group ID.
  */
 #$d_setpgid HAS_SETPGID	/**/
-
-/* HAS_SETPGRP:
- *	This symbol, if defined, indicates that the setpgrp routine is
- *	available to set the current process group.
- */
-#$d_setpgrp HAS_SETPGRP		/**/
 
 /* HAS_SETPGRP2:
  *	This symbol, if defined, indicates that the setpgrp2() (as in DG/UX)
@@ -1195,6 +1189,9 @@ sed <<!GROK!THIS! >config.h -e 's!^#undef!/\*#define!' -e 's!^#un-def!#undef!'
 /* CAT2:
  *	This macro catenates 2 tokens together.
  */
+/* STRINGIFY:
+ *	This macro surrounds its token with double quotes.
+ */
 #if $cpp_stuff == 1
 #define CAT2(a,b)a/**/b
 #define CAT3(a,b,c)a/**/b/**/c
@@ -1341,6 +1338,18 @@ sed <<!GROK!THIS! >config.h -e 's!^#undef!/\*#define!' -e 's!^#un-def!#undef!'
  *	own version.
  */
 #$d_safemcpy HAS_SAFE_MEMCPY	/**/
+
+/* HAS_SETPGRP:
+ *	This symbol, if defined, indicates that the setpgrp routine is
+ *	available to set the current process group.
+ */
+/* USE_BSDPGRP:
+ *	This symbol, if defined, indicates that the BSD notion of process
+ *	group is to be used. For instance, you have to say setpgrp(pid, pgrp)
+ *	instead of the USG setpgrp().
+ */
+#$d_setpgrp HAS_SETPGRP		/**/
+#$d_bsdpgrp USE_BSDPGRP		/**/
 
 /* HAS_SYSCONF:
  *	This symbol, if defined, indicates that sysconf() is available

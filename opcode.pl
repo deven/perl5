@@ -33,9 +33,9 @@ print "\n#define MAXO ", scalar @ops, "\n\n";
 
 print <<END;
 #ifndef DOINIT
-extern char *op_name[];
+EXT char *op_name[];
 #else
-char *op_name[] = {
+EXT char *op_name[] = {
 END
 
 for (@ops) {
@@ -65,9 +65,9 @@ for (@ops) {
 print <<END;
 
 #ifndef DOINIT
-extern OP * (*ppaddr[])();
+EXT OP * (*ppaddr[])();
 #else
-OP * (*ppaddr[])() = {
+EXT OP * (*ppaddr[])() = {
 END
 
 for (@ops) {
@@ -84,9 +84,9 @@ END
 
 print <<END;
 #ifndef DOINIT
-extern OP * (*check[])();
+EXT OP * (*check[])();
 #else
-OP * (*check[])() = {
+EXT OP * (*check[])() = {
 END
 
 for (@ops) {
@@ -105,7 +105,7 @@ print <<END;
 #ifndef DOINIT
 EXT U32 opargs[];
 #else
-U32 opargs[] = {
+EXT U32 opargs[] = {
 END
 
 %argnum = (
@@ -397,7 +397,7 @@ scope		block			ck_null		0
 enteriter	foreach loop entry	ck_null		d	
 iter		foreach loop iterator	ck_null		0	
 enterloop	loop entry		ck_null		d	
-leaveloop	loop exit		ck_null		s	
+leaveloop	loop exit		ck_null		0	
 return		return			ck_fun		dm	L
 last		last			ck_null		ds	
 next		next			ck_null		ds	
@@ -533,7 +533,7 @@ exec		exec			ck_exec		dimst	S? L
 kill		kill			ck_fun		dimst	L
 getppid		getppid			ck_null		ist	
 getpgrp		getpgrp			ck_fun		ist	S?
-setpgrp		setpgrp			ck_fun		ist	S S
+setpgrp		setpgrp			ck_fun		ist	S? S?
 getpriority	getpriority		ck_fun		ist	S S
 setpriority	setpriority		ck_fun		ist	S S S
 

@@ -4,166 +4,101 @@ perlsyn - Perl syntax
 
 =head1 DESCRIPTION
 
-There are several pseudo-literals that you should know about.  If
-a string is enclosed by backticks (grave accents), it first undergoes
-variable substitution just like a double quoted string.  It is then
-interpreted as a command, and the output of that command is the value
-of the pseudo-literal, like in a shell.  In a scalar context, a single
-string consisting of all the output is returned.  In an array context,
-an array of values is returned, one for each line of output.  (You can
-set $/ to use a different line terminator.)  The command is executed
-each time the pseudo-literal is evaluated.  The status value of the
-command is returned in $? (see Predefined Names for the interpretation
-of $?).  Unlike in I<csh>, no translation is done on the return
-data--newlines remain newlines.  Unlike in any of the shells, single
-quotes do not hide variable names in the command from interpretation.
-To pass a $ through to the shell you need to hide it with a backslash.
-
-Evaluating a filehandle in angle brackets yields the next line from
-that file (newline included, so it's never false until EOF, at which
-time an undefined value is returned).  Ordinarily you must assign that
-value to a variable, but there is one situation where an automatic
-assignment happens.  If (and only if) the input symbol is the only
-thing inside the conditional of a I<while> loop, the value is
-automatically assigned to the variable "$_".  (This may seem like an
-odd thing to you, but you'll use the construct in almost every I<perl>
-script you write.)  Anyway, the following lines are equivalent to each
-other:
-
-    while ($_ = <STDIN>) { print; }
-    while (<STDIN>) { print; }
-    for (;<STDIN>;) { print; }
-    print while $_ = <STDIN>;
-    print while <STDIN>;
-
-The filehandles I<STDIN>, I<STDOUT> and I<STDERR> are predefined.  (The
-filehandles I<stdin>, I<stdout> and I<stderr> will also work except in
-packages, where they would be interpreted as local identifiers rather
-than global.)  Additional filehandles may be created with the I<open>
-function.
-
-If a <FILEHANDLE> is used in a context that is looking for an array, an
-array consisting of all the input lines is returned, one line per array
-element.  It's easy to make a LARGE data space this way, so use with
-care.
-
-The null filehandle <> is special and can be used to emulate the
-behavior of I<sed> and I<awk>.  Input from <> comes either from
-standard input, or from each file listed on the command line.  Here's
-how it works: the first time <> is evaluated, the ARGV array is
-checked, and if it is null, $ARGV[0] is set to '-', which when opened
-gives you standard input.  The ARGV array is then processed as a list
-of filenames.  The loop
-
-    while (<>) {
-	...			# code for each line
-    }
-
-is equivalent to the following Perl-like pseudo code:
-
-    unshift(@ARGV, '-') if $#ARGV < $[;
-    while ($ARGV = shift) {
-	open(ARGV, $ARGV);
-	while (<ARGV>) {
-	    ...		# code for each line
-	}
-    }
-
-except that it isn't as cumbersome to say, and will actually work.  It
-really does shift array ARGV and put the current filename into variable
-ARGV.  It also uses filehandle ARGV internally--<> is just a synonym
-for <ARGV>, which is magical.  (The pseudo code above doesn't work
-because it treats <ARGV> as non-magical.)
-
-You can modify @ARGV before the first <> as long as the array ends up
-containing the list of filenames you really want.  Line numbers ($.)
-continue as if the input was one big happy file.  (But see example
-under eof for how to reset line numbers on each file.)
-
-If you want to set @ARGV to your own list of files, go right ahead.  If
-you want to pass switches into your script, you can put a loop on the
-front like this:
-
-
-    while ($_ = $ARGV[0], /^-/) {
-	shift;
-      last if /^--$/;
-	/^-D(.*)/ && ($debug = $1);
-	/^-v/ && $verbose++;
-	...		# other switches
-    }
-    while (<>) {
-	...		# code for each line
-    }
-
-The <> symbol will return FALSE only once.  If you call it again after
-this it will assume you are processing another @ARGV list, and if you
-haven't set @ARGV, will input from I<STDIN>.
-
-If the string inside the angle brackets is a reference to a scalar
-variable (e.g. <$foo>), then that variable contains the name of the
-filehandle to input from.
-
-If the string inside angle brackets is not a filehandle, it is
-interpreted as a filename pattern to be globbed, and either an array of
-filenames or the next filename in the list is returned, depending on
-context.  One level of $ interpretation is done first, but you can't
-say <$foo> because that's an indirect filehandle as explained in the
-previous paragraph.  You could insert curly brackets to force
-interpretation as a filename glob: <${foo}>.  Example:
-
-    while (<*.c>) {
-	chmod 0644, $_;
-    }
-
-is equivalent to
-
-
-    open(foo, "echo *.c | tr -s ' \t\r\f' '\\012\\012\\012\\012'|");
-    while (<foo>) {
-	chop;
-	chmod 0644, $_;
-    }
-
-In fact, it's currently implemented that way.  (Which means it will not
-work on filenames with spaces in them unless you have /bin/csh on your
-machine.)  Of course, the shortest way to do the above is:
-
-    chmod 0644, <*.c>;
-
-=head2 Syntax
-
-A I<perl> script consists of a sequence of declarations and commands.
-The only things that need to be declared in I<perl> are report formats
+A Perl script consists of a sequence of declarations and statements.
+The only things that need to be declared in Perl are report formats
 and subroutines.  See the sections below for more information on those
 declarations.  All uninitialized user-created objects are assumed to
 start with a null or 0 value until they are defined by some explicit
-operation such as assignment.  The sequence of commands is executed
-just once, unlike in I<sed> and I<awk> scripts, where the sequence of
-commands is executed for each input line.  While this means that you
-must explicitly loop over the lines of your input file (or files), it
-also means you have much more control over which files and which lines
-you look at.  (Actually, I'm lying--it is possible to do an implicit
-loop with either the B<-n> or B<-p> switch.)
+operation such as assignment.  (Though you can get warnings about the
+use of undefined values if you like.)  The sequence of statements is
+executed just once, unlike in B<sed> and B<awk> scripts, where the
+sequence of statements is executed for each input line.  While this means
+that you must explicitly loop over the lines of your input file (or
+files), it also means you have much more control over which files and
+which lines you look at.  (Actually, I'm lying--it is possible to do an
+implicit loop with either the B<-n> or B<-p> switch.  It's just not the
+mandatory default like it is in B<sed> and B<awk>.)
 
-A declaration can be put anywhere a command can, but has no effect on
-the execution of the primary sequence of commands--declarations all
+Perl is, for the most part, a free-form language.  (The only
+exception to this is format declarations, for obvious reasons.) Comments
+are indicated by the "#" character, and extend to the end of the line.  If
+you attempt to use C</* */> C-style comments, it will be interpreted
+either as division or pattern matching, depending on the context, and C++
+C<//> comments just look like a null regular expression, So don't do
+that.
+
+A declaration can be put anywhere a statement can, but has no effect on
+the execution of the primary sequence of statements--declarations all
 take effect at compile time.  Typically all the declarations are put at
 the beginning or the end of the script.
 
-I<Perl> is, for the most part, a free-form language.  (The only
-exception to this is format declarations, for fairly obvious reasons.)
-Comments are indicated by the # character, and extend to the end of the
-line.  If you attempt to use S</* */> C comments, it will be interpreted
-either as division or pattern matching, depending on the context.  So
-don't do that.
+As of Perl 5, declaring a subroutine allows a subroutine name to be used
+as if it were a list operator from that point forward in the program.  You
+can declare a subroutine without defining it by saying just
+
+    sub myname;
+    $me = myname $0 		or die "can't get myname";
+
+Note that it functions as a list operator though, not a unary
+operator, so be careful to use C<or> instead of C<||> there.
+
+Subroutines declarations can also be imported by a C<use> statement.
+
+Also as of Perl 5, a statement sequence may contain declarations of
+lexically scoped variables, but apart from declaring a variable name,
+the declaration acts like an ordinary statement, and is elaborated within
+the sequence of statements as if it were an ordinary statement.
+
+=head2 Simple statements
+
+The only kind of simple statement is an expression evaluated for its
+side effects.  Every simple statement must be terminated with a
+semicolon, unless it is the final statement in a block, in which case
+the semicolon is optional.  (A semicolon is still encouraged there if the
+block takes up more than one line, since you may add another line.)
+Note that there are some operators like C<eval {}> and C<do {}> that look
+like compound statements, but aren't (they're just TERMs in an expression), 
+and thus need an explicit termination
+if used as the last item in a statement.
+
+Any simple statement may optionally be followed by a I<SINGLE> modifier,
+just before the terminating semicolon (or block ending).  The possible
+modifiers are:
+
+    if EXPR
+    unless EXPR
+    while EXPR
+    until EXPR
+
+The C<if> and C<unless> modifiers have the expected semantics,
+presuming you're a speaker of English.  The C<while> and C<until>
+modifiers also have the usual "while loop" semantics (conditional
+evaluated first), except when applied to a do-BLOCK (or to the
+now-deprecated do-SUBROUTINE statement), in which case the block
+executes once before the conditional is evaluated.  This is so that you
+can write loops like:
+
+    do {
+	$_ = <STDIN>;
+	...
+    } until $_ eq ".\n";
+
+See L<perlfunc/do>.  Note also that the loop control
+statements described later will I<NOT> work in this construct, since
+modifiers don't take loop labels.  Sorry.  You can always wrap
+another block around it to do that sort of thing.)
 
 =head2 Compound statements
 
-In I<perl>, a sequence of commands may be treated as one command by
-enclosing it in curly brackets.  We will call this a BLOCK.
+In Perl, a sequence of statements that defines a scope is called a block.
+Sometimes a block is delimited by the file containing it (in the case
+of a required file, or the program as a whole), and sometimes a block
+is delimited by the extent of a string (in the case of an eval).
 
-The following compound commands may be used to control flow:
+But generally, a block is delimited by curly brackets, also known as braces.
+We will call this syntactic construct a BLOCK.
+
+The following compound statements may be used to control flow:
 
     if (EXPR) BLOCK
     if (EXPR) BLOCK else BLOCK
@@ -180,39 +115,39 @@ dangling statements allowed.  If you want to write conditionals without
 curly brackets there are several other ways to do it.  The following
 all do the same thing:
 
-    if (!open(foo)) { die "Can't open $foo: $!"; }
-    die "Can't open $foo: $!" unless open(foo);
-    open(foo) || die "Can't open $foo: $!";	# foo or bust!
-    open(foo) ? 'hi mom' : die "Can't open $foo: $!";
+    if (!open(FOO)) { die "Can't open $FOO: $!"; }
+    die "Can't open $FOO: $!" unless open(FOO);
+    open(FOO) or die "Can't open $FOO: $!";	# FOO or bust!
+    open(FOO) ? 'hi mom' : die "Can't open $FOO: $!";
 			# a bit exotic, that last one
 
-The I<if> statement is straightforward.  Since BLOCKs are always
+The C<if> statement is straightforward.  Since BLOCKs are always
 bounded by curly brackets, there is never any ambiguity about which
-I<if> an I<else> goes with.  If you use I<unless> in place of I<if>,
+C<if> an C<else> goes with.  If you use C<unless> in place of C<if>,
 the sense of the test is reversed.
 
-The I<while> statement executes the block as long as the expression is
-true (does not evaluate to the null string or 0).  The LABEL is
+The C<while> statement executes the block as long as the expression is
+true (does not evaluate to the null string or 0 or "0").  The LABEL is
 optional, and if present, consists of an identifier followed by a
 colon.  The LABEL identifies the loop for the loop control statements
-I<next>, I<last>, and I<redo> (see below).  If there is a I<continue>
+C<next>, C<last>, and C<redo> (see below).  If there is a C<continue>
 BLOCK, it is always executed just before the conditional is about to be
-evaluated again, similarly to the third part of a I<for> loop in C.
+evaluated again, just like the third part of a C<for> loop in C.
 Thus it can be used to increment a loop variable, even when the loop
-has been continued via the I<next> statement (similar to the C
-"continue" statement).
+has been continued via the C<next> statement (which is similar to the C
+C<continue> statement).
 
-If the word I<while> is replaced by the word I<until>, the sense of the
+If the word C<while> is replaced by the word C<until>, the sense of the
 test is reversed, but the conditional is still tested before the first
 iteration.
 
-In either the I<if> or the I<while> statement, you may replace "(EXPR)"
+In either the C<if> or the C<while> statement, you may replace "(EXPR)"
 with a BLOCK, and the conditional is true if the value of the last
-command in that block is true.  (This feature continues to work in Perl
+statement in that block is true.  (This feature continues to work in Perl
 5 but is deprecated.  Please change any occurrences of "if BLOCK" to
 "if (do BLOCK)".)
 
-The I<for> loop works exactly like the corresponding I<while> loop:
+The C-style C<for> loop works exactly like the corresponding C<while> loop:
 
     for ($i = 1; $i < 10; $i++) {
 	...
@@ -227,15 +162,15 @@ is the same as
 	$i++;
     }
 
-The foreach loop iterates over a normal array value and sets the
-variable VAR to be each element of the array in turn.  The variable is
-implicitly local to the loop, and regains its former value upon exiting
-the loop.  The "foreach" keyword is actually identical to the "for"
-keyword, so you can use "foreach" for readability or "for" for
-brevity.  If VAR is omitted, $_ is set to each value.  If ARRAY is an
-actual array (as opposed to an expression returning an array value),
-you can modify each element of the array by modifying VAR inside the
-loop.  Examples:
+The foreach loop iterates over a normal list value and sets the
+variable VAR to be each element of the list in turn.  The variable is
+implicitly local to the loop (unless declared previously with C<my>),
+and regains its former value upon exiting the loop.  The C<foreach>
+keyword is actually a synonym for the C<for> keyword, so you can use
+C<foreach> for readability or C<for> for brevity.  If VAR is omitted, $_
+is set to each value.  If ARRAY is an actual array (as opposed to an
+expression returning a list value), you can modify each element of the
+array by modifying VAR inside the loop.  Examples:
 
     for (@ary) { s/foo/bar/; }
 
@@ -253,96 +188,80 @@ loop.  Examples:
 	print "Item: $item\n";
     }
 
+A BLOCK by itself (labeled or not) is semantically equivalent to a loop
+that executes once.  Thus you can use any of the loop control
+statements in it to leave or restart the block.  The C<continue> block
+is optional.  This construct is particularly nice for doing case
+structures.
 
-The BLOCK by itself (labeled or not) is equivalent to a loop that
-executes once.  Thus you can use any of the loop control statements in
-it to leave or restart the block.  The I<continue> block is optional.
-This construct is particularly nice for doing case structures.
-
-    foo: {
-	if (/^abc/) { $abc = 1; last foo; }
-	if (/^def/) { $def = 1; last foo; }
-	if (/^xyz/) { $xyz = 1; last foo; }
+    SWITCH: {
+	if (/^abc/) { $abc = 1; last SWITCH; }
+	if (/^def/) { $def = 1; last SWITCH; }
+	if (/^xyz/) { $xyz = 1; last SWITCH; }
 	$nothing = 1;
     }
 
-There is no official switch statement in perl, because there are
+There is no official switch statement in Perl, because there are
 already several ways to write the equivalent.  In addition to the
 above, you could write
 
-    foo: {
-	$abc = 1, last foo  if /^abc/;
-	$def = 1, last foo  if /^def/;
-	$xyz = 1, last foo  if /^xyz/;
+    SWITCH: {
+	$abc = 1, last SWITCH  if /^abc/;
+	$def = 1, last SWITCH  if /^def/;
+	$xyz = 1, last SWITCH  if /^xyz/;
+	$nothing = 1;
+    }
+
+(That's actually not as strange as it looks one you realize that you can
+use loop control "operators" within an expression,  That's just the normal
+C comma operator.)
+
+or
+
+    SWITCH: {
+	/^abc/ && do { $abc = 1; last SWITCH; };
+	/^def/ && do { $def = 1; last SWITCH; };
+	/^xyz/ && do { $xyz = 1; last SWITCH; };
+	$nothing = 1;
+    }
+
+or formatted so it stands out more as a "proper" switch statement:
+
+    SWITCH: {
+	/^abc/ 	    && do { 
+			    $abc = 1; 
+			    last SWITCH; 
+		       };
+
+	/^def/ 	    && do { 
+			    $def = 1; 
+			    last SWITCH; 
+		       };
+
+	/^xyz/ 	    && do { 
+			    $xyz = 1; 
+			    last SWITCH; 
+		        };
 	$nothing = 1;
     }
 
 or
 
-    foo: {
-	/^abc/ && do { $abc = 1; last foo; };
-	/^def/ && do { $def = 1; last foo; };
-	/^xyz/ && do { $xyz = 1; last foo; };
+    SWITCH: {
+	/^abc/ and $abc = 1, last SWITCH;
+	/^def/ and $def = 1, last SWITCH;
+	/^xyz/ and $xyz = 1, last SWITCH;
 	$nothing = 1;
     }
 
-or
-
-    foo: {
-	/^abc/ && ($abc = 1, last foo);
-	/^def/ && ($def = 1, last foo);
-	/^xyz/ && ($xyz = 1, last foo);
-	$nothing = 1;
-    }
-
-or even
+or even, horrors,
 
     if (/^abc/)
-	{ $abc = 1; }
+	{ $abc = 1 }
     elsif (/^def/)
-	{ $def = 1; }
+	{ $def = 1 }
     elsif (/^xyz/)
-	{ $xyz = 1; }
+	{ $xyz = 1 }
     else
-	{$nothing = 1;}
-
-As it happens, these are all optimized internally to a switch
-structure, so perl jumps directly to the desired statement, and you
-needn't worry about perl executing a lot of unnecessary statements when
-you have a string of 50 elsifs, as long as you are testing the same
-simple scalar variable using ==, eq, or pattern matching as above.  (If
-you're curious as to whether the optimizer has done this for a
-particular case statement, you can use the -D1024 switch to list the
-syntax tree before execution.)
-
-=head2 Simple statements
-
-The only kind of simple statement is an expression evaluated for its
-side effects.  Every simple statement must be terminated with a
-semicolon, unless it is the final statement in a block, in which case
-the semicolon is optional.  (Semicolon is still encouraged there if the
-block takes up more than one line).
-
-Any simple statement may optionally be followed by a single modifier,
-just before the terminating semicolon.  The possible modifiers are:
-
-    if EXPR
-    unless EXPR
-    while EXPR
-    until EXPR
-
-The I<if> and I<unless> modifiers have the expected semantics.  The
-I<while> and I<until> modifiers also have the expected semantics
-(conditional evaluated first), except when applied to a do-BLOCK or a
-do-SUBROUTINE command, in which case the block executes once before the
-conditional is evaluated.  This is so that you can write loops like:
-
-    do {
-	$_ = <STDIN>;
-	...
-    } until $_ eq ".\n";
-
-(See the I<do> operator below.  Note also that the loop control
-commands described later will NOT work in this construct, since
-modifiers don't take loop labels.  Sorry.)
+	{ $nothing = 1 }
 

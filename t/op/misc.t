@@ -161,14 +161,14 @@ DESTROY
 BEGIN { die "phooey\n" }
 EXPECT
 phooey
-BEGIN failed--execution aborted at - line 1.
+BEGIN failed--compilation aborted at - line 1.
 ########
 BEGIN { 1/$zero }
 EXPECT
 Illegal division by zero at - line 1.
-BEGIN failed--execution aborted at - line 1.
+BEGIN failed--compilation aborted at - line 1.
 ########
 BEGIN { undef = 0 }
 EXPECT
 Modification of a read-only value attempted at - line 1.
-BEGIN failed--execution aborted at - line 1.
+BEGIN failed--compilation aborted at - line 1.

@@ -23,7 +23,7 @@ STR *walk();
 #ifdef OS2
 usage()
 {
-    printf("\nThis is the AWK to PERL translator, version 4.0, patchlevel %d\n", PATCHLEVEL);
+    printf("\nThis is the AWK to PERL translator, version 5.0, patchlevel %d\n", PATCHLEVEL);
     printf("\nUsage: %s [-D<number>] [-F<char>] [-n<fieldlist>] [-<number>] filename\n", myname);
     printf("\n  -D<number>      sets debugging flags."
            "\n  -F<character>   the awk script to translate is always invoked with"

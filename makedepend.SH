@@ -19,9 +19,8 @@ esac
 echo "Extracting makedepend (with variable substitutions)"
 rm -f makedepend
 $spitshell >makedepend <<'!NO!SUBS!'
-# $RCSfile: makedepend.SH,v $$Revision: 4.1 $$Date: 92/08/07 18:24:20 $
+# makedepend.SH
 #
-# $Log:	makedepend.SH,v $
 
 export PATH || (echo "OOPS, this isn't sh.  Desperation time.  I will feed myself to sh."; sh \$0; kill \$\$)
 

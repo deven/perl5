@@ -17,6 +17,7 @@ SWITCH: while ($ARGV[0] =~ s/^-//) {
 @ARGV == 1 or die $usage;
 chop($pwd = `pwd`);
 ($dir, $filename) = @ARGV[0] =~ m#(.*)/(.*)#
+	or ($dir, $filename) = @ARGV[0] =~ m#(.*[>\]])(.*)#
 	or ($dir, $filename) = ('.', $ARGV[0]);
 chdir($dir);
 
@@ -92,17 +93,18 @@ sub fetch_para {
 	if ($lastline =~
     /^MODULE\s*=\s*([\w:]+)(\s+PACKAGE\s*=\s*([\w:]+))?(\s+PREFIX\s*=\s*(\S+))?\s*$/) {
 	    $Module = $1;
-	    ($Module_cname = $Module) =~ s/\W/_/g;
 	    $foo = $2;
 	    $Package = $3;
 	    $foo1 = $4;
 	    $Prefix = $5;
+	    ($Module_cname = $Module) =~ s/\W/_/g;
 	    ($Packid = $Package) =~ s/:/_/g;
 	    $Packprefix = $Package;
 	    $Packprefix .= "::" if defined $Packprefix && $Packprefix ne "";
 	    while (<F>) {
 		chop;
-		next if /^#/;
+		next if /^#/ &&
+		    !/^#[ \t]*(if|ifdef|ifndef|else|elif|endif|define|undef)\b/;
 		last if /^\S/;
 	    }
 	    push(@line, $_) if $_ ne "";

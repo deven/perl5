@@ -20,7 +20,7 @@
 
 # $Id: Head.U,v 3.0.1.5 1994/08/29 16:03:44 ram Exp $
 #
-# Generated on Thu Oct  6 16:34:59 EDT 1994 [metaconfig 3.0 PL35]
+# Generated on Tue Oct 11 22:49:31 EDT 1994 [metaconfig 3.0 PL35]
 
 cat >/tmp/c1$$ <<EOF
 ARGGGHHHH!!!!!
@@ -3487,6 +3487,51 @@ eval $inlibc
 set bcopy d_bcopy
 eval $inlibc
 
+: see if setpgrp exists
+set setpgrp d_setpgrp
+eval $inlibc
+
+: see which flavor of setpgrp is in use
+case "$d_setpgrp" in
+"$define")
+	echo " "
+	$cat >set.c <<EOP
+main()
+{
+	if (getuid() == 0) {
+		printf("(I see you are running Configure as super-user...)\n");
+		setuid(1);
+	}
+	if (-1 == setpgrp(1, 1))
+		exit(1);
+	exit(0);
+}
+EOP
+	if $cc $ccflags -o set $ldflags set.c $libs >/dev/null 2>&1; then
+		./set 2>/dev/null
+		case $? in
+		0) echo "You have to use setpgrp() instead of setpgrp(pid, pgrp)." >&4
+			val="$undef";;
+		*) echo "You have to use setpgrp(pid, pgrp) instead of setpgrp()." >&4
+			val="$define";;
+		esac
+	else
+		if usg; then
+			xxx="USG one, i.e. you use setpgrp()."
+			val="$undef"
+		else
+			xxx="BSD one, i.e. you use setpgrp(pid, pgrp)."
+			val="$define"
+		fi
+		echo "Assuming your setpgrp is a $xxx" >&4
+	fi
+	;;
+*) val="$undef";;
+esac
+set d_bsdpgrp
+eval $setvar
+$rm -f set set.c
+
 : see if bzero exists
 set bzero d_bzero
 eval $inlibc
@@ -4002,8 +4047,11 @@ EOM
 
     cat << 'EOM'
 
-Some systems may require passing special flags to ld to create 
-a shared library.  To use no flags, say "none".
+Some systems may require passing special flags to ld to create a shared
+library.  If your ld flags include -L/local/path options to locate libraries
+outside your loader's normal search path, you may need to specify those
+-L options here as well.
+To use no flags, say "none".
 
 EOM
     case "$lddlflags" in
@@ -4985,10 +5033,6 @@ eval $inlibc
 
 : see if setpgid exists
 set setpgid d_setpgid
-eval $inlibc
-
-: see if setpgrp exists
-set setpgrp d_setpgrp
 eval $inlibc
 
 : see if setpgrp2 exists

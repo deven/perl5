@@ -1,11 +1,10 @@
-/* $RCSfile: cv.h,v $$Revision: 4.1 $$Date: 92/08/07 18:26:42 $
+/*    cv.h
  *
  *    Copyright (c) 1991-1994, Larry Wall
  *
  *    You may distribute under the terms of either the GNU General Public
  *    License or the Artistic License, as specified in the README file.
  *
- * $Log:        cv.h,v $
  */
 
 struct xpvcv {

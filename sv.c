@@ -1,11 +1,10 @@
-/* $RCSfile: sv.c,v $$Revision: 4.1 $$Date: 92/08/07 18:26:45 $
+/*    sv.c
  *
  *    Copyright (c) 1991-1994, Larry Wall
  *
  *    You may distribute under the terms of either the GNU General Public
  *    License or the Artistic License, as specified in the README file.
  *
- * $Log:	sv.c,v $
  */
 
 /*
@@ -44,6 +43,8 @@ static void del_xnv _((XPVNV* p));
 static void del_xpv _((XPV* p));
 static void del_xrv _((XRV* p));
 static void sv_mortalgrow _((void));
+
+static void sv_unglob _((SV* sv));
 
 #ifdef PURIFY
 
@@ -830,7 +831,7 @@ register SV *sv;
     }
     t += strlen(t);
 
-    if (SvPOK(sv)) {
+    if (SvPOKp(sv)) {
 	if (!SvPVX(sv))
 	    strcpy(t, "(null)");
 	if (SvOOK(sv))
@@ -838,9 +839,9 @@ register SV *sv;
 	else
 	    sprintf(t,"(\"%.127s\")",SvPVX(sv));
     }
-    else if (SvNOK(sv))
+    else if (SvNOKp(sv))
 	sprintf(t,"(%g)",SvNVX(sv));
-    else if (SvIOK(sv))
+    else if (SvIOKp(sv))
 	sprintf(t,"(%ld)",(long)SvIVX(sv));
     else
 	strcpy(t,"()");
@@ -937,10 +938,15 @@ IV i;
 	sv_upgrade(sv, SVt_PVIV);
 	break;
 
+    case SVt_PVGV:
+	if (SvFAKE(sv)) {
+	    sv_unglob(sv);
+	    break;
+	}
+	/* FALL THROUGH */
     case SVt_PVAV:
     case SVt_PVHV:
     case SVt_PVCV:
-    case SVt_PVGV:
     case SVt_PVFM:
     case SVt_PVIO:
 	croak("Can't coerce %s to integer in %s", sv_reftype(sv,0),
@@ -980,10 +986,15 @@ double num;
 	if (SvOOK(sv))
 	    (void)SvOOK_off(sv);
 	break;
+    case SVt_PVGV:
+	if (SvFAKE(sv)) {
+	    sv_unglob(sv);
+	    break;
+	}
+	/* FALL THROUGH */
     case SVt_PVAV:
     case SVt_PVHV:
     case SVt_PVCV:
-    case SVt_PVGV:
     case SVt_PVFM:
     case SVt_PVIO:
 	croak("Can't coerce %s to number in %s", sv_reftype(sv,0),
@@ -1270,6 +1281,10 @@ STRLEN *lp;
 #endif /*apollo*/
 	    Gconvert(SvNVX(sv), DBL_DIG, 0, s);
 	errno = olderrno;
+#ifdef FIXNEGATIVEZERO
+        if (*s == '-' && s[1] == '0' && !s[2])
+	    strcpy(s,"0");
+#endif
 	while (*s) s++;
 #ifdef hcx
 	if (s[-1] == '.')
@@ -1312,6 +1327,10 @@ STRLEN *lp;
     else {
 	STRLEN len;
 	
+#ifdef FIXNEGATIVEZERO
+	if (*tokenbuf == '-' && tokenbuf[1] == '0' && !tokenbuf[2])
+	    strcpy(tokenbuf,"0");
+#endif
 	(void)SvUPGRADE(sv, SVt_PV);
 	len = *lp = strlen(tokenbuf);
 	s = SvGROW(sv, len + 1);
@@ -1438,8 +1457,16 @@ register SV *sstr;
 	break;
     case SVt_PVGV:
 	if (dtype <= SVt_PVGV) {
-	    if (dtype < SVt_PVGV)
+	    if (dtype < SVt_PVGV) {
+		char *name = GvNAME(sstr);
+		STRLEN len = GvNAMELEN(sstr);
 		sv_upgrade(dstr, SVt_PVGV);
+		sv_magic(dstr, dstr, '*', name, len);
+		GvSTASH(dstr) = GvSTASH(sstr);
+		GvNAME(dstr) = savepvn(name, len);
+		GvNAMELEN(dstr) = len;
+		SvFAKE_on(dstr);	/* can coerce to non-glob */
+	    }
 	    (void)SvOK_off(dstr);
 	    if (!GvAV(sstr))
 		gv_AVadd(sstr);
@@ -1451,6 +1478,7 @@ register SV *sstr;
 		gp_free(dstr);
 	    GvGP(dstr) = gp_ref(GvGP(sstr));
 	    SvTAINT(dstr);
+	    GvFLAGS(dstr) &= ~GVf_INTRO;	/* one-shot flag */
 	    return;
 	}
 	/* FALL THROUGH */
@@ -1471,8 +1499,18 @@ register SV *sstr;
 		SV *dref = 0;
 		int intro = GvFLAGS(dstr) & GVf_INTRO;
 
-		if (intro)
+		if (intro) {
+		    GP *gp;
+		    GvGP(dstr)->gp_refcnt--;
+		    Newz(602,gp, 1, GP);
+		    GvGP(dstr) = gp;
+		    GvREFCNT(dstr) = 1;
+		    GvSV(dstr) = NEWSV(72,0);
+		    GvLINE(dstr) = curcop->cop_line;
+		    GvEGV(dstr) = dstr;
 		    GvFLAGS(dstr) &= ~GVf_INTRO;	/* one-shot flag */
+		}
+		SvMULTI_on(dstr);
 		switch (SvTYPE(sref)) {
 		case SVt_PVAV:
 		    if (intro)
@@ -1506,6 +1544,8 @@ register SV *sstr;
 		}
 		if (dref)
 		    SvREFCNT_dec(dref);
+		if (intro)
+		    SAVEFREESV(sref);
 		SvTAINT(dstr);
 		return;
 	    }
@@ -1685,7 +1725,7 @@ register char *ptr;
 {
     register STRLEN delta;
 
-    if (!ptr || !SvPOK(sv))
+    if (!ptr || !SvPOKp(sv))
 	return;
     if (SvTHINKFIRST(sv)) {
 	if (SvREADONLY(sv) && curcop != &compiling)
@@ -1917,7 +1957,8 @@ int type;
 		(*vtbl->svt_free)(sv, mg);
 	    if (mg->mg_ptr && mg->mg_type != 'g')
 		Safefree(mg->mg_ptr);
-	    SvREFCNT_dec(mg->mg_obj);
+	    if (mg->mg_flags & MGf_REFCOUNTED)
+		SvREFCNT_dec(mg->mg_obj);
 	    Safefree(mg);
 	}
 	else
@@ -2778,6 +2819,8 @@ HV *stash;
 		    av_clear(GvAV(gv));
 		}
 		if (GvHV(gv)) {
+		    if (HvNAME(GvHV(gv)))
+			continue;
 		    hv_clear(GvHV(gv));
 #ifndef VMS  /* VMS has no environ array */
 		    if (gv == envgv)
@@ -2930,9 +2973,13 @@ STRLEN *lp;
 	*lp = SvCUR(sv);
     }
     else {
-	if (SvTYPE(sv) > SVt_PVLV)
-	    croak("Can't coerce %s to string in %s", sv_reftype(sv,0),
-		op_name[op->op_type]);
+	if (SvTYPE(sv) > SVt_PVLV) {
+	    if (SvFAKE(sv))
+		sv_unglob(sv);
+	    else
+		croak("Can't coerce %s to string in %s", sv_reftype(sv,0),
+		    op_name[op->op_type]);
+	}
 	s = sv_2pv(sv, lp);
 	if (s != SvPVX(sv)) {	/* Almost, but not quite, sv_setpvn() */
 	    STRLEN len = *lp;
@@ -3109,6 +3156,20 @@ HV* stash;
     return sv;
 }
 
+static void
+sv_unglob(sv)
+SV* sv;
+{
+    assert(SvTYPE(sv) == SVt_PVGV);
+    SvFAKE_off(sv);
+    if (GvGP(sv))
+	gp_free(sv);
+    sv_unmagic(sv, '*');
+    Safefree(GvNAME(sv));
+    SvFLAGS(sv) &= ~SVTYPEMASK;
+    SvFLAGS(sv) |= SVt_PVMG;
+}
+
 void
 sv_unref(sv)
 SV* sv;
@@ -3156,6 +3217,7 @@ SV* sv;
     if (flags & SVf_POK)	strcat(d, "POK,");
     if (flags & SVf_ROK)	strcat(d, "ROK,");
     if (flags & SVf_OOK)	strcat(d, "OOK,");
+    if (flags & SVf_FAKE)	strcat(d, "FAKE,");
     if (flags & SVf_READONLY)	strcat(d, "READONLY,");
     d += strlen(d);
 

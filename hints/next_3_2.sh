@@ -1,4 +1,4 @@
-ccflags='-posix -DUSE_NEXT_CTYPE'
+ccflags='-D_POSIX_SOURCE -DUSE_NEXT_CTYPE'
 ldflags='-u libsys_s'
 libswanted='dbm gdbm db'
 lddlflags='-r'

@@ -1,11 +1,10 @@
-/* $RCSfile: util.c,v $$Revision: 4.1 $$Date: 92/08/07 18:29:00 $
+/*    util.c
  *
  *    Copyright (c) 1991-1994, Larry Wall
  *
  *    You may distribute under the terms of either the GNU General Public
  *    License or the Artistic License, as specified in the README file.
  *
- * $Log:	util.c,v $
  */
 
 /*
@@ -1249,7 +1248,7 @@ char	*mode;
 	    close(p[THIS]);
 	}
 	if (doexec) {
-#if !defined(HAS_FCNTL) || !defined(FFt_SETFD)
+#if !defined(HAS_FCNTL) || !defined(F_SETFD)
 	    int fd;
 
 #ifndef NOFILE
@@ -1306,7 +1305,7 @@ char *s;
 
     fprintf(stderr,"%s", s);
     for (fd = 0; fd < 32; fd++) {
-	if (fstat(fd,&tmpstatbuf) >= 0)
+	if (Fstat(fd,&tmpstatbuf) >= 0)
 	    fprintf(stderr," %d",fd);
     }
     fprintf(stderr,"\n");
@@ -1318,9 +1317,9 @@ dup2(oldfd,newfd)
 int oldfd;
 int newfd;
 {
-#if defined(HAS_FCNTL) && defined(FFt_DUPFD)
+#if defined(HAS_FCNTL) && defined(F_DUPFD)
     close(newfd);
-    fcntl(oldfd, FFt_DUPFD, newfd);
+    fcntl(oldfd, F_DUPFD, newfd);
 #else
     int fdtmp[256];
     I32 fdx = 0;
@@ -1559,13 +1558,13 @@ char *b;
 	strcpy(tmpbuf,".");
     else
 	strncpy(tmpbuf, a, fa - a);
-    if (stat(tmpbuf, &tmpstatbuf1) < 0)
+    if (Stat(tmpbuf, &tmpstatbuf1) < 0)
 	return FALSE;
     if (fb == b)
 	strcpy(tmpbuf,".");
     else
 	strncpy(tmpbuf, b, fb - b);
-    if (stat(tmpbuf, &tmpstatbuf2) < 0)
+    if (Stat(tmpbuf, &tmpstatbuf2) < 0)
 	return FALSE;
     return tmpstatbuf1.st_dev == tmpstatbuf2.st_dev &&
 	   tmpstatbuf1.st_ino == tmpstatbuf2.st_ino;

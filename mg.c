@@ -1,11 +1,10 @@
-/* $RCSfile: hash.c,v $$Revision: 4.1 $$Date: 92/08/07 18:21:48 $
+/*    mg.c
  *
  *    Copyright (c) 1991-1994, Larry Wall
  *
  *    You may distribute under the terms of either the GNU General Public
  *    License or the Artistic License, as specified in the README file.
  *
- * $Log:        hash.c,v $
  */
 
 /*
@@ -496,6 +495,15 @@ MAGIC* mg;
     I32 i;
     s = SvPV(sv,len);
     my_setenv(mg->mg_ptr,s);
+#ifdef DYNAMIC_ENV_FETCH
+     /* We just undefd an environment var.  Is a replacement */
+     /* waiting in the wings? */
+    if (!len) {
+	SV **envsvp;
+	if (envsvp = hv_fetch(GvHVn(envgv),mg->mg_ptr,mg->mg_len,FALSE))
+	    s = SvPV(*envsvp,len);
+    }
+#endif
 			    /* And you'll never guess what the dog had */
 			    /*   in its mouth... */
     if (tainting) {
@@ -506,7 +514,7 @@ MAGIC* mg;
 		s = cpytill(tokenbuf,s,strend,':',&i);
 		s++;
 		if (*tokenbuf != '/'
-		  || (stat(tokenbuf,&statbuf) && (statbuf.st_mode & 2)) )
+		  || (Stat(tokenbuf,&statbuf) && (statbuf.st_mode & 2)) )
 		    MgTAINTEDDIR_on(mg);
 	    }
 	}

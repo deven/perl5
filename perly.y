@@ -1,11 +1,10 @@
-/* $RCSfile: perly.y,v $$Revision: 4.1 $$Date: 92/08/07 18:26:16 $
+/*    perly.y
  *
  *    Copyright (c) 1991-1994, Larry Wall
  *
  *    You may distribute under the terms of either the GNU General Public
  *    License or the Artistic License, as specified in the README file.
  *
- * $Log:	perly.y,v $
  */
 
 /*
@@ -160,9 +159,11 @@ cond	:	IF '(' expr ')' block else
 				invert(scalar($3)), scope($5), $6); }
 	|	IF block block else
 			{ copline = $1;
+			    deprecate("if BLOCK BLOCK");
 			    $$ = newCONDOP(0, scope($2), scope($3), $4); }
 	|	UNLESS block block else
 			{ copline = $1;
+			    deprecate("unless BLOCK BLOCK");
 			    $$ = newCONDOP(0, invert(scalar(scope($2))),
 						scope($3), $4); }
 	;

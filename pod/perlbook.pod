@@ -6,9 +6,10 @@ perlbook - Perl book information
 
 You can order Perl books from O'Reilly & Associates, 1-800-998-9938.
 Local/overseas is 1-707-829-0515.  If you can locate an O'Reilly order
-form, you can also fax to 1-707-829-0104.  Programming Perl is a
-reference work that covers nearly all of Perl, while Learning Perl is a
-tutorial that covers the most frequently used subset of the language.
+form, you can also fax to 1-707-829-0104.  I<Programming Perl> is a
+reference work that covers nearly all of Perl (version 4, alas), while
+I<Learning Perl> is a tutorial that covers the most frequently used subset
+of the language.
 
     Programming Perl (the Camel Book):
 	ISBN 0-937175-64-1	(English)
@@ -16,65 +17,4 @@ tutorial that covers the most frequently used subset of the language.
 
     Learning Perl (the Llama Book):
 	ISBN 1-56592-042-2	(English)
-
-=head2 Camel Book Errata and Addenda
-
-The first edition of the Perl book, I<Programming Perl>, has the
-following omissions and goofs.
-
-On page 5, the examples which read
-
-    eval "/usr/bin/perl
-
-should read
-
-    eval "exec /usr/bin/perl
-
-On page 195, the equivalent to the System V sum program only works for
-very small files.  To do larger files, use
-
-    undef $/;
-    $checksum = unpack("%32C*",<>) % 65535;
-
-The descriptions of alarm and sleep refer to signal SIGALARM.  These
-should refer to SIGALRM.
-
-The B<-0> switch to set the initial value of $/ was added to Perl after
-the book went to press.
-
-The B<-l> switch now does automatic line ending processing.
-
-The qx// construct is now a synonym for backticks.
-
-$0 may now be assigned to set the argument displayed by I<ps>(1).
-
-The new @###.## format was omitted accidentally from the description on
-formats.
-
-It wasn't known at press time that s///ee caused multiple evaluations
-of the replacement expression.  This is to be construed as a feature.
-
-(LIST) x $count now does array replication.
-
-There is now no limit on the number of parentheses in a regular
-expression.
-
-In double-quote context, more escapes are supported: \e, \a, \x1b, \c[,
-\l, \L, \u, \U, \E.  The latter five control up/lower case
-translation.
-
-The B<$/> variable may now be set to a multi-character delimiter.
-
-There is now a g modifier on ordinary pattern matching that causes it
-to iterate through a string finding multiple matches.
-
-All of the $^X variables are new except for $^T.
-
-The default top-of-form format for FILEHANDLE is now FILEHANDLE_TOP
-rather than top.
-
-The eval {} and sort {} constructs were added in version 4.018.
-
-The v and V (little-endian) template options for pack and unpack were
-added in 4.019.
 

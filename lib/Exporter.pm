@@ -23,7 +23,7 @@ sub export {
 	foreach $sym (@imports) {
 	    if (!$exports{$sym}) {
 		if ($sym !~ s/^&// || !$exports{$sym}) {
-		    warn "$sym is not exported by the $pack module ",
+		    warn qq["$sym" is not exported by the $pack module ],
 			    "at $callfile line $callline\n";
 		    $oops++;
 		    next;

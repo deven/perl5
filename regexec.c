@@ -1,3 +1,6 @@
+/*    regexec.c
+ */
+
 /*
  * "One Ring to rule them all, One Ring to find them..."
  */
@@ -11,10 +14,6 @@
  * blame Henry for some of the lack of readability.
  */
 
-/* $RCSfile: regexec.c,v $$Revision: 4.1 $$Date: 92/08/07 18:26:32 $
- *
- * $Log:	regexec.c,v $
- */
 /*SUPPRESS 112*/
 /*
  * regcomp and regexec -- regsub and regerror are not used in perl
@@ -38,7 +37,7 @@
  *
  ****    Alterations to Henry's code are...
  ****
- ****    Copyright (c) 1991,1994, Larry Wall
+ ****    Copyright (c) 1991-1994, Larry Wall
  ****
  ****    You may distribute under the terms of either the GNU General Public
  ****    License or the Artistic License, as specified in the README file.

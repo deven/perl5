@@ -14,10 +14,11 @@ use Carp;
 $Maxlen  = 8;	# 8 for dos, 11 (14-".al") for SYSVR3
 $Verbose = 1;	# 0=none, 1=minimal, 2=list .al files
 $Keep    = 0;
+$IndexFile = "autosplit.ix";	# file also serves as timestamp
 
 $maxflen = 255;
 $maxflen = 14 if $Config{'d_flexfnam'} ne 'define';
-
+$vms = ($Config{'osname'} eq 'VMS');
 
 sub autosplit{
     my($file, $autodir) = @_;
@@ -31,9 +32,16 @@ sub autosplit{
 
 sub autosplit_lib_modules{
     my(@modules) = @_; # list of Module names
+
     foreach(@modules){
 	s#::#/#g;	# incase specified as ABC::XYZ
 	s#^lib/##; # incase specified as lib/*.pm
+	if ($vms && /[:>\]]/) { # may need to convert VMS-style filespecs
+	    my ($dir,$name) = (/(.*])(.*)/);
+	    $dir =~ s/.*lib[\.\]]//;
+	    $dir =~ s#[\.\]]#/#g;
+	    $_ = $dir . $name;
+	}
 	autosplit_file("lib/$_", "lib/auto", $Keep, 1, 1);
     }
     0;
@@ -69,22 +77,23 @@ sub autosplit_file{
     $package or die "Can't find 'package Name;' in $filename\n";
 
     my($modpname) = $package; $modpname =~ s#::#/#g;
-    my($al_ts_file) = "$autodir/$modpname/autosplit.ts";
+    my($al_idx_file) = "$autodir/$modpname/$IndexFile";
 
     die "Package $package does not match filename $filename"
-	    unless ($filename =~ m/$modpname.pm$/);
+	    unless ($filename =~ m/$modpname.pm$/ or
+	            $vms && $filename =~ m/$modpname.pm/i);
 
     if ($check_mod_time){
-	my($al_ts_time) = (stat("$al_ts_file"))[9] || 1;
+	my($al_ts_time) = (stat("$al_idx_file"))[9] || 1;
 	if ($al_ts_time >= $pm_mod_time){
-	    print "AutoSplit skipped ($al_ts_file newer that $filename)\n"
+	    print "AutoSplit skipped ($al_idx_file newer that $filename)\n"
 		if ($Verbose >= 2);
 	    return undef;	# one undef, not a list
 	}
     }
 
     my($from) = ($Verbose>=2) ? "$filename => " : "";
-    print "AutoSpliting $package ($from$autodir/$modpname)\n"
+    print "AutoSplitting $package ($from$autodir/$modpname)\n"
 	if $Verbose;
 
     unless (-d "$autodir/$modpname"){
@@ -103,11 +112,39 @@ sub autosplit_file{
     # This is a problem because some systems silently truncate the file
     # names while others treat long file names as an error.
 
-    open(OUT,">/dev/null"); # avoid 'not opened' warning
+    # We do not yet deal with multiple packages within one file.
+    # Ideally both of these styles should work.
+    #
+    #   package NAME;
+    #   __END__
+    #   sub AAA { ... }
+    #   package NAME::option1;
+    #   sub BBB { ... }
+    #   package NAME::option2;
+    #   sub BBB { ... }
+    #
+    #   package NAME;
+    #   __END__
+    #   sub AAA { ... }
+    #   sub NAME::option1::BBB { ... }
+    #   sub NAME::option2::BBB { ... }
+    #
+    # For now both of these produce warnings.
+
+    open(OUT,">/dev/null") || open(OUT,">nla0:"); # avoid 'not opened' warning
+    my(@subnames);
     while (<IN>) {
+	if (/^package ([\w:]+)\s*;/) {
+	    warn "package $1; in AutoSplit section ignored. Not currently supported.";
+	}
 	if (/^sub ([\w:]+)/) {
 	    print OUT "1;\n";
-	    my($lname, $sname) = ($1, substr($1,0,$maxflen-3));
+	    my($subname) = $1;
+	    if ($subname =~ m/::/){
+		warn "subs with package names not currently supported in AutoSplit section";
+	    }
+	    push(@subnames, $subname);
+	    my($lname, $sname) = ($subname, substr($subname,0,$maxflen-3));
 	    my($lpath) = "$autodir/$modpname/$lname.al";
 	    my($spath) = "$autodir/$modpname/$sname.al";
 	    unless(open(OUT, ">$lpath")){
@@ -144,9 +181,10 @@ sub autosplit_file{
 	closedir(OUTDIR);
     }
 
-    open(TS,">$al_ts_file") or
-	carp "AutoSplit: unable to create timestamp file ($al_ts_file): $!";
-    print TS "Timestamp marker created by AutoSplit for $filename";
+    open(TS,">$al_idx_file") or
+	carp "AutoSplit: unable to create timestamp file ($al_idx_file): $!";
+    print TS "# Index created by AutoSplit for $filename (file acts as timestamp)\n";
+    print TS map("sub $_ ;\n", @subnames);
     close(TS);
 
     check_unique($package, $Maxlen, 1, @names);

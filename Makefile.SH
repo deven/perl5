@@ -49,13 +49,12 @@ done
 
 echo "Extracting Makefile (with variable substitutions)"
 $spitshell >Makefile <<'!NO!SUBS!'
-# $Makefile.SH,v $Revision: 4.1 $Date: 92/08/07 17:18:08 $
+# Makefile.SH
 # This file is derived from Makefile.SH.  Any changes made here will
 # be lost the next time you run Configure.
 #  Makefile is used to generate makefile.  The only difference
 #  is that makefile has the dependencies filled in at the end.
 #
-# $Log:	Makefile.SH,v $
 # 
 !NO!SUBS!
 
@@ -158,7 +157,7 @@ SHELL = /bin/sh
 
 all: makefile miniperl preplibrary $(public) $(dynamic_ext)
 	@echo " "; echo "	Making x2p stuff"; cd x2p; $(MAKE) all
-	@echo " "; echo "	Making docs"; cd pod; $(MAKE) all; cd ../Doc; $(MAKE) all
+	@echo " "; echo "	Making docs"; cd pod; $(MAKE) all;
 
 # Phony target to force checking subdirectories.
 FORCE:
@@ -291,7 +290,6 @@ clean:
 	rm -f perl.exp ext.libs ext/util/extlibist
 	-cd x2p; $(MAKE) clean
 	-cd pod; $(MAKE) clean
-	-cd Doc; $(MAKE) clean
 	-@for x in ext/* ; do \
 	if test -f $$x/Makefile; then \
 	echo "	Making clean in $$x"; \

@@ -4,11 +4,6 @@
 #endif  
 #define __attribute__(attr)
 #endif
-OP*	CopDBadd _((OP* cur));
-OP*	add_label _((char* lbl, OP* cmd));
-OP*	addcond _((OP* cmd, OP* arg));
-OP*	addflags _((I32 i, I32 flags, OP* arg));
-OP*	addloop _((OP* cmd, OP* arg));
 #ifdef OVERLOAD
 SV*	amagic_call _((SV* left,SV* right,int method,int dir));
 #endif /* OVERLOAD */
@@ -24,7 +19,6 @@ void	av_fill _((AV* ar, I32 fill));
 I32	av_len _((AV* ar));
 AV*	av_make _((I32 size, SV** svp));
 SV*	av_pop _((AV* ar));
-void	av_popnulls _((AV* ar));
 void	av_push _((AV* ar, SV* val));
 SV*	av_shift _((AV* ar));
 SV**	av_store _((AV* ar, I32 key, SV* val));
@@ -32,25 +26,26 @@ void	av_undef _((AV* ar));
 void	av_unshift _((AV* ar, I32 num));
 OP*	bind_match _((I32 type, OP* left, OP* pat));
 OP*	block_end _((int line, int floor, OP* seq));
-OP*	block_head _((OP* o, OP** startp));
 int	block_start _((void));
 void	calllist _((AV* list));
 I32	cando _((I32 bit, I32 effective, struct stat* statbufp));
+#ifndef CASTNEGFLOAT
 U32	cast_ulong _((double f));
+#endif
+#if !defined(HAS_TRUNCATE) && !defined(HAS_CHSIZE) && defined(F_FREESP)
 I32	chsize _((int fd, Off_t length));
+#endif
 OP *	ck_gvconst _((OP * o));
 OP *	ck_retarget _((OP *op));
 OP*	convert _((I32 optype, I32 flags, OP* op));
-OP*	cop_to_arg _((OP* cmd));
-I32	copyopt _((OP* cmd, OP* which));
 char*	cpytill _((char* to, char* from, char* fromend, int delim, I32* retlen));
 void	croak _((char* pat,...)) __attribute__((format(printf,1,2),noreturn));
 void	cv_undef _((CV* cv));
 #ifdef DEBUGGING
 void	cx_dump _((CONTEXT* cs));
 #endif
-I32	cxinc _((void));
 void	cryptswitch_add _((cryptswitch_t funcp));
+I32	cxinc _((void));
 void	deb _((char* pat,...)) __attribute__((format(printf,1,2)));
 void	deb_growlevel _((void));
 I32	debop _((OP* op));
@@ -63,40 +58,42 @@ void	deprecate _((char* s));
 OP*	die _((char* pat,...)) __attribute__((format(printf,1,2)));
 OP*	die_where _((char* message));
 void	dounwind _((I32 cxix));
-void	do_accept _((SV* sv, GV* ngv, GV* ggv));
 bool	do_aexec _((SV* really, SV** mark, SV** sp));
 void    do_chop _((SV* asv, SV* sv));
 bool	do_close _((GV* gv, bool explicit));
 bool	do_eof _((GV* gv));
 bool	do_exec _((char* cmd));
 void	do_execfree _((void));
-SV*	do_fttext _((OP* arg, SV* sv));
+#if defined(HAS_MSG) || defined(HAS_SEM) || defined(HAS_SHM)
 I32	do_ipcctl _((I32 optype, SV** mark, SV** sp));
 I32	do_ipcget _((I32 optype, SV** mark, SV** sp));
+#endif
 void	do_join _((SV* sv, SV* del, SV** mark, SV** sp));
 OP*	do_kv _((void));
+#if defined(HAS_MSG) || defined(HAS_SEM) || defined(HAS_SHM)
 I32	do_msgrcv _((SV** mark, SV** sp));
 I32	do_msgsnd _((SV** mark, SV** sp));
+#endif
 bool	do_open _((GV* gv, char* name, I32 len, FILE* supplied_fp));
 void	do_pipe _((SV* sv, GV* rgv, GV* wgv));
 bool	do_print _((SV* sv, FILE* fp));
 OP *	do_readline _((void));
 I32	do_chomp _((SV* sv));
 bool	do_seek _((GV* gv, long pos, int whence));
+#if defined(HAS_MSG) || defined(HAS_SEM) || defined(HAS_SHM)
 I32	do_semop _((SV** mark, SV** sp));
 I32	do_shmio _((I32 optype, SV** mark, SV** sp));
+#endif
 void	do_sprintf _((SV* sv, I32 len, SV** sarg));
-OP*	do_subr _((void));
 long	do_tell _((GV* gv));
 I32	do_trans _((SV* sv, OP* arg));
 void	do_vecset _((SV* sv));
 void	do_vop _((I32 optype, SV* sv, SV* left, SV* right));
-void	do_write _((struct Outrec* orec, GV* gv));
 void	dump_all _((void));
-void	dump_cop _((OP* cmd, OP* alt));
 void	dump_eval _((void));
+#ifdef NOTDEF  /* See util.c */
 int	dump_fds _((char* s));
-void	dump_flags _((char* b, U32 flags));
+#endif
 void	dump_form _((GV* gv));
 void	dump_gv _((GV* gv));
 void	dump_op _((OP* arg));
@@ -105,12 +102,10 @@ void	dump_packsubs _((HV* stash));
 void	dump_sub _((GV* gv));
 void	fbm_compile _((SV* sv, I32 iflag));
 char*	fbm_instr _((unsigned char* big, unsigned char* bigend, SV* littlesv));
-OP*	flatten _((OP* arg));
 OP*	force_list _((OP* arg));
 OP*	fold_constants _((OP * arg));
 void	free_tmps _((void));
 OP*	gen_constant_list _((OP* op));
-I32	getgimme _((OP*op));
 void	gp_free _((GV* gv));
 GP*	gp_ref _((GP* gp));
 GV*	gv_AVadd _((GV* gv));
@@ -124,13 +119,10 @@ GV*	gv_fetchmethod _((HV* stash, char* name));
 GV*	gv_fetchpv _((char* name, I32 add, I32 sv_type));
 void	gv_fullname _((SV* sv, GV* gv));
 void	gv_init _((GV *gv, HV *stash, char *name, STRLEN len, int multi));
-STRLEN	gv_len _((SV* sv));
 HV*	gv_stashpv _((char* name, I32 create));
 HV*	gv_stashsv _((SV* sv, I32 create));
-OP*	gv_to_op _((I32 atype, GV* gv));
 void	he_delayfree _((HE* hent));
 void	he_free _((HE* hent));
-void	hint _((int aver, OP* id, OP* arg));
 void	hoistmust _((PMOP* pm));
 void	hv_clear _((HV* tb));
 SV*	hv_delete _((HV* tb, char* key, U32 klen));
@@ -139,6 +131,7 @@ SV**	hv_fetch _((HV* tb, char* key, U32 klen, I32 lval));
 I32	hv_iterinit _((HV* tb));
 char*	hv_iterkey _((HE* entry, I32* retlen));
 HE*	hv_iternext _((HV* tb));
+SV *	hv_iternextsv _((HV* hv, char** key, I32* retlen));
 SV*	hv_iterval _((HV* tb, HE* entry));
 void	hv_magic _((HV* hv, GV* gv, int how));
 SV**	hv_store _((HV* tb, char* key, U32 klen, SV* val, U32 hash));
@@ -157,7 +150,6 @@ OP*	list _((OP* o));
 OP*	listkids _((OP* o));
 OP*	localize _((OP* arg, I32 lexical));
 I32	looks_like_number _((SV* sv));
-OP*	loopscope _((OP* o));
 int	magic_clearenv	_((SV* sv, MAGIC* mg));
 int	magic_clearpack	_((SV* sv, MAGIC* mg));
 int	magic_existspack	_((SV* sv, MAGIC* mg));
@@ -189,14 +181,12 @@ int	magic_settaint	_((SV* sv, MAGIC* mg));
 int	magic_setuvar	_((SV* sv, MAGIC* mg));
 int	magic_setvec	_((SV* sv, MAGIC* mg));
 int	magic_wipepack	_((SV* sv, MAGIC* mg));
-void	magicalize _((char* list));
 void	magicname _((char* sym, char* name, I32 namlen));
 int	main _((int argc, char** argv, char** env));
 #ifndef STANDARD_C
 Malloc_t	malloc _((MEM_SIZE nbytes));
 #endif
 void	markstack_grow _((void));
-OP*	maybeforcelist _((I32 optype, OP* arg));
 char*	mess _((char* pat, va_list* args));
 int	mg_clear _((SV* sv));
 int	mg_copy _((SV *, SV *, char *, STRLEN));
@@ -213,16 +203,21 @@ void	mstats _((char* s));
 #endif
 OP *	my _(( OP *));
 char*	my_bcopy _((char* from, char* to, I32 len));
+#if !defined(HAS_BZERO) && !defined(HAS_MEMSET)
 char*	my_bzero _((char* loc, I32 len));
+#endif
 void	my_exit _((I32 status)) __attribute__((noreturn));
 I32	my_lstat _((void));
+#ifndef HAS_MEMCMP
 I32	my_memcmp _((unsigned char* s1, unsigned char* s2, I32 len));
+#endif
 I32	my_pclose _((FILE* ptr));
-FILE*	my_pfiopen _((FILE* fil, void (*func)()));
 FILE*	my_popen _((char* cmd, char* mode));
 void	my_setenv _((char* nam, char* val));
 I32	my_stat _((void));
+#ifdef MYSWAP
 short	my_swap _((short s));
+#endif
 void	my_unexec _((void));
 OP*	newANONLIST _((OP* op));
 OP*	newANONHASH _((OP* op));
@@ -236,7 +231,6 @@ OP*	newLOGOP _((I32 optype, I32 flags, OP* left, OP* right));
 OP*	newLOOPEX _((I32 type, OP* label));
 OP*	newLOOPOP _((I32 flags, I32 debuggable, OP* expr, OP* block));
 OP*	newMETHOD _((OP* ref, OP* name));
-OP*	newNAMEOP _((OP* o));
 OP*	newNULLLIST _((void));
 OP*	newOP _((I32 optype, I32 flags));
 void	newPROG _((OP* op));
@@ -246,7 +240,9 @@ OP*	newSTATEOP _((I32 flags, char* label, OP* o));
 CV*	newSUB _((I32 floor, OP* op, OP* block));
 OP*	newUNOP _((I32 optype, I32 flags, OP* child));
 CV*	newXS _((char *name, void (*subaddr)(CV* cv), char *filename));
+#ifdef DEPRECATED
 CV*	newXSUB _((char *name, I32 ix, I32 (*subaddr)(int,int,int), char *filename));
+#endif
 AV*	newAV _((void));
 OP*	newAVREF _((OP* o));
 OP*	newBINOP _((I32 type, I32 flags, OP* first, OP* last));
@@ -279,11 +275,7 @@ OP *	newWHILEOP _((I32 flags, I32 debuggable, LOOP* loop, OP* expr, OP* block, O
 FILE*	nextargv _((GV* gv));
 char*	ninstr _((char* big, char* bigend, char* little, char* lend));
 OP *	oopsCV _((OP* o));
-void	op_behead _((OP* arg));
-OP*	op_fold_const _((OP* arg));
 void	op_free _((OP* arg));
-void	op_optimize _((OP* cmd, I32 fliporflop, I32 acmd));
-OP*	over _((GV* eachgv, OP* cmd));
 void	package _((OP* op));
 PADOFFSET	pad_alloc _((I32 optype, U32 tmptype));
 PADOFFSET	pad_allocmy _((char* name));
@@ -295,7 +287,6 @@ SV*	pad_sv _((PADOFFSET po));
 void	pad_free _((PADOFFSET po));
 void	pad_reset _((void));
 void	pad_swipe _((PADOFFSET po));
-OP*	parse_list _((SV* sv));
 void	peep _((OP* op));
 PerlInterpreter*	perl_alloc _((void));
 I32	perl_call_argv _((char* subname, I32 flags, char** argv));
@@ -308,7 +299,7 @@ I32	perl_callpv _((char* subname, I32 sp, I32 gimme, I32 hasargs, I32 numargs));
 I32	perl_callsv _((SV* sv, I32 sp, I32 gimme, I32 hasargs, I32 numargs));
 #endif
 void	perl_construct _((PerlInterpreter* sv_interp));
-void	perl_destruct _((PerlInterpreter* sv_interp));
+void	perl_destruct _((PerlInterpreter* sv_interp, int destruct_level));
 void	perl_free _((PerlInterpreter* sv_interp));
 SV*	perl_get_sv _((char* name, I32 create));
 AV*	perl_get_av _((char* name, I32 create));
@@ -326,7 +317,6 @@ void	pop_scope _((void));
 OP*	prepend_elem _((I32 optype, OP* head, OP* tail));
 void	push_return _((OP* op));
 void	push_scope _((void));
-OP*	rcatmaybe _((OP* arg));
 regexp*	regcomp _((char* exp, char* xend, PMOP* pm));
 OP*	ref _((OP* op, I32 type));
 OP*	refkids _((OP* op, I32 type));
@@ -338,7 +328,6 @@ char*	regprop _((char* op));
 void	repeatcpy _((char* to, char* from, I32 len, I32 count));
 char*	rninstr _((char* big, char* bigend, char* little, char* lend));
 int	run _((void));
-void	run_format _((struct Outrec* orec, FF* fcmd));
 #ifndef safemalloc
 void	safefree _((char* where));
 char*	safemalloc _((MEM_SIZE size));
@@ -348,10 +337,14 @@ char*	saferealloc _((char* where, MEM_SIZE size));
 char*	saferealloc _((char* where, unsigned long size));
 #endif
 #endif
+#ifdef LEAKTEST
 void	safexfree _((char* where));
 char*	safexmalloc _((I32 x, MEM_SIZE size));
 char*	safexrealloc _((char* where, MEM_SIZE size));
+#endif
+#ifndef HAS_RENAME
 I32	same_dirent _((char* a, char* b));
+#endif
 char*	savepv _((char* sv));
 char*	savepvn _((char* sv, I32 len));
 void	savestack_grow _((void));
@@ -385,10 +378,14 @@ OP*	scalarvoid _((OP* op));
 unsigned long	scan_hex _((char* start, I32 len, I32* retlen));
 char*	scan_num _((char* s));
 unsigned long	scan_oct _((char* start, I32 len, I32* retlen));
+#ifdef NOTDEF /* See toke.c pp_ctl.c and op.c */
 void	scan_prefix _((PMOP* pm, char* string, I32 len));
+#endif
 OP*	scope _((OP* o));
 char*	screaminstr _((SV* bigsv, SV* littlesv));
+#ifndef VMS
 I32	setenv_getix _((char* nam));
+#endif
 VOIDRET sighandler _((int sig));
 SV**	stack_grow _((SV** sp, SV**p, int n));
 int	start_subparse _((void));
@@ -406,7 +403,6 @@ void	sv_catpvn _((SV* sv, char* ptr, STRLEN len));
 void	sv_catsv _((SV* dsv, SV* ssv));
 void	sv_chop _((SV* sv, char* ptr));
 void	sv_clean_all _((void));
-void	sv_clean_magic _((void));
 void	sv_clean_objs _((void));
 void	sv_clear _((SV* sv));
 I32	sv_cmp _((SV* sv1, SV* sv2));
@@ -422,8 +418,6 @@ char*	sv_grow _((SV* sv, unsigned long newlen));
 #endif
 void	sv_inc _((SV* sv));
 void	sv_insert _((SV* bigsv, STRLEN offset, STRLEN len, char* little, STRLEN littlelen));
-SV*	sv_interp _((SV* sv, SV* src, I32 sp));
-void	sv_intrpcompile _((SV* src));
 int	sv_isa _((SV* sv, char* name));
 int	sv_isobject _((SV* sv));
 STRLEN	sv_len _((SV* sv));
@@ -454,14 +448,11 @@ void	taint_env _((void));
 void	taint_not _((char *s));
 void	taint_proper _((char* f, char* s));
 I32	unlnk _((char* f));
-I32	userinit _((void));
 void	utilize _((int aver, OP* id, OP* arg));
 I32	wait4pid _((int pid, int* statusp, int flags));
 void	warn _((char* pat,...)) __attribute__((format(printf,1,2)));
 void	watch _((char **addr));
 I32	whichsig _((char* sig));
-void	while_io _((OP* cmd));
-OP*	wopt _((OP* cmd));
 int	yyerror _((char* s));
 int	yylex _((void));
 int	yyparse _((void));

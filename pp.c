@@ -1,11 +1,10 @@
-/* $RCSfile: pp.c,v $$Revision: 4.1 $$Date: 92/08/07 18:29:03 $
+/*    pp.c
  *
  *    Copyright (c) 1991-1994, Larry Wall
  *
  *    You may distribute under the terms of either the GNU General Public
  *    License or the Artistic License, as specified in the README file.
  *
- * $Log:	pp.c, v $
  */
 
 /*
@@ -1401,7 +1400,7 @@ PP(pp_substr)
     if (pos < 0)
 	pos += curlen + arybase;
     if (pos < 0 || pos > curlen) {
-	if (dowarn)
+	if (dowarn || lvalue)
 	    warn("substr outside of string");
 	RETPUSHUNDEF;
     }
@@ -1419,6 +1418,11 @@ PP(pp_substr)
 	    rem = len;
 	sv_setpvn(TARG, tmps, rem);
 	if (lvalue) {			/* it's an lvalue! */
+	    if (SvTYPE(TARG) < SVt_PVLV) {
+		sv_upgrade(TARG, SVt_PVLV);
+		sv_magic(TARG, Nullsv, 'x', Nullch, 0);
+	    }
+
 	    LvTYPE(TARG) = 's';
 	    LvTARG(TARG) = sv;
 	    LvTARGOFF(TARG) = pos;
@@ -1447,6 +1451,11 @@ PP(pp_vec)
 	retnum = 0;
     else {
 	if (lvalue) {                      /* it's an lvalue! */
+	    if (SvTYPE(TARG) < SVt_PVLV) {
+		sv_upgrade(TARG, SVt_PVLV);
+		sv_magic(TARG, Nullsv, 'v', Nullch, 0);
+	    }
+
 	    LvTYPE(TARG) = 'v';
 	    LvTARG(TARG) = src;
 	    LvTARGOFF(TARG) = offset; 

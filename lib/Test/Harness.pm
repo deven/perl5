@@ -1,6 +1,7 @@
 package Test::Harness;
 
 use Exporter;
+use Benchmark;
 @ISA=(Exporter);
 @EXPORT= qw(&runtests &test_lib);
 @EXPORT_OK= qw($verbose $switches);
@@ -11,22 +12,24 @@ $switches = "-w";
 sub runtests {
     my(@tests) = @_;
     local($|) = 1;
-    my($test,$te,$ok,$next,$max,$totmax,
-       $files,$pct,$user,$sys,$cuser,$csys);
+    my($test,$te,$ok,$next,$max,$totmax, $files,$pct);
     my $bad = 0;
     my $good = 0;
     my $total = @tests;
+    local($ENV{'PERL5LIB'}) = join(':', @INC); # pass -I flags to children
+
+    my $t_start = new Benchmark;
     while ($test = shift(@tests)) {
       $te = $test;
       chop($te);
       print "$te" . '.' x (20 - length($te));
       my $fh = "RESULTS";
-      open($fh,"$^X $switches $test|") || (print "can't run.\n");
+      open($fh,"$^X $switches $test|") || (print "can't run. $!\n");
       $ok = 0;
       $next = 0;
       while (<$fh>) {
 	  if( $verbose ){
-	      print $_;
+		  print $_;
 	  }
           unless (/^#/) {
               if (/^1\.\.([0-9]+)/) {
@@ -43,6 +46,7 @@ sub runtests {
               }
           }
       }
+      close($fh); # must close to reap child resource values
       $next -= 1;
       if ($ok && $next == $max) {
           print "ok\n";
@@ -54,6 +58,8 @@ sub runtests {
           $_ = $test;
       }
     }
+    my $t_total = timediff(new Benchmark, $t_start);
+
     if ($bad == 0) {
       if ($ok) {
           print "All tests successful.\n";
@@ -68,9 +74,7 @@ sub runtests {
           die "Failed $bad/$total tests, $pct% okay.\n";
       }
     }
-    ($user,$sys,$cuser,$csys) = times;
-    print sprintf("u=%g  s=%g  cu=%g  cs=%g  files=%d  tests=%d\n",
-                $user,$sys,$cuser,$csys,$files,$totmax);
+    printf("Files=%d,  Tests=%d, %s\n", $files,$totmax, timestr($t_total, 'nop'));
 }
 
 1;

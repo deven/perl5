@@ -3,6 +3,8 @@ package English;
 require Exporter;
 @ISA = (Exporter);
 
+local($^W) = 0;
+
 @EXPORT = qw(
 	*ARG
 	$MATCH
@@ -134,7 +136,7 @@ require Exporter;
 # Deprecated.
 
 #	*ARRAY_BASE				= \$[	;
-	*OFMT					= \$#	;
-	*MULTILINE_MATCHING			= \$*	;
+#	*OFMT					= \$#	;
+#	*MULTILINE_MATCHING			= \$*	;
 
 1;

@@ -29,6 +29,7 @@ Would be nice to have
 	tie(FILEHANDLE, ...)
 	__DATA__
 	support in perlmain to rerun debugger
+	make 'r' print return value like gdb 'fini'
 
 Possible pragmas
 	debugger
@@ -69,3 +70,6 @@ Vague possibilities
 	paren counting in tokener to queue remote expectations
 	autocroak?
 	Modifiable $1 et al
+	substr EXPR,OFFSET,LENGTH,STRING
+	locally capture warnings into an array
+

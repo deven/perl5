@@ -1,11 +1,10 @@
-/* $RCSfile: array.c,v $$Revision: 4.1 $$Date: 92/08/07 17:18:22 $
+/*    av.c
  *
  *    Copyright (c) 1991-1994, Larry Wall
  *
  *    You may distribute under the terms of either the GNU General Public
  *    License or the Artistic License, as specified in the README file.
  *
- * $Log:	array.c,v $
  */
 
 /*
@@ -387,7 +386,8 @@ register AV *av;
     if (!av || AvFILL(av) < 0)
 	return &sv_undef;
     retval = *AvARRAY(av);
-    *AvARRAY(av) = &sv_undef;
+    if (AvREAL(av))
+	*AvARRAY(av) = &sv_undef;
     SvPVX(av) = (char*)(AvARRAY(av) + 1);
     AvMAX(av)--;
     AvFILL(av)--;

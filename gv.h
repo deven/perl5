@@ -1,11 +1,10 @@
-/* $RCSfile: gv.h,v $$Revision: 4.1 $$Date: 92/08/07 18:26:42 $
+/*    gv.h
  *
  *    Copyright (c) 1991-1994, Larry Wall
  *
  *    You may distribute under the terms of either the GNU General Public
  *    License or the Artistic License, as specified in the README file.
  *
- * $Log:	gv.h,v $
  */
 
 struct gp {
@@ -30,7 +29,6 @@ struct gp {
 
 #define GvXPVGV(gv)	((XPVGV*)SvANY(gv))
 
-#define GvMAGIC(gv)	(GvGP(gv)->gp_magic)
 #define GvSV(gv)	(GvGP(gv)->gp_sv)
 #define GvREFCNT(gv)	(GvGP(gv)->gp_refcnt)
 #define GvIO(gv)	((gv) && SvTYPE((SV*)gv) == SVt_PVGV ? GvIOp(gv) : 0)
@@ -87,5 +85,9 @@ HV *GvHVn();
 #define DM_EGID   0x020
 #define DM_DELAY 0x100
 
-#define GVf_INTRO 0x01
-#define GVf_IMPORTED 0x02
+#define GVf_INTRO	0x01
+#define GVf_IMPORTED	0x02
+
+#define GV_ADD		0x01
+#define GV_ADDMULTI	0x02
+#define GV_ADDWARN	0x04

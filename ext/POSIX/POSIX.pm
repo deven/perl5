@@ -251,7 +251,7 @@ sub new {
 package FileHandle;
 
 sub new {
-    POSIX::usage "FileHandle-new(filename, posixmode)" if @_ != 3;
+    POSIX::usage "FileHandle->new(filename, posixmode)" if @_ != 3;
     local($class,$filename,$mode) = @_;
     local($glob) = &POSIX::gensym;
     $mode =~ s/a.*/>>/ ||

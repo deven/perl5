@@ -1,11 +1,10 @@
-/* $RCSfile: sv.h,v $$Revision: 4.1 $$Date: 92/08/07 18:26:57 $
+/*    sv.h
  *
  *    Copyright (c) 1991-1994, Larry Wall
  *
  *    You may distribute under the terms of either the GNU General Public
  *    License or the Artistic License, as specified in the README file.
  *
- * $Log:	sv.h,v $
  */
 
 #ifdef sv_flags
@@ -101,6 +100,7 @@ struct io {
 #define SVf_POK		0x00040000	/* has valid public pointer value */
 #define SVf_ROK		0x00080000	/* has a valid reference pointer */
 
+#define SVf_FAKE	0x00100000	/* glob is just a copy */
 #define SVf_OOK		0x00200000	/* has valid offset value */
 #define SVf_BREAK	0x00400000	/* refcnt is artificially low */
 #define SVf_READONLY	0x00800000	/* may not be modified */
@@ -312,6 +312,10 @@ struct xpvio {
 #define SvOOK(sv)		(SvFLAGS(sv) & SVf_OOK)
 #define SvOOK_on(sv)		(SvIOK_off(sv), SvFLAGS(sv) |= SVf_OOK)
 #define SvOOK_off(sv)		(SvOOK(sv) && sv_backoff(sv))
+
+#define SvFAKE(sv)		(SvFLAGS(sv) & SVf_FAKE)
+#define SvFAKE_on(sv)		(SvFLAGS(sv) |= SVf_FAKE)
+#define SvFAKE_off(sv)		(SvFLAGS(sv) &= ~SVf_FAKE)
 
 #define SvROK(sv)		(SvFLAGS(sv) & SVf_ROK)
 #define SvROK_on(sv)		(SvFLAGS(sv) |= SVf_ROK)
@@ -528,7 +532,7 @@ I32 SvTRUE _((SV *));
 #  define Sv_Grow sv_grow
 #else
     /* extra parentheses intentionally NOT placed around "len"! */
-#  define SvGROW(sv,len) (SvLEN(sv) < (unsigned long)len) \
+#  define SvGROW(sv,len) ((SvLEN(sv) < (unsigned long)len) \
 		? sv_grow(sv,(unsigned long)len) : SvPVX(sv))
 #  define Sv_Grow(sv,len) sv_grow(sv,(unsigned long)(len))
 #endif /* DOSISH */

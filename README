@@ -147,7 +147,7 @@ Installation
     that includes libdbm.nfs (which includes dbmclose()) may be available.
     If you get duplicates upon linking for malloc et al, say -DHIDEMYMALLOC.
     If you get duplicate function definitions (a perl function has the
-    same name as another function on your system) try -DHIDE_GLOBAL_NAMES.
+    same name as another function on your system) try -DEMBED.
 
 5)  make test
 
@@ -167,9 +167,8 @@ Installation
     you are not root, you must own the directories in question and you should
     ignore any messages about chown not working.
 
-    Most of the documentation in the pod/ and Doc/ directories is also 
-    available in HTML format.  Type
-	cd Doc; make html; cd ..
+    Most of the documentation in the pod/ directory is also available 
+    in HTML format.  Type
 	cd pod; make html; cd ..
     to generate the html versions.
 

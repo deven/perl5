@@ -99,7 +99,6 @@ copy_errmsg(msg,unused)
     }
 }
 
-
 /* Use $PutMsg to retrieve error message for failure status code */
 static void
 dl_set_error(sts,stv)
@@ -114,10 +113,9 @@ dl_set_error(sts,stv)
       croak("Fatal $PUTMSG error: %d",pmsts);
 }
 
-
 static void
 dl_private_init()
-    PPCODE:
+{
     dl_generic_private_init();
     /* Set up the static control blocks for dl_expand_filespec() */
     dlfab = cc$rms_fab;
@@ -127,23 +125,21 @@ dl_private_init()
     dlnam.nam$b_ess = sizeof dlesa;
     dlnam.nam$l_rsa = dlrsa;
     dlnam.nam$b_rss = sizeof dlrsa;
-
-
+}
 MODULE = DynaLoader PACKAGE = DynaLoader
 
 BOOT:
-	dl_private_init();
-
+    (void)dl_private_init();
 
 SV *
 dl_expandspec(filespec)
     char *	filespec
     CODE:
-    char *vmsspec, defspec[NAM$C_MAXRSS];
+    char vmsspec[NAM$C_MAXRSS], defspec[NAM$C_MAXRSS];
     size_t deflen;
     vmssts sts;
 
-    vmsspec = tovmsspec_ts(filespec);
+    tovmsspec(filespec,vmsspec);
     dlfab.fab$l_fna = vmsspec;
     dlfab.fab$b_fns = strlen(vmsspec);
     dlfab.fab$l_dna = 0;
@@ -192,14 +188,13 @@ dl_expandspec(filespec)
                             dlnam.nam$b_rsl,dlnam.nam$l_rsa));
         }
       }
-    safefree(vmsspec);
     }
-
 
 void *
 dl_load_file(filespec)
     char *	filespec
     CODE:
+    char vmsspec[NAM$C_MAXRSS];
     AV *reqAV;
     SV *reqSV, **reqSVhndl;
     STRLEN deflen;
@@ -216,7 +211,7 @@ dl_load_file(filespec)
     void *entry;
 
     DLDEBUG(1,fprintf(stderr,"dl_load_file(%s):\n",filespec));
-    specdsc.dsc$a_pointer = tovmsspec_ts(filespec);
+    specdsc.dsc$a_pointer = tovmsspec(filespec,vmsspec);
     specdsc.dsc$w_length = strlen(specdsc.dsc$a_pointer);
     DLDEBUG(2,fprintf(stderr,"\tVMS-ified filespec is %s\n",
                       specdsc.dsc$a_pointer));
@@ -232,7 +227,7 @@ dl_load_file(filespec)
     }
     else {
       dlptr->name.dsc$w_length = namlst[0].len;
-      dlptr->name.dsc$a_pointer = nsavestr(namlst[0].string,namlst[0].len);
+      dlptr->name.dsc$a_pointer = savepvn(namlst[0].string,namlst[0].len);
       dlptr->defspec.dsc$w_length = specdsc.dsc$w_length - namlst[0].len;
       dlptr->defspec.dsc$a_pointer = safemalloc(dlptr->defspec.dsc$w_length + 1);
       deflen = namlst[0].string - specdsc.dsc$a_pointer; 
@@ -263,12 +258,11 @@ dl_load_file(filespec)
         }
       }
     }
-    safefree(specdsc.dsc$a_pointer);
 
     if (failed) {
-      safefree(dlptr->name.dsc$a_pointer);
-      safefree(dlptr->defspec.dsc$a_pointer);
-      safefree(dlptr);
+      Safefree(dlptr->name.dsc$a_pointer);
+      Safefree(dlptr->defspec.dsc$a_pointer);
+      Safefree(dlptr);
       ST(0) = &sv_undef;
     }
     else {
@@ -284,7 +278,7 @@ dl_find_symbol(librefptr,symname)
     struct libref thislib = *((struct libref *)librefptr);
     struct dsc$descriptor_s
       symdsc = {SvCUR(symname),DSC$K_DTYPE_T,DSC$K_CLASS_S,SvPVX(symname)};
-    unsigned long int entry;
+    void (*entry)();
     vmssts sts;
 
     DLDEBUG(1,fprintf(stderr,"dl_find_dymbol(%.*s,%.*s):\n",
@@ -293,6 +287,8 @@ dl_find_symbol(librefptr,symname)
     sts = lib$find_image_symbol(&(thislib.name),&symdsc,
                                 &entry,&(thislib.defspec));
     DLDEBUG(2,fprintf(stderr,"\tlib$find_image_symbol returns %d\n",sts));
+    DLDEBUG(2,fprintf(stderr,"\tentry point is %d\n",
+                      (unsigned long int) entry));
     if (!(sts & 1)) {
       dl_set_error(sts,0);
       ST(0) = &sv_undef;
@@ -326,4 +322,3 @@ dl_error()
       RETVAL
 
 # end.
-

@@ -1,3 +1,6 @@
+/*    regexp.h
+ */
+
 /*
  * Definitions etc. for regexp(3) routines.
  *
@@ -5,10 +8,6 @@
  * not the System V one.
  */
 
-/* $RCSfile: regexp.h,v $$Revision: 4.1 $$Date: 92/08/07 18:26:35 $
- *
- * $Log:	regexp.h,v $
- */
 
 typedef struct regexp {
 	char **startp;

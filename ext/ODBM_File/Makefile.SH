@@ -209,5 +209,5 @@ $(TOP)/embed.h:	$(TOP)/config.sh; cd $(TOP); /bin/sh embed_h.SH
 $(TOP)/cflags:	$(TOP)/config.sh; cd $(TOP); /bin/sh cflags.SH
 
 !NO!SUBS!
-chmod 755 Makefile
+chmod 644 Makefile
 $eunicefix Makefile

@@ -4,15 +4,16 @@ perlipc - Perl interprocess communication
 
 =head1 DESCRIPTION
 
-=head2 Interprocess Communication
-
-The IPC facilities of perl are built on the Berkeley socket mechanism.
+The IPC facilities of Perl are built on the Berkeley socket mechanism.
 If you don't have sockets, you can ignore this section.  The calls have
 the same names as the corresponding system calls, but the arguments
-tend to differ, for two reasons.  First, perl file handles work
-differently than C file descriptors.  Second, perl already knows the
+tend to differ, for two reasons.  First, Perl file handles work
+differently than C file descriptors.  Second, Perl already knows the
 length of its strings, so you don't need to pass that information.
-Here is a sample client (untested):
+
+=head2 Client/Server Communication
+
+Here's a sample TCP client.
 
     ($them,$port) = @ARGV;
     $port = 2345 unless $port;
@@ -21,7 +22,7 @@ Here is a sample client (untested):
     $SIG{'INT'} = 'dokill';
     sub dokill { kill 9,$child if $child; }
 
-    require 'sys/socket.ph';
+    use Socket;
 
     $sockaddr = 'S n a4 x8';
     chop($hostname = `hostname`);
@@ -60,7 +61,7 @@ And here's a server:
     ($port) = @ARGV;
     $port = 2345 unless $port;
 
-    require 'sys/socket.ph';
+    use Socket;
 
     $sockaddr = 'S n a4 x8';
 
@@ -92,4 +93,76 @@ And here's a server:
 	    print NS;
 	}
     }
+
+=head2 SysV IPC
+
+Here's a small example showing shared memory usage:
+
+    $IPC_PRIVATE = 0;
+    $IPC_RMID = 0;
+    $size = 2000;
+    $key = shmget($IPC_PRIVATE, $size , 0777 );
+    die if !defined($key);
+
+    $message = "Message #1";
+    shmwrite($key, $message, 0, 60 ) || die "$!";
+    shmread($key,$buff,0,60) || die "$!";
+
+    print $buff,"\n";
+
+    print "deleting $key\n";
+    shmctl($key ,$IPC_RMID, 0) || die "$!";
+
+Here's an example of a semaphore:
+
+    $IPC_KEY = 1234;
+    $IPC_RMID = 0;
+    $IPC_CREATE = 0001000;
+    $key = semget($IPC_KEY, $nsems , 0666 | $IPC_CREATE );
+    die if !defined($key);
+    print "$key\n";
+
+Put this code in a separate file to be run in more that one process
+Call the file F<take>:
+
+    # create a semaphore
+
+    $IPC_KEY = 1234;
+    $key = semget($IPC_KEY,  0 , 0 );
+    die if !defined($key);
+
+    $semnum = 0;
+    $semflag = 0;
+
+    # 'take' semaphore
+    # wait for semaphore to be zero
+    $semop = 0;
+    $opstring1 = pack("sss", $semnum, $semop, $semflag);
+
+    # Increment the semaphore count
+    $semop = 1;
+    $opstring2 = pack("sss", $semnum, $semop,  $semflag);
+    $opstring = $opstring1 . $opstring2;
+
+    semop($key,$opstring) || die "$!";
+
+Put this code in a separate file to be run in more that one process
+Call this file F<give>:
+
+    #'give' the semaphore
+    # run this in the original process and you will see
+    # that the second process continues
+
+    $IPC_KEY = 1234;
+    $key = semget($IPC_KEY, 0, 0);
+    die if !defined($key);
+
+    $semnum = 0;
+    $semflag = 0;
+
+    # Decrement the semaphore count
+    $semop = -1;
+    $opstring = pack("sss", $semnum, $semop, $semflag);
+
+    semop($key,$opstring) || die "$!";
 

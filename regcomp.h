@@ -1,6 +1,4 @@
-/* $RCSfile: regcomp.h,v $$Revision: 4.1 $$Date: 92/08/07 18:26:31 $
- *
- * $Log:	regcomp.h,v $
+/*    regcomp.h
  */
 
 /*
@@ -109,15 +107,15 @@
  */
 
 #ifndef DOINIT
-extern char regarglen[];
+EXT char regarglen[];
 #else
-char regarglen[] = {0,0,0,0,0,0,0,0,0,0,4,4,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,2,2,0,0,0,0,0};
+EXT char regarglen[] = {0,0,0,0,0,0,0,0,0,0,4,4,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,2,2,0,0,0,0,0};
 #endif
 
 #ifndef DOINIT
-extern char regkind[];
+EXT char regkind[];
 #else
-char regkind[] = {
+EXT char regkind[] = {
 	END,
 	BOL,
 	BOL,
@@ -158,16 +156,16 @@ char regkind[] = {
 
 /* The following have no fixed length. */
 #ifndef DOINIT
-extern char varies[];
+EXT char varies[];
 #else
-char varies[] = {BRANCH,BACK,STAR,PLUS,CURLY,CURLYX,REF,WHILEM,0};
+EXT char varies[] = {BRANCH,BACK,STAR,PLUS,CURLY,CURLYX,REF,WHILEM,0};
 #endif
 
 /* The following always have a length of 1. */
 #ifndef DOINIT
-extern char simple[];
+EXT char simple[];
 #else
-char simple[] = {ANY,SANY,ANYOF,ALNUM,NALNUM,SPACE,NSPACE,DIGIT,NDIGIT,0};
+EXT char simple[] = {ANY,SANY,ANYOF,ALNUM,NALNUM,SPACE,NSPACE,DIGIT,NDIGIT,0};
 #endif
 
 EXT char regdummy;
@@ -237,4 +235,4 @@ EXT char regdummy;
 #define UCHARAT(p)	regdummy
 #endif /* lint */
 
-#define	FAIL(m)	croak("/%s/: %s",regprecomp,m)
+#define	FAIL(m)	croak("/%.127s/: %s",regprecomp,m)

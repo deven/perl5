@@ -1,3 +1,6 @@
+/*    regcomp.c
+ */
+
 /*
  * "A fair jaw-cracker dwarf-language must be."  --Samwise Gamgee
  */
@@ -11,11 +14,6 @@
  * blame Henry for some of the lack of readability.
  */
 
-/* $RCSfile: regcomp.c,v $$Revision: 4.1 $$Date: 92/08/07 18:26:28 $
- *
- * $Log:	regcomp.c,v $
- * 
- */
 /*SUPPRESS 112*/
 /*
  * regcomp and regexec -- regsub and regerror are not used in perl
@@ -40,7 +38,7 @@
  *
  ****    Alterations to Henry's code are...
  ****
- ****    Copyright (c) 1991, Larry Wall
+ ****    Copyright (c) 1991-1994, Larry Wall
  ****
  ****    You may distribute under the terms of either the GNU General Public
  ****    License or the Artistic License, as specified in the README file.
@@ -580,6 +578,14 @@ I32 *flagp;
     }
 
     op = *regparse;
+    if (op == '(' && regparse[1] == '?' && regparse[2] == '#') {
+	while (op && op != ')')
+	    op = *++regparse;
+	if (op) {
+	    nextchar();
+	    op = *regparse;
+	}
+    }
 
     if (op == '{' && regcurly(regparse)) {
 	next = regparse + 1;

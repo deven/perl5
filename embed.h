@@ -3,16 +3,6 @@
 /* (Doing namespace management portably in C is really gross.) */
 
 #ifdef EMBED
-#ifndef HIDE_GLOBAL_NAMES
-#define HIDE_GLOBAL_NAMES 1
-#endif
-#endif
-
-/* We may need to hide global names because of a name conflict 
-   in an extension or because we are embedding perl within
-   another program.
-*/
-#ifdef HIDE_GLOBAL_NAMES
 
 /* globals we need to hide from the world */
 #define AMG_names	Perl_AMG_names
@@ -65,7 +55,6 @@
 #define error_count	Perl_error_count
 #define euid		Perl_euid
 #define evalseq		Perl_evalseq
-#define evstr		Perl_evstr
 #define exp_amg		Perl_exp_amg
 #define expect		Perl_expect
 #define expectterm	Perl_expectterm
@@ -284,7 +273,6 @@
 #define av_len		Perl_av_len
 #define av_make		Perl_av_make
 #define av_pop		Perl_av_pop
-#define av_popnulls	Perl_av_popnulls
 #define av_push		Perl_av_push
 #define av_shift	Perl_av_shift
 #define av_store	Perl_av_store
@@ -382,7 +370,6 @@
 #define force_word	Perl_force_word
 #define free_tmps	Perl_free_tmps
 #define gen_constant_list	Perl_gen_constant_list
-#define getgimme	Perl_getgimme
 #define gp_free		Perl_gp_free
 #define gp_ref		Perl_gp_ref
 #define gv_AVadd	Perl_gv_AVadd
@@ -399,7 +386,6 @@
 #define gv_stashsv	Perl_gv_stashsv
 #define he_delayfree	Perl_he_delayfree
 #define he_free		Perl_he_free
-#define hint		Perl_hint
 #define hoistmust	Perl_hoistmust
 #define hv_clear	Perl_hv_clear
 #define hv_delete	Perl_hv_delete
@@ -940,7 +926,6 @@
 #define sv_catsv	Perl_sv_catsv
 #define sv_chop		Perl_sv_chop
 #define sv_clean_all	Perl_sv_clean_all
-#define sv_clean_magic	Perl_sv_clean_magic
 #define sv_clean_objs	Perl_sv_clean_objs
 #define sv_clear	Perl_sv_clear
 #define sv_cmp		Perl_sv_cmp
@@ -993,7 +978,7 @@
 #define yyparse		Perl_yyparse
 #define yywarn		Perl_yywarn
 
-#endif /* HIDE_GLOBAL_NAMES */
+#endif /* EMBED */
 
 /* Put interpreter specific symbols into a struct? */
 

@@ -4,37 +4,69 @@ perl - Practical Extraction and Report Language
 
 =head1 SYNOPSIS
 
-B<perl> [options] filename args
+For ease of access, the Perl manual has been split up into a number
+of sections:
+
+    perl	Perl overview (this section)
+    perldata	Perl data structures
+    perlsyn	Perl syntax
+    perlop	Perl operators and precedence
+    perlre	Perl regular expressions
+    perlrun	Perl execution and options
+    perlfunc	Perl builtin functions
+    perlvar	Perl predefined variables
+    perlsub	Perl subroutines
+    perlmod	Perl modules
+    perlref	Perl references and nested data structures
+    perlobj	Perl objects
+    perlbot	Perl OO tricks and examples
+    perldebug	Perl debugging
+    perldiag	Perl diagnostic messages
+    perlform	Perl formats
+    perlipc	Perl interprocess communication
+    perlsec	Perl security
+    perltrap	Perl traps for the unwary
+    perlstyle	Perl style guide
+    perlapi	Perl application programming interface
+    perlguts	Perl internal functions for those doing extensions 
+    perlcall	Perl calling conventions from C
+    perlovl	Perl overloading semantics
+    perlbook	Perl book information
+
+(If you're intending to read these straight through for the first time,
+the suggested order will tend to reduce the number of forward references.)
+
+If something strange has gone wrong with your program and you're not
+sure where you should look for help, try the B<-w> switch first.  It
+will often point out exactly where the trouble is.
 
 =head1 DESCRIPTION
 
-[Note: this document is under construction.  Expect lies and omissions.]
-
-I<Perl> is an interpreted language optimized for scanning arbitrary
+Perl is an interpreted language optimized for scanning arbitrary
 text files, extracting information from those text files, and printing
 reports based on that information.  It's also a good language for many
 system management tasks.  The language is intended to be practical
 (easy to use, efficient, complete) rather than beautiful (tiny,
 elegant, minimal).  It combines (in the author's opinion, anyway) some
-of the best features of C, I<sed>, I<awk>, and I<sh>, so people
+of the best features of C, B<sed>, B<awk>, and B<sh>, so people
 familiar with those languages should have little difficulty with it.
-(Language historians will also note some vestiges of I<csh>, Pascal,
+(Language historians will also note some vestiges of B<csh>, Pascal,
 and even BASIC-PLUS.)  Expression syntax corresponds quite closely to C
-expression syntax.  Unlike most Unix utilities, I<perl> does not
+expression syntax.  Unlike most Unix utilities, Perl does not
 arbitrarily limit the size of your data--if you've got the memory,
-I<perl> can slurp in your whole file as a single string.  Recursion is
+Perl can slurp in your whole file as a single string.  Recursion is
 of unlimited depth.  And the hash tables used by associative arrays
-grow as necessary to prevent degraded performance.  I<Perl> uses
+grow as necessary to prevent degraded performance.  Perl uses
 sophisticated pattern matching techniques to scan large amounts of data
-very quickly.  Although optimized for scanning text, I<perl> can also
+very quickly.  Although optimized for scanning text, Perl can also
 deal with binary data, and can make dbm files look like associative
-arrays (where dbm is available).  Setuid I<perl> scripts are safer than
+arrays (where dbm is available).  Setuid Perl scripts are safer than
 C programs through a dataflow tracing mechanism which prevents many
 stupid security holes.  If you have a problem that would ordinarily use
-I<sed> or I<awk> or I<sh>, but it exceeds their capabilities or must
+B<sed> or B<awk> or B<sh>, but it exceeds their capabilities or must
 run a little faster, and you don't want to write the silly thing in C,
-then I<perl> may be for you.  There are also translators to turn your
-I<sed> and I<awk> scripts into I<perl> scripts.
+then Perl may be for you.  There are also translators to turn your
+B<sed> and B<awk> scripts into Perl scripts.
 
 But wait, there's more...
 
@@ -49,6 +81,9 @@ It is now possible to write much more readable Perl code (even within
 regular expressions).  Formerly cryptic variable names can be replaced
 by mnemonic identifiers.  Error messages are more informative, and the
 optional warnings will catch many of the mistakes a novice might make.
+This cannot be stressed enough.  Whenever you get mysterious behavior,
+try the B<-w> switch!!!  Whenever you don't get mysterious behavior,
+try using B<-w> anyway.
 
 =item * Simplified grammar
 
@@ -74,8 +109,8 @@ counts for you.
 
 The Perl library is now defined in terms of modules which can be easily
 shared among various packages.  A package may choose to import all or a
-portion of a module's published interface.  Pragmas are defined and used
-by the same mechanism.
+portion of a module's published interface.  Pragmas (that is, compiler
+directives) are defined and used by the same mechanism.
 
 =item * Object-oriented programming
 
@@ -102,19 +137,19 @@ appropriate.
 The new BEGIN and END blocks provide means to capture control as
 a package is being compiled, and after the program exits.  As a
 degenerate case they work just like awk's BEGIN and END when you
-use the -p or -n switches.
+use the B<-p> or B<-n> switches.
 
 =item * Multiple simultaneous DBM implementations
 
-A Perl program may now access DBM, NDBM, SDBM, GDMB and Berkeley DB
+A Perl program may now access DBM, NDBM, SDBM, GDBM, and Berkeley DB
 files from the same script simultaneously.  In fact, the old dbmopen
 interface has been generalized to allow any variable to be tied
 to an object class which defines its access methods.
 
 =item * Subroutine definitions may now be autoloaded
 
-In fact, the AUTOLOAD mechanism also allows you to any arbitrary
-semantics to undefined subroutine calls.  It's not just for autoloading.
+In fact, the AUTOLOAD mechanism also allows you to define any arbitrary
+semantics for undefined subroutine calls.  It's not just for autoloading.
 
 =item * Regular expression enhancements
 
@@ -127,26 +162,6 @@ all old regular expressions.
 =back
 
 Ok, that's I<definitely> enough hype.
-
-For ease of access, the I<Perl> manpage has been split up into several
-other manpages:
-
-    perlbook	Perl book information
-    perldata	Perl data structures
-    perldebug	Perl debugging
-    perlform	Perl formats
-    perlfunc	Perl builtin functions
-    perlipc	Perl interprocess communication
-    perlmod	Perl modules
-    perlop	Perl operators and precedence
-    perlre	Perl regular expressions
-    perlrun	Perl execution and options
-    perlsec	Perl security
-    perlstyle	Perl style guide
-    perlsub	Perl subroutines
-    perlsyn	Perl syntax
-    perltrap	Perl traps for the unwary
-    perlvar	Perl predefined variables
 
 =head1 ENVIRONMENT
 
@@ -162,7 +177,7 @@ Used if chdir has no argument and HOME is not set.
 
 =item PATH
 
-Used in executing subprocesses, and in finding the script if -S is
+Used in executing subprocesses, and in finding the script if B<-S> is
 used.
 
 =item PERL5LIB
@@ -177,9 +192,16 @@ The command used to get the debugger code.  If unset, uses
 
 	BEGIN { require 'perl5db.pl' }
 
+=item PERLLIB
+
+A colon-separated list of directories in which to look for Perl library
+files before looking in the standard library and the current
+directory.  If PERL5LIB is defined, PERLLIB is not used.
+
+
 =back
 
-Apart from these, I<perl> uses no other environment variables, except
+Apart from these, Perl uses no other environment variables, except
 to make them available to the script being executed, and to child
 processes.  However, scripts running setuid would do well to execute
 the following lines before doing anything else, just to keep people
@@ -191,7 +213,7 @@ honest:
 
 =head1 AUTHOR
 
-Larry Wall <lwall@netlabs.com>, with the help of oodles of other folks.
+Larry Wall <F<lwall@netlabs.com.>, with the help of oodles of other folks.
 
 =head1 FILES
 
@@ -205,28 +227,45 @@ Larry Wall <lwall@netlabs.com>, with the help of oodles of other folks.
 
 =head1 DIAGNOSTICS
 
+The B<-w> switch produces some lovely diagnostics.
+
+See L<perldiag> for explanations of all Perl's diagnostics.
+
 Compilation errors will tell you the line number of the error, with an
 indication of the next token or token type that was to be examined.
-(In the case of a script passed to I<perl> via B<-e> switches, each
+(In the case of a script passed to Perl via B<-e> switches, each
 B<-e> is counted as one line.)
 
 Setuid scripts have additional constraints that can produce error
-messages such as "Insecure dependency".  See the perlsec document.
+messages such as "Insecure dependency".  See L<perlsec>.
+
+Did we mention that you should definitely consider using the B<-w>
+switch?
 
 =head1 BUGS
 
-I<Perl> is at the mercy of your machine's definitions of various
+The B<-w> switch is not mandatory.
+
+Perl is at the mercy of your machine's definitions of various
 operations such as type casting, atof() and sprintf().
 
 If your stdio requires an seek or eof between reads and writes on a
-particular stream, so does I<perl>.  (This doesn't apply to sysread()
+particular stream, so does Perl.  (This doesn't apply to sysread()
 and syswrite().)
 
 While none of the built-in data types have any arbitrary size limits
 (apart from memory size), there are still a few arbitrary limits:  a
 given identifier may not be longer than 255 characters, and no
-component of your PATH may be longer than 255 if you use -S.  A regular
+component of your PATH may be longer than 255 if you use B<-S>.  A regular
 expression may not compile to more than 32767 bytes internally.
 
-I<Perl> actually stands for Pathologically Eclectic Rubbish Lister, but
+Perl actually stands for Pathologically Eclectic Rubbish Lister, but
 don't tell anyone I said that.
+
+=head1 NOTES
+
+The Perl motto is "There's more than one way to do it."  Divining
+how many more is left as an exercise to the reader.
+
+The three principle virtues of a programmer are Laziness,
+Impatience, and Hubris.  See the Camel Book for why.

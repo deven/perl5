@@ -1,11 +1,10 @@
-/* $RCSfile: op.c,v $$Revision: 4.1 $$Date: 92/08/07 17:19:16 $
+/*    scope.c
  *
  *    Copyright (c) 1991-1994, Larry Wall
  *
  *    You may distribute under the terms of either the GNU General Public
  *    License or the Artistic License, as specified in the README file.
  *
- * $Log:	op.c,v $
  */
 
 /*
@@ -126,7 +125,7 @@ GV *gv;
     SSPUSHINT(SAVEt_SV);
 
     sv = GvSV(gv) = NEWSV(0,0);
-    if (SvTYPE(osv) >= SVt_PVMG && SvMAGIC(osv)) {
+    if (SvTYPE(osv) >= SVt_PVMG && SvMAGIC(osv) && SvTYPE(osv) != SVt_PVGV) {
 	sv_upgrade(sv, SvTYPE(osv));
 	if (SvGMAGICAL(osv)) {
 	    mg_get(osv);
@@ -177,7 +176,7 @@ SV **sptr;
     SSPUSHINT(SAVEt_SVREF);
 
     sv = *sptr = NEWSV(0,0);
-    if (SvTYPE(osv) >= SVt_PVMG && SvMAGIC(osv)) {
+    if (SvTYPE(osv) >= SVt_PVMG && SvMAGIC(osv) && SvTYPE(osv) != SVt_PVGV) {
 	sv_upgrade(sv, SvTYPE(osv));
 	if (SvGMAGICAL(osv)) {
 	    mg_get(osv);
@@ -422,13 +421,15 @@ I32 base;
 	    value = (SV*)SSPOPPTR;
 	    sv = (SV*)SSPOPPTR;
 	    sv_replace(sv,value);
+	    localizing = TRUE;
 	    SvSETMAGIC(sv);
+	    localizing = FALSE;
 	    break;
         case SAVEt_SV:				/* scalar reference */
 	    value = (SV*)SSPOPPTR;
 	    gv = (GV*)SSPOPPTR;
 	    sv = GvSV(gv);
-	    if (SvTYPE(sv) >= SVt_PVMG && SvMAGIC(sv)) {
+	    if (SvTYPE(sv) >= SVt_PVMG && SvMAGIC(sv) && SvTYPE(sv) != SVt_PVGV){
 		(void)SvUPGRADE(value, SvTYPE(sv));
 		SvMAGIC(value) = SvMAGIC(sv);
 		SvFLAGS(value) |= SvMAGICAL(sv);
@@ -437,13 +438,15 @@ I32 base;
 	    }
             SvREFCNT_dec(sv);
             GvSV(gv) = value;
+	    localizing = TRUE;
 	    SvSETMAGIC(value);
+	    localizing = FALSE;
             break;
         case SAVEt_SVREF:			/* scalar reference */
 	    ptr = SSPOPPTR;
 	    sv = *(SV**)ptr;
 	    value = (SV*)SSPOPPTR;
-	    if (SvTYPE(sv) >= SVt_PVMG) {
+	    if (SvTYPE(sv) >= SVt_PVMG && SvTYPE(sv) != SVt_PVGV) {
 		(void)SvUPGRADE(value, SvTYPE(sv));
 		SvMAGIC(value) = SvMAGIC(sv);
 		SvFLAGS(value) |= SvMAGICAL(sv);
@@ -452,7 +455,9 @@ I32 base;
 	    }
             SvREFCNT_dec(sv);
 	    *(SV**)ptr = value;
+	    localizing = TRUE;
 	    SvSETMAGIC(value);
+	    localizing = FALSE;
             break;
         case SAVEt_AV:				/* array reference */
 	    av = (AV*)SSPOPPTR;

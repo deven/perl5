@@ -345,9 +345,9 @@ typedef enum {
 #define MAXO 340
 
 #ifndef DOINIT
-extern char *op_name[];
+EXT char *op_name[];
 #else
-char *op_name[] = {
+EXT char *op_name[] = {
 	"null operation",
 	"stub",
 	"scalar",
@@ -1062,9 +1062,9 @@ OP *	pp_getlogin	_((void));
 OP *	pp_syscall	_((void));
 
 #ifndef DOINIT
-extern OP * (*ppaddr[])();
+EXT OP * (*ppaddr[])();
 #else
-OP * (*ppaddr[])() = {
+EXT OP * (*ppaddr[])() = {
 	pp_null,
 	pp_stub,
 	pp_scalar,
@@ -1409,9 +1409,9 @@ OP * (*ppaddr[])() = {
 #endif
 
 #ifndef DOINIT
-extern OP * (*check[])();
+EXT OP * (*check[])();
 #else
-OP * (*check[])() = {
+EXT OP * (*check[])() = {
 	ck_null,	/* null */
 	ck_null,	/* stub */
 	ck_fun,		/* scalar */
@@ -1758,7 +1758,7 @@ OP * (*check[])() = {
 #ifndef DOINIT
 EXT U32 opargs[];
 #else
-U32 opargs[] = {
+EXT U32 opargs[] = {
 	0x00000000,	/* null */
 	0x00000000,	/* stub */
 	0x00000104,	/* scalar */
@@ -1938,7 +1938,7 @@ U32 opargs[] = {
 	0x00000040,	/* enteriter */
 	0x00000000,	/* iter */
 	0x00000040,	/* enterloop */
-	0x00000004,	/* leaveloop */
+	0x00000000,	/* leaveloop */
 	0x00000241,	/* return */
 	0x00000044,	/* last */
 	0x00000044,	/* next */
@@ -2041,7 +2041,7 @@ U32 opargs[] = {
 	0x0000025d,	/* kill */
 	0x0000001c,	/* getppid */
 	0x0000091c,	/* getpgrp */
-	0x0000111c,	/* setpgrp */
+	0x0000991c,	/* setpgrp */
 	0x0000111c,	/* getpriority */
 	0x0001111c,	/* setpriority */
 	0x0000001c,	/* time */

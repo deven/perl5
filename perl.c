@@ -1,10 +1,10 @@
-/*
- *    Copyright (c) 1991, 1992, 1993, 1994 Larry Wall
+/*    perl.c
+ *
+ *    Copyright (c) 1987-1994 Larry Wall
  *
  *    You may distribute under the terms of either the GNU General Public
  *    License or the Artistic License, as specified in the README file.
  *
- * $Log:	perl.c,v $
  */
 
 /*
@@ -21,7 +21,7 @@
 #endif
 */
 
-char rcsid[] = "$RCSfile: perl.c,v $$Revision: 5.0 $$Date: 92/08/07 18:25:50 $\nPatch level: ###\n";
+char rcsid[] = "perl.c\nPatch level: ###\n";
 
 #ifdef IAMSUID
 #ifndef DOSUID
@@ -120,11 +120,12 @@ register PerlInterpreter *sv_interp;
     euid = (int)geteuid();
     gid = (int)getgid();
     egid = (int)getegid();
+#ifdef VMS
+    uid |= gid << 16;
+    euid |= egid << 16;
+#endif
     tainting = (euid != uid || egid != gid);
-    if (s = strchr(rcsid,'#')) {
-	(void)sprintf(s, "%d\n", PATCHLEVEL);
-	sprintf(patchlevel,"%3.3s%2.2d", strchr(rcsid,'5'), PATCHLEVEL);
-    }
+    sprintf(patchlevel, "%5.3f", 5.0 + (PATCHLEVEL / 1000.0));
 
     fdpid = newAV();	/* for remembering popen pids by fd */
     pidstatus = newHV();/* for remembering status of dead pids */
@@ -134,13 +135,12 @@ register PerlInterpreter *sv_interp;
 }
 
 void
-perl_destruct(sv_interp)
+perl_destruct(sv_interp, destruct_level)
 register PerlInterpreter *sv_interp;
+int destruct_level;  /* 0=none, 1=full, 2=full with checks */
 {
-#ifdef EMBED
     I32 last_sv_count;
     HV *hv;
-#endif
 
     if (!(curinterp = sv_interp))
 	return;
@@ -166,14 +166,13 @@ register PerlInterpreter *sv_interp;
 	sv_clean_objs();
     }
 
-#ifndef EMBED
+    if (destruct_level == 0){
 
-    DEBUG_P(debprofdump());
+	DEBUG_P(debprofdump());
     
-    /* The exit() function will do everything that needs doing. */
-    return;
-    
-#else
+	/* The exit() function will do everything that needs doing. */
+	return;
+    }
     
     /* Prepare to destruct main symbol table.  */
     hv = defstash;
@@ -181,16 +180,16 @@ register PerlInterpreter *sv_interp;
     SvREFCNT_dec(hv);
 
     FREETMPS;
-#ifdef DEBUGGING
-    if (scopestack_ix != 0)
-	warn("Unbalanced scopes: %d more ENTERs than LEAVEs\n", scopestack_ix);
-    if (savestack_ix != 0)
-	warn("Unbalanced saves: %d more saves than restores\n", savestack_ix);
-    if (tmps_floor != -1)
-	warn("Unbalanced tmps: %d more allocs than frees\n", tmps_floor + 1);
-    if (cxstack_ix != -1)
-	warn("Unbalanced context: %d more PUSHes than POPs\n", cxstack_ix + 1);
-#endif
+    if (destruct_level >= 2) {
+	if (scopestack_ix != 0)
+	    warn("Unbalanced scopes: %d more ENTERs than LEAVEs\n", scopestack_ix);
+	if (savestack_ix != 0)
+	    warn("Unbalanced saves: %d more saves than restores\n", savestack_ix);
+	if (tmps_floor != -1)
+	    warn("Unbalanced tmps: %d more allocs than frees\n", tmps_floor + 1);
+	if (cxstack_ix != -1)
+	    warn("Unbalanced context: %d more PUSHes than POPs\n", cxstack_ix + 1);
+    }
 
     /* Now absolutely destruct everything, somehow or other, loops or no. */
     last_sv_count = 0;
@@ -202,7 +201,6 @@ register PerlInterpreter *sv_interp;
 	warn("Scalars leaked: %d\n", sv_count);
     
     DEBUG_P(debprofdump());
-#endif /* EMBED */
 }
 
 void
@@ -242,15 +240,26 @@ setuid perl scripts securely.\n");
     if (!(curinterp = sv_interp))
 	return 255;
 
-    if (main_root)
-	op_free(main_root);
-    main_root = 0;
-
     origargv = argv;
     origargc = argc;
 #ifndef VMS  /* VMS doesn't have environ array */
     origenviron = environ;
 #endif
+
+    if (do_undump) {
+
+	/* Come here if running an undumped a.out. */
+
+	origfilename = savepv(argv[0]);
+	do_undump = FALSE;
+	cxstack_ix = -1;		/* start label stack again */
+	init_postdump_symbols(argc,argv,env);
+	return 0;
+    }
+
+    if (main_root)
+	op_free(main_root);
+    main_root = 0;
 
     switch (setjmp(top_env)) {
     case 1:
@@ -263,17 +272,6 @@ setuid perl scripts securely.\n");
     case 3:
 	fprintf(stderr, "panic: top_env\n");
 	return 1;
-    }
-
-    if (do_undump) {
-
-	/* Come here if running an undumped a.out. */
-
-	origfilename = savepv(argv[0]);
-	do_undump = FALSE;
-	cxstack_ix = -1;		/* start label stack again */
-	init_postdump_symbols(argc,argv,env);
-	return 0;
     }
 
     sv_setpvn(linestr,"",0);
@@ -491,6 +489,8 @@ PerlInterpreter *sv_interp;
 	    fprintf(stderr,"%s syntax OK\n", origfilename);
 	    my_exit(0);
 	}
+	if (perldb && DBsingle)
+	   sv_setiv(DBsingle, 1); 
     }
 
     /* do it */
@@ -659,7 +659,9 @@ I32 flags;		/* See G_* flags in cop.h */
 	Copy(top_env, oldtop, 1, jmp_buf);
 
 	cLOGOP->op_other = op;
+	markstack_ptr--;
 	pp_entertry();
+	markstack_ptr++;
 
     restart:
 	switch (setjmp(top_env)) {
@@ -961,9 +963,8 @@ char *s;
 	s++;
 	return s;
     case 'v':
-	fputs("\nThis is perl, version 5.0, Beta 3h\n\n",stdout);
-	fputs(rcsid,stdout);
-	fputs("\nCopyright (c) 1989, 1990, 1991, 1992, 1993, 1994 Larry Wall\n",stdout);
+	printf("\nThis is perl, version %s\n\n",patchlevel);
+	fputs("\nCopyright 1987-1994, Larry Wall\n",stdout);
 #ifdef MSDOS
 	fputs("MS-DOS port Copyright (c) 1989, 1990, Diomidis Spinellis\n",
 	stdout);
@@ -986,6 +987,7 @@ GNU General Public License, which may be found in the Perl 5.0 source kit.\n",st
 	dowarn = TRUE;
 	s++;
 	return s;
+    case '*':
     case ' ':
 	if (s[1] == '-')	/* Additional switches on #! line. */
 	    return s+2;
@@ -1022,7 +1024,7 @@ my_unexec()
     status = unexec(buf, tokenbuf, &etext, sbrk(0), 0);
     if (status)
 	fprintf(stderr, "unexec of %s into %s failed!\n", tokenbuf, buf);
-    my_exit(status);
+    exit(status);
 #else
     ABORT();		/* for use with undump */
 #endif
@@ -1043,6 +1045,8 @@ init_main_stash()
     defgv = gv_fetchpv("_",TRUE, SVt_PVAV);
     curstash = defstash;
     compiling.cop_stash = defstash;
+    debstash = newHV();
+    GvHV(gv_fetchpv("DB::", GV_ADDMULTI, SVt_PVHV)) = debstash;
 }
 
 #ifdef CAN_PROTOTYPE
@@ -1090,7 +1094,7 @@ SV *sv;
 		(void)strcat(tokenbuf+len,"/");
 	    (void)strcat(tokenbuf+len,scriptname);
 	    DEBUG_p(fprintf(stderr,"Looking for %s\n",tokenbuf));
-	    if (stat(tokenbuf,&statbuf) < 0)		/* not there? */
+	    if (Stat(tokenbuf,&statbuf) < 0)		/* not there? */
 		continue;
 	    if (S_ISREG(statbuf.st_mode)
 	     && cando(S_IRUSR,TRUE,&statbuf) && cando(S_IXUSR,TRUE,&statbuf)) {
@@ -1188,7 +1192,7 @@ sed %s -e \"/^[^#]/b\" \
     if ((FILE*)rsfp == Nullfp) {
 #ifdef DOSUID
 #ifndef IAMSUID		/* in case script is not readable before setuid */
-	if (euid && stat(SvPVX(GvSV(curcop->cop_filegv)),&statbuf) >= 0 &&
+	if (euid && Stat(SvPVX(GvSV(curcop->cop_filegv)),&statbuf) >= 0 &&
 	  statbuf.st_mode & (S_ISUID|S_ISGID)) {
 	    (void)sprintf(buf, "%s/sperl%s", BIN, patchlevel);
 	    execv(buf, origargv);	/* try again */
@@ -1228,7 +1232,7 @@ char *validarg;
 #ifdef DOSUID
     char *s;
 
-    if (fstat(fileno(rsfp),&statbuf) < 0)	/* normal stat is insecure */
+    if (Fstat(fileno(rsfp),&statbuf) < 0)	/* normal stat is insecure */
 	croak("Can't stat script \"%s\"",origfilename);
     if (statbuf.st_mode & (S_ISUID|S_ISGID)) {
 	I32 len;
@@ -1264,7 +1268,7 @@ char *validarg;
 #endif
 		|| getuid() != euid || geteuid() != uid)
 		croak("Can't swap uid and euid");	/* really paranoid */
-	    if (stat(SvPVX(GvSV(curcop->cop_filegv)),&tmpstatbuf) < 0)
+	    if (Stat(SvPVX(GvSV(curcop->cop_filegv)),&tmpstatbuf) < 0)
 		croak("Permission denied");	/* testing full pathname here */
 	    if (tmpstatbuf.st_dev != statbuf.st_dev ||
 		tmpstatbuf.st_ino != statbuf.st_ino) {
@@ -1408,7 +1412,7 @@ FIX YOUR KERNEL, PUT A C WRAPPER AROUND THIS SCRIPT, OR USE -u AND UNDUMP!\n");
 #else /* !DOSUID */
     if (euid != uid || egid != gid) {	/* (suidperl doesn't exist, in fact) */
 #ifndef SETUID_SCRIPTS_ARE_SECURE_NOW
-	fstat(fileno(rsfp),&statbuf);	/* may be either wrapped or real suid */
+	Fstat(fileno(rsfp),&statbuf);	/* may be either wrapped or real suid */
 	if ((euid != uid && euid == statbuf.st_uid && statbuf.st_mode & S_ISUID)
 	    ||
 	    (egid != gid && egid == statbuf.st_gid && statbuf.st_mode & S_ISGID)
@@ -1452,24 +1456,15 @@ init_debugger()
 {
     GV* tmpgv;
 
-    debstash = newHV();
-    GvHV(gv_fetchpv("DB::",TRUE, SVt_PVHV)) = debstash;
     curstash = debstash;
-    dbargs = GvAV(gv_AVadd((tmpgv = gv_fetchpv("args",TRUE, SVt_PVAV))));
-    SvMULTI_on(tmpgv);
+    dbargs = GvAV(gv_AVadd((tmpgv = gv_fetchpv("args", GV_ADDMULTI, SVt_PVAV))));
     AvREAL_off(dbargs);
-    DBgv = gv_fetchpv("DB",TRUE, SVt_PVGV);
-    SvMULTI_on(DBgv);
-    DBline = gv_fetchpv("dbline",TRUE, SVt_PVAV);
-    SvMULTI_on(DBline);
-    DBsub = gv_HVadd(tmpgv = gv_fetchpv("sub",TRUE, SVt_PVHV));
-    SvMULTI_on(tmpgv);
-    DBsingle = GvSV((tmpgv = gv_fetchpv("single",TRUE, SVt_PV)));
-    SvMULTI_on(tmpgv);
-    DBtrace = GvSV((tmpgv = gv_fetchpv("trace",TRUE, SVt_PV)));
-    SvMULTI_on(tmpgv);
-    DBsignal = GvSV((tmpgv = gv_fetchpv("signal",TRUE, SVt_PV)));
-    SvMULTI_on(tmpgv);
+    DBgv = gv_fetchpv("DB", GV_ADDMULTI, SVt_PVGV);
+    DBline = gv_fetchpv("dbline", GV_ADDMULTI, SVt_PVAV);
+    DBsub = gv_HVadd(tmpgv = gv_fetchpv("sub", GV_ADDMULTI, SVt_PVHV));
+    DBsingle = GvSV((tmpgv = gv_fetchpv("single", GV_ADDMULTI, SVt_PV)));
+    DBtrace = GvSV((tmpgv = gv_fetchpv("trace", GV_ADDMULTI, SVt_PV)));
+    DBsignal = GvSV((tmpgv = gv_fetchpv("signal", GV_ADDMULTI, SVt_PV)));
     curstash = defstash;
 }
 
@@ -1673,6 +1668,7 @@ AV* list;
     jmp_buf oldtop;
     char *mess;
     STRLEN len;
+    line_t oldline = curcop->cop_line;
 
     Copy(top_env, oldtop, 1, jmp_buf);
 
@@ -1688,10 +1684,12 @@ AV* list;
 	    mess = SvPVx(GvSV(gv_fetchpv("@",TRUE, SVt_PV)), len);
 	    if (len) {
 		Copy(oldtop, top_env, 1, jmp_buf);
+		curcop = &compiling;
+		curcop->cop_line = oldline;
 		if (list == beginav)
-		    croak("%sBEGIN failed--execution aborted", mess);
+		    croak("%sBEGIN failed--compilation aborted", mess);
 		else
-		    croak("%sEND failed--execution aborted", mess);
+		    croak("%sEND failed--cleanup aborted", mess);
 	    }
 	    break;
 	case 1:
@@ -1704,11 +1702,13 @@ AV* list;
 		calllist(endav);
 	    FREETMPS;
 	    Copy(oldtop, top_env, 1, jmp_buf);
+	    curcop = &compiling;
+	    curcop->cop_line = oldline;
 	    if (statusvalue) {
 		if (list == beginav)
-		    croak("BEGIN failed--execution aborted");
+		    croak("BEGIN failed--compilation aborted");
 		else
-		    croak("END failed--execution aborted");
+		    croak("END failed--cleanup aborted");
 	    }
 	    my_exit(statusvalue);
 	    /* NOTREACHED */
@@ -1720,6 +1720,8 @@ AV* list;
 		break;
 	    }
 	    Copy(oldtop, top_env, 1, jmp_buf);
+	    curcop = &compiling;
+	    curcop->cop_line = oldline;
 	    longjmp(top_env, 3);
 	}
     }

@@ -1,11 +1,10 @@
-/* $RCSfile: doarg.c,v $$Revision: 4.1 $$Date: 92/08/07 17:19:37 $
+/*    doop.c
  *
  *    Copyright (c) 1991-1994, Larry Wall
  *
  *    You may distribute under the terms of either the GNU General Public
  *    License or the Artistic License, as specified in the README file.
  *
- * $Log:	doarg.c,v $
  */
 
 /*
@@ -41,6 +40,8 @@ OP *arg;
     register I32 squash = op->op_private & OPpTRANS_SQUASH;
     STRLEN len;
 
+    if (SvREADONLY(sv))
+	croak(no_modify);
     tbl = (short*) cPVOP->op_pv;
     s = SvPV(sv, len);
     if (!len)
@@ -467,20 +468,31 @@ register SV *sv;
 	if (rspara) {
 	    if (*s != '\n')
 		goto nope;
+	    ++count;
+	    while (len && s[-1] == '\n') {
+		--len;
+		--s;
+		++count;
+	    }
 	}
 	else if (rslen == 1) {
 	    if (*s != rschar)
 		goto nope;
+	    ++count;
 	} 
-	else if (rslen <= len || bcmp((s -= rslen - 1), rs, rslen))
-	    goto nope;
-	else
+	else {
+	    if (len < rslen - 1)
+		goto nope;
 	    len -= rslen - 1;
+	    s -= rslen - 1;
+	    if (bcmp(s, rs, rslen))
+		goto nope;
+	    count += rslen;
+	}
 
 	*s = '\0';
 	SvCUR_set(sv, len);
 	SvNIOK_off(sv);
-	++count;
     }
   nope:
     SvSETMAGIC(sv);
@@ -505,9 +517,11 @@ SV *right;
     register char *lc = SvPV(left, leftlen);
     register char *rc = SvPV(right, rightlen);
     register I32 len;
+    I32 lensave;
 
     dc = SvPV_force(sv,na);
     len = leftlen < rightlen ? leftlen : rightlen;
+    lensave = len;
     if (SvCUR(sv) < len) {
 	dc = SvGROW(sv,len + 1);
 	(void)memzero(dc + SvCUR(sv), len - SvCUR(sv) + 1);
@@ -563,7 +577,6 @@ SV *right;
     {
 	char *lsave = lc;
 	char *rsave = rc;
-	I32 lensave = len;
 	
 	switch (optype) {
 	case OP_BIT_AND:

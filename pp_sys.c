@@ -1,11 +1,10 @@
-/* $RCSfile: pp.c,v $$Revision: 4.1 $$Date: 92/08/07 18:29:03 $
+/*    pp_sys.c
  *
  *    Copyright (c) 1991-1994, Larry Wall
  *
  *    You may distribute under the terms of either the GNU General Public
  *    License or the Artistic License, as specified in the README file.
  *
- * $Log:	pp.c, v $
  */
 
 /*
@@ -24,7 +23,7 @@
 #endif
 */
 
-#ifdef HAS_SOCKET
+#if defined(HAS_SOCKET) && !defined(VMS) /* VMS handles sockets via vmsish.h */
 # include <sys/socket.h>
 # include <netdb.h>
 # ifndef ENOTSOCK
@@ -74,22 +73,6 @@ extern int h_errno;
 #endif
 #ifdef I_SYS_FILE
 #include <sys/file.h>
-#endif
-
-#ifdef HAS_GETPGRP2
-#   define getpgrp getpgrp2
-#endif
-
-#ifdef HAS_SETPGRP2
-#   define setpgrp setpgrp2
-#endif
-
-#ifdef HAS_GETPGRP2
-#   define getpgrp getpgrp2
-#endif
-
-#ifdef HAS_SETPGRP2
-#   define setpgrp setpgrp2
 #endif
 
 #ifdef HAS_GETPGRP2
@@ -811,7 +794,7 @@ PP(pp_leavewrite)
 	    IoTOP_GV(io) = topgv;
 	}
 	if (IoLINES_LEFT(io) >= 0 && IoPAGE(io) > 0)
-	    fwrite(SvPVX(formfeed), SvCUR(formfeed), 1, ofp);
+	    fwrite1(SvPVX(formfeed), SvCUR(formfeed), 1, ofp);
 	IoLINES_LEFT(io) = IoPAGE_LEN(io);
 	IoPAGE(io)++;
 	formtarget = toptarget;
@@ -838,7 +821,7 @@ PP(pp_leavewrite)
 	    if (dowarn)
 		warn("page overflow");
 	}
-	if (!fwrite(SvPVX(formtarget), 1, SvCUR(formtarget), ofp) ||
+	if (!fwrite1(SvPVX(formtarget), 1, SvCUR(formtarget), ofp) ||
 		ferror(fp))
 	    PUSHs(&sv_no);
 	else {
@@ -1030,7 +1013,7 @@ PP(pp_send)
 	length = write(fileno(IoIFP(io)), buffer+offset, length);
     }
 #ifdef HAS_SOCKET
-    else if (SP >= MARK) {
+    else if (SP > MARK) {
 	char *sockbuf;
 	STRLEN mlen;
 	sockbuf = SvPVx(*++MARK, mlen);
@@ -1661,7 +1644,7 @@ PP(pp_stat)
 	    statgv = tmpgv;
 	    sv_setpv(statname, "");
 	    if (!GvIO(tmpgv) || !IoIFP(GvIOp(tmpgv)) ||
-	      fstat(fileno(IoIFP(GvIOn(tmpgv))), &statcache) < 0) {
+	      Fstat(fileno(IoIFP(GvIOn(tmpgv))), &statcache) < 0) {
 		max = 0;
 		laststatval = -1;
 	    }
@@ -1678,7 +1661,7 @@ PP(pp_stat)
 	    laststatval = lstat(SvPV(statname, na), &statcache);
 	else
 #endif
-	    laststatval = stat(SvPV(statname, na), &statcache);
+	    laststatval = Stat(SvPV(statname, na), &statcache);
 	if (laststatval < 0) {
 	    if (dowarn && strchr(SvPV(statname, na), '\n'))
 		warn(warn_nl, "stat");
@@ -2042,7 +2025,7 @@ PP(pp_fttext)
 	}
 	if (io && IoIFP(io)) {
 #ifdef FBASE
-	    fstat(fileno(IoIFP(io)), &statcache);
+	    Fstat(fileno(IoIFP(io)), &statcache);
 	    if (S_ISDIR(statcache.st_mode))	/* handle NFS glitch */
 		if (op->op_type == OP_FTTEXT)
 		    RETPUSHNO;
@@ -2084,7 +2067,7 @@ PP(pp_fttext)
 		warn(warn_nl, "open");
 	    RETPUSHUNDEF;
 	}
-	fstat(i, &statcache);
+	Fstat(i, &statcache);
 	len = read(i, tbuf, 512);
 	(void)close(i);
 	if (len <= 0) {
@@ -2220,7 +2203,7 @@ PP(pp_rename)
     if (same_dirent(tmps2, tmps))	/* can always rename to same name */
 	anum = 1;
     else {
-	if (euid || stat(tmps2, &statbuf) < 0 || !S_ISDIR(statbuf.st_mode))
+	if (euid || Stat(tmps2, &statbuf) < 0 || !S_ISDIR(statbuf.st_mode))
 	    (void)UNLINK(tmps2);
 	if (!(anum = link(tmps, tmps2)))
 	    anum = UNLINK(tmps);
@@ -2336,7 +2319,7 @@ char *filename;
 	    return 0;
 	}
 	else {	/* some mkdirs return no failure indication */
-	    anum = (stat(filename, &statbuf) >= 0);
+	    anum = (Stat(filename, &statbuf) >= 0);
 	    if (op->op_type == OP_RMDIR)
 		anum = !anum;
 	    if (anum)
@@ -2636,7 +2619,7 @@ PP(pp_system)
     VOIDRET (*ihand)();     /* place to save signal during system() */
     VOIDRET (*qhand)();     /* place to save signal during system() */
 
-#ifdef HAS_FORK
+#if defined(HAS_FORK) && !defined(VMS)
     if (SP - MARK == 1) {
 	if (tainting) {
 	    char *junk = SvPV(TOPs, na);
@@ -2680,16 +2663,20 @@ PP(pp_system)
 	value = (I32)do_exec(SvPVx(sv_mortalcopy(*SP), na));
     }
     _exit(-1);
-#else /* ! FORK */
-    if ((op[1].op_type & A_MASK) == A_GV)
-	value = (I32)do_aspawn(st[1], arglast);
-    else if (arglast[2] - arglast[1] != 1)
-	value = (I32)do_aspawn(Nullsv, arglast);
-    else {
-	value = (I32)do_spawn(SvPVx(sv_mortalcopy(st[2]), na));
+#else /* ! FORK or VMS */
+    if (op->op_flags & OPf_STACKED) {
+	SV *really = *++MARK;
+	value = (I32)do_aspawn(really, MARK, SP);
     }
+    else if (SP - MARK != 1)
+	value = (I32)do_aspawn(Nullsv, MARK, SP);
+    else {
+	value = (I32)do_spawn(SvPVx(sv_mortalcopy(*SP), na));
+    }
+    do_execfree();
+    SP = ORIGMARK;
     PUSHi(value);
-#endif /* FORK */
+#endif /* !FORK or VMS */
     RETURN;
 }
 
@@ -2703,14 +2690,22 @@ PP(pp_exec)
 	value = (I32)do_aexec(really, MARK, SP);
     }
     else if (SP - MARK != 1)
+#ifdef VMS
+	value = (I32)vms_do_aexec(Nullsv, MARK, SP);
+#else
 	value = (I32)do_aexec(Nullsv, MARK, SP);
+#endif
     else {
 	if (tainting) {
 	    char *junk = SvPV(*SP, na);
 	    TAINT_ENV();
 	    TAINT_PROPER("exec");
 	}
+#ifdef VMS
+	value = (I32)vms_do_exec(SvPVx(sv_mortalcopy(*SP), na));
+#else
 	value = (I32)do_exec(SvPVx(sv_mortalcopy(*SP), na));
+#endif
     }
     SP = ORIGMARK;
     PUSHi(value);
@@ -2753,12 +2748,12 @@ PP(pp_getpgrp)
 	pid = 0;
     else
 	pid = SvIVx(POPs);
-#ifdef _POSIX_SOURCE
+#ifdef USE_BSDPGRP
+    value = (I32)getpgrp(pid);
+#else
     if (pid != 0)
 	DIE("POSIX getpgrp can't take an argument");
     value = (I32)getpgrp();
-#else
-    value = (I32)getpgrp(pid);
 #endif
     XPUSHi(value);
     RETURN;
@@ -2771,11 +2766,26 @@ PP(pp_setpgrp)
 {
 #ifdef HAS_SETPGRP
     dSP; dTARGET;
-    int pgrp = POPi;
-    int pid = TOPi;
+    int pgrp;
+    int pid;
+    if (MAXARG < 2) {
+	pgrp = 0;
+	pid = 0;
+    }
+    else {
+	pgrp = POPi;
+	pid = TOPi;
+    }
 
     TAINT_PROPER("setpgrp");
+#ifdef USE_BSDPGRP
     SETi( setpgrp(pid, pgrp) >= 0 );
+#else
+    if ((pgrp != 0) || (pid != 0)) {
+	DIE("POSIX setpgrp can't take an argument");
+    }
+    SETi( setpgrp() >= 0 );
+#endif /* USE_BSDPGRP */
     RETURN;
 #else
     DIE(no_func, "setpgrp()");
@@ -2837,7 +2847,13 @@ PP(pp_tms)
 #else
     EXTEND(SP, 4);
 
+#ifndef VMS
     (void)times(&timesbuf);
+#else
+    (void)times((tbuffer_t *)&timesbuf);  /* time.h uses different name for */
+                                          /* struct tms, though same data   */
+                                          /* is returned.                   */
+#endif
 
     PUSHs(sv_2mortal(newSVnv(((double)timesbuf.tms_utime)/HZ)));
     if (GIMME == G_ARRAY) {
@@ -3133,7 +3149,7 @@ PP(pp_ghostent)
 	PUSHs(sv = sv_mortalcopy(&sv_no));
 	sv_setpv(sv, (char*)hent->h_name);
 	PUSHs(sv = sv_mortalcopy(&sv_no));
-	for (elem = hent->h_aliases; *elem; elem++) {
+	for (elem = hent->h_aliases; elem && *elem; elem++) {
 	    sv_catpv(sv, *elem);
 	    if (elem[1])
 		sv_catpvn(sv, " ", 1);
@@ -3144,7 +3160,7 @@ PP(pp_ghostent)
 	len = hent->h_length;
 	sv_setiv(sv, (I32)len);
 #ifdef h_addr
-	for (elem = hent->h_addr_list; *elem; elem++) {
+	for (elem = hent->h_addr_list; elem && *elem; elem++) {
 	    XPUSHs(sv = sv_mortalcopy(&sv_no));
 	    sv_setpvn(sv, *elem, len);
 	}

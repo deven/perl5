@@ -14,6 +14,7 @@ open (OUT,">${dir}perlmain.c")
   || die "$0: Can't open ${dir}perlmain.c: $!\n";
 
 while (<IN>) {
+  s/INTERN\.h/EXTERN\.h/;
   print OUT;
   last if /Do not delete this line--writemain depends on it/;
 }

@@ -1,11 +1,10 @@
-/* $RCSfile: pp.c,v $$Revision: 4.1 $$Date: 92/08/07 18:29:03 $
+/*    pp_ctl.c
  *
  *    Copyright (c) 1991-1994, Larry Wall
  *
  *    You may distribute under the terms of either the GNU General Public
  *    License or the Artistic License, as specified in the README file.
  *
- * $Log:	pp.c, v $
  */
 
 /*
@@ -24,7 +23,7 @@
 #define WORD_ALIGN sizeof(U16)
 #endif
 
-static OP *doeval _((void));
+static OP *doeval _((int gimme));
 static OP *dofindlabel _((OP *op, char *label, OP **opstack));
 static void doparseform _((SV *sv));
 static I32 dopoptoeval _((I32 startingblock));
@@ -34,6 +33,8 @@ static I32 dopoptosub _((I32 startingblock));
 static void save_lines _((AV *array, SV *sv));
 static int sortcmp _((const void *, const void *));
 static int sortcv _((const void *, const void *));
+
+static I32 sortcxix;
 
 PP(pp_wantarray)
 {
@@ -547,6 +548,7 @@ PP(pp_sort)
     GV *gv;
     CV *cv;
     I32 gimme = GIMME;
+    OP* nextop = op->op_next;
 
     if (gimme != G_ARRAY) {
 	SP = MARK;
@@ -630,6 +632,7 @@ PP(pp_sort)
 	    SAVESPTR(GvSV(firstgv));
 	    SAVESPTR(GvSV(secondgv));
 	    PUSHBLOCK(cx, CXt_LOOP, stack_base);
+	    sortcxix = cxstack_ix;
 
 	    qsort((char*)(myorigmark+1), max, sizeof(SV*), sortcv);
 
@@ -644,8 +647,8 @@ PP(pp_sort)
 	    qsort((char*)(ORIGMARK+1), max, sizeof(SV*), sortcmp);
 	}
     }
-    SP = ORIGMARK + max;
-    RETURN;
+    stack_sp = ORIGMARK + max;
+    return nextop;
 }
 
 /* Range stuff. */
@@ -996,8 +999,8 @@ PP(pp_caller)
 {
     dSP;
     register I32 cxix = dopoptosub(cxstack_ix);
-    I32 nextcxix;
     register CONTEXT *cx;
+    I32 dbcxix;
     SV *sv;
     I32 count = 0;
 
@@ -1010,13 +1013,12 @@ PP(pp_caller)
 		RETPUSHUNDEF;
 	    RETURN;
 	}
-	nextcxix = dopoptosub(cxix - 1);
-	if (DBsub && nextcxix >= 0 &&
-		cxstack[nextcxix].blk_sub.cv == GvCV(DBsub))
+	if (DBsub && cxix >= 0 &&
+		cxstack[cxix].blk_sub.cv == GvCV(DBsub))
 	    count++;
 	if (!count--)
 	    break;
-	cxix = nextcxix;
+	cxix = dopoptosub(cxix - 1);
     }
     cx = &cxstack[cxix];
     if (GIMME != G_ARRAY) {
@@ -1026,6 +1028,9 @@ PP(pp_caller)
 	PUSHs(TARG);
 	RETURN;
     }
+    dbcxix = dopoptosub(cxix - 1);
+    if (DBsub && dbcxix >= 0 && cxstack[dbcxix].blk_sub.cv == GvCV(DBsub))
+	cx = &cxstack[dbcxix];
 
     PUSHs(sv_2mortal(newSVpv(HvNAME(cx->blk_oldcop->cop_stash), 0)));
     PUSHs(sv_2mortal(newSVpv(SvPVX(GvSV(cx->blk_oldcop->cop_filegv)), 0)));
@@ -1034,7 +1039,7 @@ PP(pp_caller)
 	RETURN;
     if (cx->cx_type == CXt_SUB) {
 	sv = NEWSV(49, 0);
-	gv_efullname(sv, CvGV(cx->blk_sub.cv));
+	gv_efullname(sv, CvGV(cxstack[cxix].blk_sub.cv));
 	PUSHs(sv_2mortal(sv));
 	PUSHs(sv_2mortal(newSViv((I32)cx->blk_sub.hasargs)));
     }
@@ -1043,8 +1048,9 @@ PP(pp_caller)
 	PUSHs(sv_2mortal(newSViv(0)));
     }
     PUSHs(sv_2mortal(newSViv((I32)cx->blk_gimme)));
-    if (cx->blk_sub.hasargs && curstash == debstash) {
+    if (cx->blk_sub.hasargs && curcop->cop_stash == debstash) {
 	AV *ary = cx->blk_sub.argarray;
+	int off = AvARRAY(ary) - AvALLOC(ary);
 
 	if (!dbargs) {
 	    GV* tmpgv;
@@ -1053,10 +1059,11 @@ PP(pp_caller)
 	    SvMULTI_on(tmpgv);
 	    AvREAL_off(dbargs);		/* XXX Should be REIFY */
 	}
-	if (AvMAX(dbargs) < AvFILL(ary))
-	    av_extend(dbargs, AvFILL(ary));
-	Copy(AvARRAY(ary), AvARRAY(dbargs), AvFILL(ary)+1, SV*);
-	AvFILL(dbargs) = AvFILL(ary);
+
+	if (AvMAX(dbargs) < AvFILL(ary) + off)
+	    av_extend(dbargs, AvFILL(ary) + off);
+	Copy(AvALLOC(ary), AvARRAY(dbargs), AvFILL(ary) + 1 + off, SV*);
+	AvFILL(dbargs) = AvFILL(ary) + off;
     }
     RETURN;
 }
@@ -1265,8 +1272,11 @@ PP(pp_return)
     I32 optype = 0;
 
     if (stack == sortstack) {
-	AvARRAY(stack)[1] = *SP;
-	return 0;
+	if (cxstack_ix == sortcxix || dopoptosub(cxstack_ix) < sortcxix) {
+	    AvARRAY(stack)[1] = *SP;
+	    stack_sp = stack_base + 1;
+	    return 0;
+	}
     }
 
     cxix = dopoptosub(cxstack_ix);
@@ -1677,7 +1687,7 @@ PP(pp_goto)
 		ix = 0;
 	    dounwind(ix);
 	    TOPBLOCK(cx);
-	    oldsave = scopestack[scopestack_ix - 1];
+	    oldsave = scopestack[scopestack_ix];
 	    LEAVE_SCOPE(oldsave);
 	}
 
@@ -1789,7 +1799,8 @@ SV *sv;
 }
 
 static OP *
-doeval()
+doeval(gimme)
+int gimme;
 {
     dSP;
     OP *saveop = op;
@@ -1868,6 +1879,10 @@ doeval()
     SAVEFREESV(comppad);
     SAVEFREESV(comppad_name);
     SAVEFREEOP(eval_root);
+    if (gimme & G_ARRAY)
+	list(eval_root);
+    else
+	scalar(eval_root);
 
     DEBUG_x(dump_eval());
 
@@ -1970,7 +1985,7 @@ PP(pp_require)
     compiling.cop_line = 0;
 
     PUTBACK;
-    return doeval();
+    return doeval(G_SCALAR);
 }
 
 PP(pp_dofile)
@@ -2012,7 +2027,7 @@ PP(pp_entereval)
     if (perldb && curstash != debstash)
 	save_lines(GvAV(compiling.cop_filegv), linestr);
     PUTBACK;
-    return doeval();
+    return doeval(gimme);
 }
 
 PP(pp_leaveeval)

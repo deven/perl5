@@ -1,11 +1,10 @@
-/* $RCSfile: doio.c,v $$Revision: 4.1 $$Date: 92/08/07 17:19:42 $
+/*    doio.c
  *
  *    Copyright (c) 1991-1994, Larry Wall
  *
  *    You may distribute under the terms of either the GNU General Public
  *    License or the Artistic License, as specified in the README file.
  *
- * $Log:	doio.c,v $
  */
 
 /*
@@ -118,6 +117,8 @@ FILE *supplied_fp;
 	if (strNE(name,"-"))
 	    TAINT_ENV();
 	TAINT_PROPER("piped open");
+	if (dowarn && name[strlen(name)-1] == '|')
+	    warn("Can't do bidirectional pipe");
 	fp = my_popen(name,"w");
 	writing = 1;
     }
@@ -228,7 +229,7 @@ FILE *supplied_fp;
     }
     if (IoTYPE(io) &&
       IoTYPE(io) != '|' && IoTYPE(io) != '-') {
-	if (fstat(fileno(fp),&statbuf) < 0) {
+	if (Fstat(fileno(fp),&statbuf) < 0) {
 	    (void)fclose(fp);
 	    goto say_false;
 	}
@@ -278,9 +279,9 @@ FILE *supplied_fp;
 	fp = saveifp;
 	clearerr(fp);
     }
-#if defined(HAS_FCNTL) && defined(FFt_SETFD)
+#if defined(HAS_FCNTL) && defined(F_SETFD)
     fd = fileno(fp);
-    fcntl(fd,FFt_SETFD,fd > maxsysfd);
+    fcntl(fd,F_SETFD,fd > maxsysfd);
 #endif
     IoIFP(io) = fp;
     if (writing) {
@@ -361,7 +362,7 @@ register GV *gv;
 		    sv_catpv(sv,inplace);
 #endif
 #ifndef FLEXFILENAMES
-		    if (stat(SvPVX(sv),&statbuf) >= 0
+		    if (Stat(SvPVX(sv),&statbuf) >= 0
 		      && statbuf.st_dev == filedev
 		      && statbuf.st_ino == fileino ) {
 			warn("Can't do inplace edit: %s > 14 characters",
@@ -419,7 +420,7 @@ register GV *gv;
 		}
 		defoutgv = argvoutgv;
 		lastfd = fileno(IoIFP(GvIOp(argvoutgv)));
-		(void)fstat(lastfd,&statbuf);
+		(void)Fstat(lastfd,&statbuf);
 #ifdef HAS_FCHMOD
 		(void)fchmod(lastfd,filemode);
 #else
@@ -641,7 +642,7 @@ nuts:
     return FALSE;
 }
 
-#if !defined(HAS_TRUNCATE) && !defined(HAS_CHSIZE) && defined(FFt_FREESP)
+#if !defined(HAS_TRUNCATE) && !defined(HAS_CHSIZE) && defined(F_FREESP)
 	/* code courtesy of William Kucharski */
 #define HAS_CHSIZE
 
@@ -653,7 +654,7 @@ Off_t length;		/* length to set file to */
     struct flock fl;
     struct stat filebuf;
 
-    if (fstat(fd, &filebuf) < 0)
+    if (Fstat(fd, &filebuf) < 0)
 	return -1;
 
     if (filebuf.st_size < length) {
@@ -674,24 +675,24 @@ Off_t length;		/* length to set file to */
 	fl.l_whence = 0;
 	fl.l_len = 0;
 	fl.l_start = length;
-	fl.l_type = FFt_WRLCK;    /* write lock on file space */
+	fl.l_type = F_WRLCK;    /* write lock on file space */
 
 	/*
-	* This relies on the UNDOCUMENTED FFt_FREESP argument to
+	* This relies on the UNDOCUMENTED F_FREESP argument to
 	* fcntl(2), which truncates the file so that it ends at the
 	* position indicated by fl.l_start.
 	*
 	* Will minor miracles never cease?
 	*/
 
-	if (fcntl(fd, FFt_FREESP, &fl) < 0)
+	if (fcntl(fd, F_FREESP, &fl) < 0)
 	    return -1;
 
     }
 
     return 0;
 }
-#endif /* FFt_FREESP */
+#endif /* F_FREESP */
 
 I32
 looks_like_number(sv)
@@ -784,20 +785,9 @@ FILE *fp;
 	tmps = SvPV(sv, len);
 	break;
     }
-#ifdef VMS  /* Write using putc to avoid record-oriented problems with fwrite */
-    if (len)
-    {
-	register STRLEN l=len;  /* len seems to be global */
-	do  /* we know l starts > 0 */
-	    putc(*(tmps++),fp);
-	while (--l > 0);
-	return ferror(fp) ? FALSE : TRUE;
-    }
-#else
-    if (len && (fwrite(tmps,1,len,fp) == 0 || ferror(fp)))
+    if (len && (fwrite1(tmps,1,len,fp) == 0 || ferror(fp)))
 	return FALSE;
     return TRUE;
-#endif
 }
 
 I32
@@ -814,11 +804,7 @@ dARGS
 	    statgv = cGVOP->op_gv;
 	    sv_setpv(statname,"");
 	    laststype = OP_STAT;
-#ifndef VMS
-	    return (laststatval = fstat(fileno(IoIFP(io)), &statcache));
-#else
-	    return (laststatval = flex_fstat(fileno(IoIFP(io)), &statcache));
-#endif
+	    return (laststatval = Fstat(fileno(IoIFP(io)), &statcache));
 	}
 	else {
 	    if (cGVOP->op_gv == defgv)
@@ -837,11 +823,7 @@ dARGS
 	statgv = Nullgv;
 	sv_setpv(statname,SvPV(sv, na));
 	laststype = OP_STAT;
-#ifndef VMS
-	laststatval = stat(SvPV(sv, na),&statcache);
-#else
-	laststatval = flex_stat(SvPV(sv, na),&statcache);
-#endif
+	laststatval = Stat(SvPV(sv, na),&statcache);
 	if (laststatval < 0 && dowarn && strchr(SvPV(sv, na), '\n'))
 	    warn(warn_nl, "stat");
 	return laststatval;
@@ -872,7 +854,7 @@ dARGS
 #ifdef HAS_LSTAT
     laststatval = lstat(SvPV(sv, na),&statcache);
 #else
-    laststatval = stat(SvPV(sv, na),&statcache);
+    laststatval = Stat(SvPV(sv, na),&statcache);
 #endif
     if (laststatval < 0 && dowarn && strchr(SvPV(sv, na), '\n'))
 	warn(warn_nl, "lstat");
@@ -1094,7 +1076,7 @@ register SV **sp;
 #ifdef HAS_LSTAT
 		if (lstat(s,&statbuf) < 0 || S_ISDIR(statbuf.st_mode))
 #else
-		if (stat(s,&statbuf) < 0 || S_ISDIR(statbuf.st_mode))
+		if (Stat(s,&statbuf) < 0 || S_ISDIR(statbuf.st_mode))
 #endif
 		    tot--;
 		else {
@@ -1135,7 +1117,7 @@ register SV **sp;
 }
 
 /* Do the permissions allow some operation?  Assumes statcache already set. */
-
+#ifndef VMS /* VMS' cando is in vms.c */
 I32
 cando(bit, effective, statbufp)
 I32 bit;
@@ -1189,6 +1171,7 @@ register struct stat *statbufp;
     return FALSE;
 #endif /* ! MSDOS */
 }
+#endif /* ! VMS */
 
 I32
 ingroup(testgid,effective)

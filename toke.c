@@ -1,11 +1,10 @@
-/* $RCSfile: toke.c,v $$Revision: 4.1 $$Date: 92/08/07 18:28:39 $
+/*    toke.c
  *
  *    Copyright (c) 1991-1994, Larry Wall
  *
  *    You may distribute under the terms of either the GNU General Public
  *    License or the Artistic License, as specified in the README file.
  *
- * $Log:	toke.c,v $
  */
 
 /*
@@ -106,6 +105,7 @@ static int uni _((I32 f, char *s));
 	expect = XTERM, \
 	bufptr = s, \
 	last_uni = oldbufptr, \
+	last_lop_op = f, \
 	(*s == '(' || (s = skipspace(s), *s == '(') ? (int)FUNC1 : (int)UNIOP) )
 
 #define UNIBRACK(f) return(yylval.ival = f, \
@@ -341,6 +341,7 @@ register char *s;
 	}
 	oldoldbufptr = oldbufptr = bufptr = s;
 	bufend = bufptr + SvCUR(linestr);
+	incline(s);
 	if (perldb && curstash != debstash) {
 	    SV *sv = NEWSV(85,0);
 
@@ -348,7 +349,6 @@ register char *s;
 	    sv_setsv(sv,linestr);
 	    av_store(GvAV(curcop->cop_filegv),(I32)curcop->cop_line,sv);
 	}
-	incline(s);
     }
 }
 
@@ -356,12 +356,15 @@ static void
 check_uni() {
     char *s;
     char ch;
+    char *t;
 
     if (oldoldbufptr != last_uni)
 	return;
     while (isSPACE(*last_uni))
 	last_uni++;
     for (s = last_uni; isALNUM(*s) || *s == '-'; s++) ;
+    if ((t = strchr(s, '(')) && t < bufptr)
+	return;
     ch = *s;
     *s = '\0';
     warn("Warning: Use of \"%s\" without parens is ambiguous", last_uni);
@@ -382,6 +385,7 @@ char *s;
     expect = XTERM;
     bufptr = s;
     last_uni = oldbufptr;
+    last_lop_op = f;
     if (*s == '(')
 	return FUNC1;
     s = skipspace(s);
@@ -493,7 +497,6 @@ SV *sv;
     register char *s;
     register char *send;
     register char *d;
-    register char delim;
     STRLEN len;
 
     if (!SvLEN(sv))
@@ -506,10 +509,9 @@ SV *sv;
     if (s == send)
 	return sv;
     d = s;
-    delim = SvIVX(sv);
     while (s < send) {
 	if (*s == '\\') {
-	    if (s + 1 < send && (s[1] == '\\' || s[1] == delim))
+	    if (s + 1 < send && (s[1] == '\\'))
 		s++;		/* all that, just for this */
 	}
 	*d++ = *s++;
@@ -683,10 +685,12 @@ char *start;
 	}
 	if (*s == '\\' && s+1 < send) {
 	    s++;
+#ifdef NOTDEF
 	    if (*s == delim) {
 		*d++ = *s++;
 		continue;
 	    }
+#endif
 	    if (*s && strchr(leave, *s)) {
 		*d++ = '\\';
 		*d++ = *s++;
@@ -1178,7 +1182,7 @@ yylex()
 	    goto retry;			/* ignore stray nulls */
 	last_uni = 0;
 	last_lop = 0;
-	if (!preambled) {
+	if (!in_eval && !preambled) {
 	    preambled = TRUE;
 	    sv_setpv(linestr,incl_perldb());
 	    if (autoboot_preamble)
@@ -1202,8 +1206,16 @@ yylex()
 		        sv_catpv(linestr,"@F=split(' ');");
 		}
 	    }
+	    sv_catpv(linestr, "\n");
 	    oldoldbufptr = oldbufptr = s = SvPVX(linestr);
 	    bufend = SvPVX(linestr) + SvCUR(linestr);
+	    if (perldb && curstash != debstash) {
+		SV *sv = NEWSV(85,0);
+
+		sv_upgrade(sv, SVt_PVMG);
+		sv_setsv(sv,linestr);
+		av_store(GvAV(curcop->cop_filegv),(I32)curcop->cop_line,sv);
+	    }
 	    goto retry;
 	}
 	/* Give cryptswitch a chance. Note that cryptswitch_fp may */
@@ -1222,7 +1234,7 @@ yylex()
 			(void)fclose(rsfp);
 		    rsfp = Nullfp;
 		}
-		if (minus_n || minus_p) {
+		if (!in_eval && (minus_n || minus_p)) {
 		    sv_setpv(linestr,minus_p ? ";}continue{print" : "");
 		    sv_catpv(linestr,";}");
 		    oldoldbufptr = oldbufptr = s = SvPVX(linestr);
@@ -1234,8 +1246,18 @@ yylex()
 		sv_setpv(linestr,"");
 		TOKEN(';');	/* not infinite loop because rsfp is NULL now */
 	    }
-	    if (doextract && *s == '#')
-		doextract = FALSE;
+	    if (doextract) {
+		if (*s == '#' && s[1] == '!' && instr(s,"perl"))
+		    doextract = FALSE;
+
+		/* Incest with pod. */
+		if (*s == '=' && strnEQ(s, "=cut", 4)) {
+		    sv_setpv(linestr, "");
+		    oldoldbufptr = oldbufptr = s = SvPVX(linestr);
+		    bufend = SvPVX(linestr) + SvCUR(linestr);
+		    doextract = FALSE;
+		}
+	    }
 	    incline(s);
 	} while (doextract);
 	oldoldbufptr = oldbufptr = bufptr = s;
@@ -1252,8 +1274,8 @@ yylex()
 		s++;
 	    if (*s == ':' && s[1] != ':') /* for csh execing sh scripts */
 		s++;
-	    if (*s == '#' && s[1] == '!') {
-		if (!in_eval && !instr(s,"perl") && !instr(s,"indir") &&
+	    if (!in_eval && *s == '#' && s[1] == '!') {
+		if (!instr(s,"perl") && !instr(s,"indir") &&
 			instr(origargv[0],"perl")) {
 		    char **newargv;
 		    char *cmd;
@@ -1283,11 +1305,23 @@ yylex()
 		}
 		if (d = instr(s, "perl -")) {
 		    int oldpdb = perldb;
+		    int oldn = minus_n;
+		    int oldp = minus_p;
 		    d += 6;
 		    /*SUPPRESS 530*/
 		    while (d = moreswitches(d)) ;
-		    if (perldb && !oldpdb)
-			sv_setpv(linestr, incl_perldb()); /* Replace #! line. */
+		    if (perldb && !oldpdb ||
+			minus_n && !oldn ||
+			minus_p && !oldp)
+		    {
+			sv_setpv(linestr, "");
+			oldoldbufptr = oldbufptr = s = SvPVX(linestr);
+			bufend = SvPVX(linestr) + SvCUR(linestr);
+			preambled = FALSE;
+			if (perldb)
+			    (void)gv_fetchfile(origfilename);
+			goto retry;
+		    }
 		}
 	    }
 	}
@@ -1324,6 +1358,7 @@ yylex()
 	if (s[1] && isALPHA(s[1]) && !isALNUM(s[2])) {
 	    s++;
 	    last_uni = oldbufptr;
+	    last_lop_op = OP_FTEREAD;	/* good enough */
 	    switch (*s++) {
 	    case 'r': FTST(OP_FTEREAD);
 	    case 'w': FTST(OP_FTEWRITE);
@@ -1466,7 +1501,7 @@ yylex()
 	OPERATOR(':');
     case '(':
 	s++;
-	if (last_lop == oldoldbufptr)
+	if (last_lop == oldoldbufptr || last_uni == oldoldbufptr)
 	    oldbufptr = oldoldbufptr;		/* allow print(STDOUT 123) */
 	else
 	    expect = XTERM;
@@ -1504,6 +1539,10 @@ yylex()
 	}
 	switch (expect) {
 	case XTERM:
+	    if (lex_formbrack) {
+		s--;
+		PRETERMBLOCK(DO);
+	    }
 	    if (oldoldbufptr == last_lop)
 		lex_brackstack[lex_brackets++] = XTERM;
 	    else
@@ -1620,10 +1659,19 @@ yylex()
 	if (dowarn && tmp && isSPACE(*s) && strchr("+-*/%.^&|<",tmp))
 	    warn("Reversed %c= operator",tmp);
 	s--;
-	if (lex_brackets < lex_formbrack && (tmp == '\n' || s[1] == '\n')) {
-	    s--;
-	    expect = XBLOCK;
-	    goto leftbracket;
+	if (isALPHA(tmp) && s == SvPVX(linestr)+1) {
+	    s = bufend;
+	    doextract = TRUE;
+	    goto retry;
+	}
+	if (lex_brackets < lex_formbrack) {
+	    char *t;
+	    for (t = s; *t == ' ' || *t == '\t'; t++) ;
+	    if (*t == '\n' || *t == '#') {
+		s--;
+		expect = XBLOCK;
+		goto leftbracket;
+	    }
 	}
 	yylval.ival = 0;
 	OPERATOR(ASSIGNOP);
@@ -1717,21 +1765,33 @@ yylex()
 		TERM(THING);
 	    }
 	    tokenbuf[0] = '$';
-	    if (dowarn && *s == '[' && oldexpect != XREF) {
+	    if (dowarn) {
 		char *t;
-		for (t = s+1; isSPACE(*t) || isALNUM(*t) || *t == '$'; t++) ;
-		if (*t++ == ',') {
-		    bufptr = skipspace(bufptr);
-		    while (t < bufend && *t != ']') t++;
-		    warn("Multidimensional syntax %.*s not supported",
-			t-bufptr+1, bufptr);
+		if (*s == '[' && oldexpect != XREF) {
+		    for (t = s+1; isSPACE(*t) || isALNUM(*t) || *t == '$'; t++) ;
+		    if (*t++ == ',') {
+			bufptr = skipspace(bufptr);
+			while (t < bufend && *t != ']') t++;
+			warn("Multidimensional syntax %.*s not supported",
+			    t-bufptr+1, bufptr);
+		    }
+		}
+		if (*s == '{' && strEQ(tokenbuf, "$SIG") &&
+		  (t = strchr(s,'}')) && (t = strchr(t,'='))) {
+		    char tmpbuf[1024];
+		    char *d = tmpbuf;
+		    STRLEN len;
+		    for (t++; isSPACE(*t); t++) ;
+		    t = scan_word(t, tmpbuf, TRUE, &len);
+		    if (*t != '(' && perl_get_cv(tmpbuf, FALSE))
+			warn("You need to quote \"%s\"", tmpbuf);
 		}
 	    }
 	    expect = XOPERATOR;
 	    if (lex_state == LEX_NORMAL && isSPACE(*s)) {
 		bool islop = (last_lop == oldoldbufptr);
 		s = skipspace(s);
-		if (!islop)
+		if (!islop || last_lop_op == OP_GREPSTART)
 		    expect = XOPERATOR;
 		else if (strchr("$@\"'`q", *s))
 		    expect = XTERM;		/* e.g. print $fh "foo" */
@@ -1997,7 +2057,7 @@ yylex()
 		if (*s == '\'' || *s == ':' && s[1] == ':') {
 		    s = scan_word(s, tokenbuf + len, TRUE, &len);
 		    if (!len)
-			yyerror("Bad symbol");
+			croak("Bad name after %s::", tokenbuf);
 		}
 
 		/* Do special processing at start of statement. */
@@ -2035,9 +2095,10 @@ yylex()
 
 		if (oldoldbufptr &&
 		    oldoldbufptr < bufptr &&
-		    oldoldbufptr == last_lop &&	/* NO SKIPSPACE BEFORE HERE! */
+		    (oldoldbufptr == last_lop || oldoldbufptr == last_uni) &&
+		    /* NO SKIPSPACE BEFORE HERE! */
 		    (expect == XREF ||
-		     (opargs[last_lop_op] >> OASHIFT & 0xf) == OA_FILEREF) )
+		     (opargs[last_lop_op] >> OASHIFT & 7) == OA_FILEREF) )
 		{
 		    /* (Now we can afford to cross potential line boundary.) */
 		    s = skipspace(s);
@@ -2051,7 +2112,7 @@ yylex()
 		    /* (But it's an indir obj regardless for sort.) */
 
 		    if (last_lop_op == OP_SORT || !gv || !GvCV(gv)) {
-			expect = XTERM;
+			expect = last_lop == oldoldbufptr ? XTERM : XOPERATOR;
 			for (d = tokenbuf; *d && isLOWER(*d); d++) ;
 			if (dowarn && !*d)
 			    warn(warn_reserved, tokenbuf);
@@ -2139,10 +2200,10 @@ yylex()
 		if (!GvIO(gv))
 		    GvIOp(gv) = newIO();
 		IoIFP(GvIOp(gv)) = rsfp;
-#if defined(HAS_FCNTL) && defined(FFt_SETFD)
+#if defined(HAS_FCNTL) && defined(F_SETFD)
 		{
 		    int fd = fileno(rsfp);
-		    fcntl(fd,FFt_SETFD,fd >= 3);
+		    fcntl(fd,F_SETFD,fd >= 3);
 		}
 #endif
 		if (preprocess)
@@ -2270,7 +2331,7 @@ yylex()
 	    UNI(OP_DELETE);
 
 	case KEY_dbmopen:
-	    gv_fetchpv("AnyDBM_File::ISA", 2, SVt_PVAV);
+	    gv_fetchpv("AnyDBM_File::ISA", GV_ADDMULTI, SVt_PVAV);
 	    LOP(OP_DBMOPEN,XTERM);
 
 	case KEY_dbmclose:
@@ -2363,7 +2424,7 @@ yylex()
 	    Rop(OP_SGE);
 
 	case KEY_grep:
-	    LOP(OP_GREPSTART,XREF);
+	    LOP(OP_GREPSTART, *s == '(' ? XTERM : XREF);
 
 	case KEY_goto:
 	    s = force_word(s,WORD,TRUE,FALSE,FALSE);
@@ -2665,6 +2726,8 @@ yylex()
 
 	case KEY_require:
 	    s = force_word(s,WORD,TRUE,TRUE,FALSE);
+	    if (*s == '<')
+		yyerror("<> should be quotes");
 	    UNI(OP_REQUIRE);
 
 	case KEY_reset:
@@ -3726,6 +3789,8 @@ I32 ck_uni;
     if (*s == '$' && s[1] && (isALPHA(s[1]) || strchr("$_{", s[1])))
 	return s;
     if (*s == '{') {
+	if (lex_state == LEX_NORMAL)
+	    return s;
 	bracket = s;
 	s++;
     }
@@ -3954,7 +4019,7 @@ char *start;
 	pm->op_pmflags |= PMf_EVAL;
 	repl = newSVpv("",0);
 	while (es-- > 0)
-	    sv_catpvn(repl, "eval ", 5);
+	    sv_catpv(repl, es ? "eval " : "do ");
 	sv_catpvn(repl, "{ ", 2);
 	sv_catsv(repl, lex_repl);
 	sv_catpvn(repl, " };", 2);
@@ -4258,8 +4323,12 @@ char *start;
 	    for (; s < bufend; s++,to++) {
 		if (*s == '\n' && !rsfp)
 		    curcop->cop_line++;
-		if (*s == '\\' && s+1 < bufend && term != '\\')
-		    *to++ = *s++;
+		if (*s == '\\' && s+1 < bufend && term != '\\') {
+		    if (s[1] == term)
+			s++;
+		    else
+			*to++ = *s++;
+		}
 		else if (*s == term)
 		    break;
 		*to = *s;
@@ -4269,8 +4338,12 @@ char *start;
 	    for (; s < bufend; s++,to++) {
 		if (*s == '\n' && !rsfp)
 		    curcop->cop_line++;
-		if (*s == '\\' && s+1 < bufend && term != '\\')
-		    *to++ = *s++;
+		if (*s == '\\' && s+1 < bufend && term != '\\') {
+		    if (s[1] == term)
+			s++;
+		    else
+			*to++ = *s++;
+		}
 		else if (*s == term && --brackets <= 0)
 		    break;
 		else if (*s == multi_open)

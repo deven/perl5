@@ -52,7 +52,6 @@ eq_amg
 error_count
 euid
 evalseq
-evstr
 exp_amg
 expect
 expectterm
@@ -274,7 +273,6 @@ av_fill
 av_len
 av_make
 av_pop
-av_popnulls
 av_push
 av_shift
 av_store
@@ -372,7 +370,6 @@ force_next
 force_word
 free_tmps
 gen_constant_list
-getgimme
 gp_free
 gp_ref
 gv_AVadd
@@ -389,7 +386,6 @@ gv_stashpv
 gv_stashsv
 he_delayfree
 he_free
-hint
 hoistmust
 hv_clear
 hv_delete
@@ -930,7 +926,6 @@ sv_catpvn
 sv_catsv
 sv_chop
 sv_clean_all
-sv_clean_magic
 sv_clean_objs
 sv_clear
 sv_cmp

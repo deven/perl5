@@ -1,6 +1,5 @@
-/* $RCSfile: malloc.c,v $$Revision: 4.1 $$Date: 92/08/07 18:24:25 $
+/*    malloc.c
  *
- * $Log:	malloc.c,v $
  */
 
 #ifndef lint

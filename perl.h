@@ -1,11 +1,10 @@
-/* $RCSfile: perl.h,v $$Revision: 4.1 $$Date: 92/08/07 18:25:56 $
+/*    perl.h
  *
- *    Copyright (c) 1991-1994, Larry Wall
+ *    Copyright (c) 1987-1994, Larry Wall
  *
  *    You may distribute under the terms of either the GNU General Public
  *    License or the Artistic License, as specified in the README file.
  *
- * $Log:	perl.h,v $
  */
 #ifndef H_PERL
 #define H_PERL 1
@@ -46,7 +45,7 @@
 
 /* work around some libPW problems */
 #ifdef DOINIT
-char Error[1];
+EXT char Error[1];
 #endif
 
 /* define this once if either system, instead of cluttering up the src */
@@ -790,7 +789,7 @@ char *getlogin _((void));
 
 #ifdef EUNICE
 #define UNLINK unlnk
-int unlnk _((char*));
+I32 unlnk _((char*));
 #else
 #define UNLINK unlink
 #endif
@@ -826,7 +825,7 @@ int unlnk _((char*));
 /****************/
 
 /* global state */
-EXT PerlInterpreter *curinterp;	/* currently running interpreter */
+EXT PerlInterpreter *	curinterp;	/* currently running interpreter */
 #ifndef VMS  /* VMS doesn't use environ array */
 extern char **	environ;	/* environment variables supplied via exec */
 #endif
@@ -1107,7 +1106,6 @@ EXT I32		padix_floor;	/* how low may inner block reset padix */
 EXT bool	pad_reset_pending; /* reset pad on next attempted alloc */
 EXT COP		compiling;
 
-EXT SV *	evstr;		/* op_fold_const() temp string cache */
 EXT I32		thisexpr;	/* name id for nothing_in_common() */
 EXT char *	last_uni;	/* position of last named-unary operator */
 EXT char *	last_lop;	/* position of last list operator */
@@ -1474,9 +1472,9 @@ EXT MGVTBL vtbl_amagicelem;
 #ifdef OVERLOAD
 EXT long amagic_generation;
 
-#define NofAMmeth 28
+#define NofAMmeth 27
 #ifdef DOINIT
-char * AMG_names[NofAMmeth][2] = {
+EXT char * AMG_names[NofAMmeth][2] = {
   {"fallback","abs"},
   {"bool", "nomethod"},
   {"\"\"", "0+"},
@@ -1503,11 +1501,10 @@ char * AMG_names[NofAMmeth][2] = {
   {"sin", "exp"},
   {"log", "sqrt"},
   {"x","x="},
-  {".",".="},
-  {"=",NULL}
+  {".",".="}
 };
 #else
-extern char * AMG_names[NofAMmeth][2];
+EXT char * AMG_names[NofAMmeth][2];
 #endif /* def INITAMAGIC */
 
 struct  am_table        {
@@ -1549,8 +1546,7 @@ enum {
   sin_amg,	exp_amg,
   log_amg,	sqrt_amg,
   repeat_amg,   repeat_ass_amg,
-  concat_amg,	concat_ass_amg,
-  copy_amg
+  concat_amg,	concat_ass_amg
 };
 #endif /* OVERLOAD */
 

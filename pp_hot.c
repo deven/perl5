@@ -1,11 +1,10 @@
-/* $RCSfile: pp.c,v $$Revision: 4.1 $$Date: 92/08/07 18:29:03 $
+/*    pp_hot.c
  *
  *    Copyright (c) 1991-1994, Larry Wall
  *
  *    You may distribute under the terms of either the GNU General Public
  *    License or the Artistic License, as specified in the README file.
  *
- * $Log:	pp.c, v $
  */
 
 /*
@@ -267,7 +266,7 @@ PP(pp_print)
 		    break;
 		MARK++;
 		if (MARK <= SP) {
-		    if (fwrite(ofs, 1, ofslen, fp) == 0 || ferror(fp)) {
+		    if (fwrite1(ofs, 1, ofslen, fp) == 0 || ferror(fp)) {
 			MARK--;
 			break;
 		    }
@@ -285,7 +284,7 @@ PP(pp_print)
 	    goto just_say_no;
 	else {
 	    if (orslen)
-		if (fwrite(ors, 1, orslen, fp) == 0 || ferror(fp))
+		if (fwrite1(ors, 1, orslen, fp) == 0 || ferror(fp))
 		    goto just_say_no;
 
 	    if (IoFLAGS(io) & IOf_FLUSH)
@@ -867,15 +866,17 @@ do_readline()
 #include <nam.h>
 #include <rmsdef.h>
 		    char rslt[NAM$C_MAXRSS+1+sizeof(unsigned short int)] = {'\0','\0'};
+		    char vmsspec[NAM$C_MAXRSS+1];
 		    char *rstr = rslt + sizeof(unsigned short int), *begin, *end, *cp;
 		    char tmpfnam[L_tmpnam] = "SYS$SCRATCH:";
+		    $DESCRIPTOR(dfltdsc,"SYS$DISK:[]*.*;");
 		    FILE *tmpfp;
 		    STRLEN i;
 		    struct dsc$descriptor_s wilddsc
 		       = {0, DSC$K_DTYPE_T, DSC$K_CLASS_S, 0};
 		    struct dsc$descriptor_vs rsdsc
 		       = {sizeof rslt, DSC$K_DTYPE_VT, DSC$K_CLASS_VS, rslt};
-		    unsigned long int cxt = 0, sts = 0, ok = 1, hasdir = 0, hasver = 0;
+		    unsigned long int cxt = 0, sts = 0, ok = 1, hasdir = 0, hasver = 0, isunix = 0;
 
 		    /* We could find out if there's an explicit dev/dir or version
 		       by peeking into lib$find_file's internal context at
@@ -890,28 +891,36 @@ do_readline()
 		           if (sts) hasver = 1;
 		           else sts = 1;
 		       }
+		       if (cp[i] == '/') {
+		          hasdir = isunix = 1;
+		          break;
+               }
 		       if (cp[i] == ']' || cp[i] == '>' || cp[i] == ':') {
 		           hasdir = 1;
 		           break;
 		       }
 		    }
 		    if ((tmpfp = fopen(tmpfnam,"w+","fop=dlt")) != NULL) {
-		        wilddsc.dsc$a_pointer = SvPVX(tmpglob);
-		        wilddsc.dsc$w_length = (unsigned short int) SvCUR(tmpglob);
-		        while ((sts = lib$find_file(&wilddsc,&rsdsc,&cxt,
-		                                    NULL,NULL,NULL,NULL))&1) {
+		        ok = ((wilddsc.dsc$a_pointer = tovmsspec(SvPVX(tmpglob),vmsspec)) != NULL);
+		        if (ok) wilddsc.dsc$w_length = (unsigned short int) strlen(wilddsc.dsc$a_pointer);
+		        while (ok && ((sts = lib$find_file(&wilddsc,&rsdsc,&cxt,
+		                                    &dfltdsc,NULL,NULL,NULL))&1)) {
 		            end = rstr + (unsigned long int) *rslt;
 		            if (!hasver) while (*end != ';') end--;
 		            *(end++) = '\n';  *end = '\0';
-		            if (hasdir) begin = rstr;
+		            for (cp = rstr; *cp; cp++) *cp = _tolower(*cp);
+		            if (hasdir) {
+		              if (isunix) trim_unixpath(SvPVX(tmpglob),rstr);
+		              begin = rstr;
+		            }
 		            else {
 		                begin = end;
 		                while (*(--begin) != ']' && *begin != '>') ;
 		                ++begin;
 		            }
-		            if (!(ok = fputs(begin,tmpfp) != EOF)) break;
+		            ok = (fputs(begin,tmpfp) != EOF);
 		        }
-		        (void)lib$find_file_end(&cxt);
+		        if (cxt) (void)lib$find_file_end(&cxt);
 		        if (ok && sts != RMS$_NMF) ok = 0;
 		        if (!ok) {
 		            fp = NULL;
@@ -937,7 +946,11 @@ do_readline()
 #else
 		sv_setpv(tmpcmd, "echo ");
 		sv_catsv(tmpcmd, tmpglob);
+#if 'z' - 'a' == 25
 		sv_catpv(tmpcmd, "|tr -s ' \t\f\r' '\\012\\012\\012\\012'|");
+#else
+		sv_catpv(tmpcmd, "|tr -s ' \t\f\r' '\\n\\n\\n\\n'|");
+#endif
 #endif /* !CSH */
 #endif /* !MSDOS */
 		(void)do_open(last_in_gv, SvPVX(tmpcmd), SvCUR(tmpcmd),Nullfp);
@@ -1011,7 +1024,7 @@ do_readline()
 		if (!isALPHA(*tmps) && !isDIGIT(*tmps) &&
 		    strchr("$&*(){}[]'\";\\|?<>~`", *tmps))
 			break;
-	    if (*tmps && stat(SvPVX(sv), &statbuf) < 0) {
+	    if (*tmps && Stat(SvPVX(sv), &statbuf) < 0) {
 		(void)POPs;		/* Unmatched wildcard?  Chuck it... */
 		continue;
 	    }
@@ -1558,7 +1571,7 @@ PP(pp_entersub)
 	    ngv = gv_fetchmethod(GvESTASH(gv), "AUTOLOAD");
 	    if (ngv && ngv != gv && (cv = GvCV(ngv))) {	/* One more chance... */
 		gv = ngv;
-		sv_setsv(GvSV(gv), tmpstr);
+		sv_setsv(GvSV(CvGV(cv)), tmpstr);	/* Set CV's $AUTOLOAD */
 		goto retry;
 	    }
 	    else
@@ -1744,9 +1757,13 @@ PP(pp_method)
 	    HV *stash;
 	    if (!packname || !isALPHA(*packname))
 DIE("Can't call method \"%s\" without a package or object reference", name);
-	    if (!(stash = gv_stashpv(packname, FALSE)))
-		DIE("Can't call method \"%s\" in empty package \"%s\"",
-		    name, packname);
+	    if (!(stash = gv_stashpv(packname, FALSE))) {
+		if (gv_stashpv("UNIVERSAL", FALSE))
+		    stash = gv_stashpv(packname, TRUE);
+		else
+		    DIE("Can't call method \"%s\" in empty package \"%s\"",
+			name, packname);
+	    }
 	    gv = gv_fetchmethod(stash,name);
 	    if (!gv)
 		DIE("Can't locate object method \"%s\" via package \"%s\"",
