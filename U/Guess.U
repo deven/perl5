@@ -9,6 +9,10 @@
 ?RCS: of the source tree for dist 3.0.
 ?RCS:
 ?RCS: $Log: Guess.U,v $
+?RCS:
+?RCS: Private perl5 version:  Remove the BSD define.  It's not useful,
+?RCS: and it conflicts with BSD defined in NetBSD in <sys/param.h>.
+?RCS:
 ?RCS: Revision 3.0.1.3  1993/12/15  08:14:35  ram
 ?RCS: patch15: variable d_bsd was not always set properly
 ?RCS:

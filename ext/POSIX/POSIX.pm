@@ -251,8 +251,14 @@ sub new {
 package FileHandle;
 
 sub new {
-    shift;
-    bless +new FileHandle @_;
+    POSIX::usage "FileHandle-new(filename, posixmode)" if @_ != 3;
+    local($class,$filename,$mode) = @_;
+    local($glob) = &POSIX::gensym;
+    $mode =~ s/a.*/>>/ ||
+    $mode =~ s/w.*/>/ ||
+    ($mode = '<');
+    open($glob, "$mode $filename");
+    bless \$glob;
 }
 
 sub new_from_fd {
@@ -274,6 +280,7 @@ sub clearerr {
 sub close {
     POSIX::usage "close(filehandle)" if @_ != 1;
     close($_[0]);
+    ungensym($_[0]);
 }
 
 sub eof {
@@ -307,6 +314,7 @@ sub tell {
     tell($_[0]);
 }
 ############################
+package POSIX; # return to package POSIX so AutoSplit is happy
 1;
 __END__
 

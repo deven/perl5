@@ -13,6 +13,12 @@
  * $State: Exp $
  *
  * $Log: dld_dl.c,v $
+ * Removed implicit link against libc.  1994/09/14 William Setzer.
+ *
+ * Integrated other DynaLoader changes. 1994/06/08 Tim Bunce.
+ *
+ * rewrote dl_load_file, misc updates.  1994/09/03 William Setzer.
+ *
  * Revision 1.4  1994/03/07  00:21:43  rsanders
  * added min symbol count for load_libs and switched order so system libs
  * are loaded after app-specified libs.
@@ -36,99 +42,92 @@
 #include <dld.h>	/* GNU DLD header file */
 #include <unistd.h>
 
-
 #include "dlutils.c"	/* for SaveError() etc */
 
-
-WARNING! THIS IS UNTESTED CODE. AN EXAMPLE ONLY.
-
-
-#ifdef OLD_CODE_NO_LONGER_NEEDED
-
-	This code is replaced bu the auto/PACKAGE/PACKABE.bs file.
-	See DynaLoader.doc for details.
-
-/* change this to suit your system.  Under Linux, define STATICALLY_LINKED
- * if you're linking perl statically.  You can have it defined even if
- * perl is linked with the shared libraries, but then you'll end up wasting
- * space because perl will end up loading two copies of the same code.
- */
-#ifdef STATICALLY_LINKED
-#define LOC_LIBC "/usr/lib/libc.a"
-#define LOC_LIBM "/usr/lib/libm.a"
-#else
-#define LOC_LIBC "/usr/lib/libc.sa"
-#define LOC_LIBM "/usr/lib/libm.sa"
-#endif
-#define LOC_LIBDBM  "/usr/lib/libdbm.a"
-/* if there are other libraries that extensions may use on your system,
- * such as libnsl, etc., add them to this array before the NULL, in the
- * order in which you'd like to see them searched.
- */
-static char * stdlibs[] = { LOC_LIBDBM, LOC_LIBC, LOC_LIBM, NULL };
-#endif /* OLD_CODE_NO_LONGER_NEEDED */
-
-
-/* utility function to combine dld_link() and SaveError()	*/
-static int
-load_file(filename)
-	char *filename;
+static void
+dl_private_init()
 {
-    int dlderr = dld_link(filename);
-    if (!dlderr)
-	return 0;
-    if (dlderr == DLD_ENOFILE){
-	SaveError("File %s not found", filename);
-    }else{
-   	SaveError("%s",dld_strerror(dlderr));
+    int dlderr;
+    dl_generic_private_init();
+#ifdef __linux__
+    dlderr = dld_init("/proc/self/exe");
+    if (dlderr) {
+#endif
+        dlderr = dld_init(dld_find_executable(origargv[0]));
+        if (dlderr) {
+            char *msg = dld_strerror(dlderr);
+            SaveError("dld_init(%s) failed: %s", origargv[0], msg);
+            DLDEBUG(1,fprintf(stderr,"%s", LastError));
+        }
+#ifdef __linux__
     }
-    return dlderr;
+#endif
 }
 
 
+MODULE = DynaLoader     PACKAGE = DynaLoader
 
-
-MODULE = DynaLoader	PACKAGE = DynaLoader
-
-
-void
-dl_private_init()
-	PPCODE:
-	dl_generic_private_init();
+BOOT:
+    (void)dl_private_init();
 
 
 char *
 dl_load_file(filename)
     char *	filename
     CODE:
-    int dlderr;
-    DLDEBUG(1,fprintf(stderr,"dl_load_file(%s): ", filename));
+    int dlderr,x,max;
+    GV *gv;
+    AV *av;
     RETVAL = filename;
-/* we should loop for each @dl_require_symbols entry
-   something like:
-	foreach(@dl_require_symbols)
-	    dld_create_reference($_);
-*/
-    dlderr = load_file(filename);
-/* we should loop for each @dl_resolve_using entry
-   something like:
-	foreach(@dl_resolve_using)
-	    res = load_file($_);
-*/
-    DLDEBUG(2,fprintf(stderr," libref=%s\n", RETVAL));
+    DLDEBUG(1,fprintf(stderr,"dl_load_file(%s)\n", filename));
+    gv = gv_fetchpv("DynaLoader::dl_require_symbols", FALSE, SVt_PVAV);
+    if (gv) {
+	av  = GvAV(gv);
+	max = AvFILL(av);
+	for (x = 0; x <= max; x++) {
+	    char *sym = SvPVX(*av_fetch(av, x, 0));
+	    DLDEBUG(1,fprintf(stderr, "dld_create_ref(%s)\n", sym));
+	    if (dlderr = dld_create_reference(sym)) {
+		SaveError("dld_create_reference(%s): %s", sym,
+			  dld_strerror(dlderr));
+		goto haverror;
+	    }
+	}
+    }
+    DLDEBUG(1,fprintf(stderr, "dld_link(%s)\n", filename));
+    if (dlderr = dld_link(filename)) {
+	SaveError("dld_link(%s): %s", filename, dld_strerror(dlderr));
+	goto haverror;
+    }
+    gv = gv_fetchpv("DynaLoader::dl_resolve_using", FALSE, SVt_PVAV);
+    if (gv) {
+	av  = GvAV(gv);
+	max = AvFILL(av);
+	for (x = 0; x <= max; x++) {
+	    char *sym = SvPVX(*av_fetch(av, x, 0));
+	    DLDEBUG(1,fprintf(stderr, "dld_link(%s)\n", sym));
+	    if (dlderr = dld_link(sym)) {
+		SaveError("dld_link(%s): %s", sym, dld_strerror(dlderr));
+		goto haverror;
+	    }
+	}
+    }
+    DLDEBUG(2,fprintf(stderr,"libref=%s\n", RETVAL));
+haverror:
     ST(0) = sv_newmortal() ;
-    if (RETVAL != 0)
+    if (dlderr == 0)
 	sv_setiv(ST(0), (IV)RETVAL);
 
 
 void *
 dl_find_symbol(libhandle, symbolname)
-    void *		libhandle
-    char *		symbolname
+    void *	libhandle
+    char *	symbolname
     CODE:
     DLDEBUG(2,fprintf(stderr,"dl_find_symbol(handle=%x, symbol=%s)\n",
 	    libhandle, symbolname));
-    RETVAL = dld_get_func(symbolname);
+    RETVAL = (void *)dld_get_func(symbolname);
+    /* if RETVAL==NULL we should try looking for a non-function symbol */
     DLDEBUG(2,fprintf(stderr,"  symbolref = %x\n", RETVAL));
     ST(0) = sv_newmortal() ;
     if (RETVAL == NULL)
@@ -138,40 +137,37 @@ dl_find_symbol(libhandle, symbolname)
 
 
 void
-dl_undefined_symbols()
+dl_undef_symbols()
     PPCODE:
-    int x;
-    char **undef_syms = dld_list_undefined_sym();
-    if (!undef_syms) {
-	/* is this an error? */
-	SaveError("dl_undefined_symbols: symbol list not returned");
-	/* return empty list */
-    }else{
+    if (dld_undefined_sym_count) {
+	int x;
+	char **undef_syms = dld_list_undefined_sym();
 	EXTEND(sp, dld_undefined_sym_count);
 	for (x=0; x < dld_undefined_sym_count; x++)
-		PUSHs(sv_2mortal(newSVpv(undef_syms[x]+1)));
+	    PUSHs(sv_2mortal(newSVpv(undef_syms[x]+1, 0)));
 	free(undef_syms);
     }
+
 
 
 # These functions should not need changing on any platform:
 
 void
 dl_install_xsub(perl_name, symref, filename="$Package")
-	char *		perl_name
-	void *		symref 
-	char *		filename
-	CODE:
-	DLDEBUG(2,fprintf(stderr,"dl_install_xsub(name=%s, symref=%x)\n",
-		perl_name, symref));
+    char *	perl_name
+    void *	symref 
+    char *	filename
+    CODE:
+    DLDEBUG(2,fprintf(stderr,"dl_install_xsub(name=%s, symref=%x)\n",
+	    perl_name, symref));
     ST(0)=sv_2mortal(newRV((SV*)newXS(perl_name, (void(*)())symref, filename)));
 
 
 char *
-dl_dl_error()
-	CODE:
-	RETVAL = LastError ;
-	OUTPUT:
-	  RETVAL
+dl_error()
+    CODE:
+    RETVAL = LastError ;
+    OUTPUT:
+    RETVAL
 
 # end.

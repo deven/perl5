@@ -8,6 +8,10 @@
 #undef PF_NBS
 #endif
 
+#ifndef AF_X25
+#undef PF_X25
+#endif
+
 static int
 not_here(s)
 char *s;
@@ -489,6 +493,12 @@ int arg;
 	if (strEQ(name, "SO_REUSEADDR"))
 #ifdef SO_REUSEADDR
 	    return SO_REUSEADDR;
+#else
+	    goto not_there;
+#endif
+	if (strEQ(name, "SO_REUSEPORT"))
+#ifdef SO_REUSEPORT
+	    return SO_REUSEPORT;
 #else
 	    goto not_there;
 #endif

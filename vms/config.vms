@@ -30,6 +30,15 @@
  */
 #define BYTEORDER 0x1234	/* large digits for MSB */
 
+/* CAT2:
+ *	This macro catenates 2 tokens together.
+ */
+#define CAT2(a,b)a/**/b
+#define CAT3(a,b,c)a/**/b/**/c
+#define CAT4(a,b,c,d)a/**/b/**/c/**/d
+#define CAT5(a,b,c,d,e)a/**/b/**/c/**/d/**/e
+#define STRINGIFY(a)"a"
+
 /* CPPSTDIN:
  *	This symbol contains the first part of the string which will invoke
  *	the C preprocessor on the standard input and produce to standard
@@ -233,6 +242,12 @@
  *	available to do file stats on symbolic links.
  */
 #undef HAS_LSTAT		/**/
+
+/* HAS_LOCKF:
+ *	This symbol, if defined, indicates that the lockf routine is
+ *	available to do file locking.
+ */
+#undef HAS_LOCKF		/**/
 
 /* HAS_MBSTOWCS:
  *	This symbol, if defined, indicates that the mbstowcs routine is
@@ -847,9 +862,7 @@
  *	There are also differences in the ioctl() calls that depend on the
  *	value of this symbol.
  */
-#undef I_TERMIO		/**/
 #undef I_TERMIOS		/**/
-#undef I_SGTTY		/**/
 
 /* I_TIME:
  *	This symbol, if defined, indicates to the C program that it should
@@ -1046,7 +1059,7 @@
  *	of significant digits in a double precision number.  If this
  *	symbol is not defined, a guess of 15 is usually pretty good.
  */
-#undef HAS_DBL_DIG 	/* */
+#define HAS_DBL_DIG 	/* */
 
 /* HAS_DIFFTIME:
  *	This symbol, if defined, indicates that the difftime routine is
@@ -1058,7 +1071,11 @@
  *	This symbol, if defined, indicates that the fork routine is
  *	available.
  */
-#undef HAS_FORK		/**/
+/* VMS: In vmsish.h, fork is #defined to vfork.  This kludge gets around
+ * some obsolete code in pp.c, which should be fixed in its own right
+ * sometime.  - C. Bailey 26-Aug-1994
+ */
+#define HAS_FORK		/**/
 
 /* HAS_GETLOGIN:
  *	This symbol, if defined, indicates that the getlogin routine is
@@ -1099,10 +1116,10 @@
  *	friends htonl() htons() ntohl()) are available to do network
  *	order byte swapping.
  */
-#undef HAS_HTONL             /**/
-#undef HAS_HTONS             /**/
-#undef HAS_NTOHL             /**/
-#undef HAS_NTOHS             /**/
+#define HAS_HTONL             /**/
+#define HAS_HTONS             /**/
+#define HAS_NTOHL             /**/
+#define HAS_NTOHS             /**/
  
 /* HAS_ISASCII:
  *	This manifest constant lets the C program know that the
@@ -1161,7 +1178,8 @@
 
 /* HAS_SETLINEBUF:
  *	This symbol, if defined, indicates that the setlinebuf routine is
- *	available.
+ *	available to change stderr or stdout from block-buffered or unbuffered
+ *	to a line-buffered mode.
  */
 #undef HAS_SETLINEBUF		/**/
 
@@ -1171,15 +1189,21 @@
  */
 #undef HAS_STRCOLL	/**/
 
+/* HAS_STRXFRM:
+ *	This symbol, if defined, indicates that the strxfrm routine is
+ *	available to compare strings using collating information.
+ */
+#undef HAS_STRXFRM	/**/
+
 /* HAS_TCGETPGRP:
  *	This symbol, if defined, indicates that the tcgetpgrp routine is
- *	available.
+ *	available to get foreground process group ID.
  */
 #undef HAS_TCGETPGRP		/**/
 
 /* HAS_TCSETPGRP:
  *	This symbol, if defined, indicates that the tcsetpgrp routine is
- *	available.
+ *	available to set foreground process group ID.
  */
 #undef HAS_TCSETPGRP		/**/
 
@@ -1198,7 +1222,7 @@
 
 /* HAS_UMASK:
  *	This symbol, if defined, indicates that the umask routine is
- *	available.
+ *	available to get the file creation mask.
  */
 #define HAS_UMASK		/**/
 
@@ -1250,12 +1274,18 @@
 #define Groups_t unsigned int	/* Type for 2nd arg to getgroups() */  /* config-skip */
 #endif
 
+/* I_DLFCN:
+ *	This symbol, if defined, indicates that <dlfcn.h> exists and should
+ *	be included.
+ */
+#undef I_DLFCN		/**/
+
 /* I_FLOAT:
  *	This symbol, if defined, indicates to the C program that it should
  *	include <float.h> to get definition of symbols like DBL_MAX or
  *	DBL_MIN, i.e. machine dependent floating point values.
  */
-#undef I_FLOAT		/**/
+#define I_FLOAT		/**/
 
 /* I_MATH:
  *	This symbol, if defined, indicates to the C program that it should
@@ -1343,4 +1373,37 @@
  *	include <sys/param.h>.
  */
 #undef I_SYS_PARAM
+
+/* GNUC_ATTRIBUTE_CHECK:
+ *	This symbol indicates the C compiler can check for function attributes,
+ *	such as printf formats.
+ */
+/* VMS: true for gcc, undef for VAXC/DECC.  This is handled in Descrip.MMS
+ * C. Bailey  26-Aug-1994
+ */
+/*#define 	GNUC_ATTRIBUTE_CHECK 	/* */
+
+/* DLSYM_NEEDS_UNDERSCORE:
+ *	This symbol, if defined, indicates that we need to prepend an
+ *	underscore to the symbol name before calling dlsym().  This only
+ *	makes sense if you *have* dlsym, which we will presume is the
+ *	case if you're using dl_dlopen.xs.
+ */
+#undef 	DLSYM_NEEDS_UNDERSCORE 	/* */
+
+/* Gconvert:
+ *	This preprocessor macro is defined to convert a floating point
+ *	number to a string without a trailing decimal point.  This
+ *	emulates the behavior of sprintf("%g"), but is sometimes much more
+ *	efficient.  If gconvert() is not available, but gcvt() drops the
+ *	trailing decimal point, then gcvt() is used.  If all else fails,
+ *	a macro using sprintf("%g") is used.
+ */
+#define Gconvert(x,n,t,b) gcvt(x,n,b)
+
+/* SETUID_SCRIPTS_ARE_SECURE_NOW:
+ *	This symbol, if defined, indicates that setuid scripts are secure.
+ */
+#undef SETUID_SCRIPTS_ARE_SECURE_NOW	/**/
+
 #endif

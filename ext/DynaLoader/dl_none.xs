@@ -9,15 +9,11 @@
 
 MODULE = DynaLoader	PACKAGE = DynaLoader
 
-void
-dl_private_init()
-	PPCODE:
-
 char *
-dl_dl_error()
-	CODE:
-	RETVAL = "Not implemented";
-	OUTPUT:
-	RETVAL
+dl_error()
+    CODE:
+    RETVAL = "Not implemented";
+    OUTPUT:
+    RETVAL
 
 # end.

@@ -29,6 +29,7 @@ __FILE__
 __END__
 AUTOLOAD
 BEGIN
+CORE
 DESTROY
 END
 EQ
@@ -48,6 +49,7 @@ bless
 caller
 chdir
 chmod
+chomp
 chop
 chown
 chr
@@ -190,7 +192,6 @@ rewinddir
 rindex
 rmdir
 s
-safechop
 scalar
 seek
 seekdir

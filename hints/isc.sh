@@ -1,17 +1,21 @@
-# Interactive Unix Versions 3 and 4. 
+#  isc.sh
+#  Interactive Unix Versions 3 and 4. 
 #  Compile perl entirely in posix mode. 
 #  Andy Dougherty		doughera@lafcol.lafayette.edu
-#  Sat Jul  2 15:37:35 EDT 1994
+#  Wed Oct  5 15:57:37 EDT 1994
 #
 # Use Configure -Dcc=gcc to use gcc
 #
-hintfile=isc
-set X `echo $libswanted | sed -e 's/ c / /' -e 's/ c_s / /' -e 's/ PW / /'`
+set `echo X "$libswanted "| sed -e 's/ c / /'`
 shift
 libswanted="$*"
 case "$cc" in
-*gcc*)	;;
+*gcc*)	ccflags="$ccflags -posix"
+	ldflags="$ldflags -posix"
+	;;
 *)	ccflags="$ccflags -Xp -D_POSIX_SOURCE"
 	ldflags="$ldflags -Xp"
     	;;
 esac
+# Pick up dbm.h in <rpcsvc/dbm.h>
+ccflags="$ccflags -I/usr/include/rpcsvc"

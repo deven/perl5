@@ -1,0 +1,171 @@
+#!../miniperl
+
+$/ = "";
+
+$name = @ARGV ? $ARGV[0] : "something";
+$name =~ s/\..*//;
+
+print <<"END";
+.rn '' }`
+''' \$RCSfile\$\$Revision\$\$Date\$
+''' 
+''' \$Log\$
+''' 
+.de Sh
+.br
+.ne 5
+.PP
+\\fB\\\\\$1\\fR
+.PP
+..
+.de Sp
+.if t .sp .5v
+.if n .sp
+..
+.de Ip
+.br
+.ie \\\\n(.\$>=3 .ne \\\\\$3
+.el .ne 3
+.IP "\\\\\$1" \\\\\$2
+..
+.de Vb
+.nf
+
+.ne \\\\\$1
+..
+.de Ve
+
+.fi
+..
+'''
+'''     Set up \\*(-- to give an unbreakable dash;
+'''     string Tr holds user defined translation string.
+'''     Bell System Logo is used as a dummy character.
+'''
+.tr \\(*W-|\\(bv\\*(Tr
+.ie n \\{\\
+.ds -- \\(*W-
+.if (\\n(.H=4u)&(1m=24u) .ds -- \\(*W\\h'-12u'\\(*W\\h'-12u'-\\" diablo 10 pitch
+.if (\\n(.H=4u)&(1m=20u) .ds -- \\(*W\\h'-12u'\\(*W\\h'-8u'-\\" diablo 12 pitch
+.ds L" ""
+.ds R" ""
+.ds L' '
+.ds R' '
+'br\\}
+.el\\{\\
+.ds -- \\(em\\|
+.tr \\*(Tr
+.ds L" ``
+.ds R" ''
+.ds L' `
+.ds R' '
+'br\\}
+.TH \U$name\E 1 "\\*(RP"
+.UC
+END
+
+$indent = 0;
+
+while (<>) {
+    chop;
+
+    # Translate verabatim paragraph
+
+    if (/^\s/) {
+	@lines = split(/\n/);
+	for (@lines) {
+	    1 while s
+		{^( [^\t]* ) \t ( \t* ) }
+		{ $1 . ' ' x (8 - (length($1)%8) + 8 * (length($2))) }ex;
+	    s/\\/\\e/g;
+	    s/\A/\\&/s;
+	}
+	$lines = @lines;
+	print ".Vb $lines\n";
+	print join("\n", @lines), "\n";
+	print ".Ve\n";
+	$needspace = 0;
+	next;
+    }
+
+    s/\\/\\e/g;
+
+    $maxnest = 10;
+    while ($maxnest-- && /[A-Z]</) {
+	s/I<([^<>]*)>/\\fI$1\\fR/g;
+	s/B<([^<>]*)>/\\fB$1\\fR/g;
+	s/S<([^<>]*)>/nobreak($1)/eg;
+	s/L<([^<>]*)>/the $1 manpage/g;
+	s/Z<>/\\&/g;
+    }
+
+    if (s/^=//) {
+	$needspace = 0;		# Assume this.
+
+	s/\n$//s;
+	s/\n/ /g;
+
+	($cmd, $_) = split(' ', $_, 2);
+
+	if (defined $_) {
+	    s/"/""/g;
+	    &escapes;
+	}
+
+	if ($cmd eq 'head1') {
+	    print qq{.SH "$_"\n}
+	}
+	elsif ($cmd eq 'head2') {
+	    print qq{.Sh "$_"\n}
+	}
+	elsif ($cmd eq 'over') {
+	    push(@indent,$indent);
+	    $indent = $_ + 0;
+	}
+	elsif ($cmd eq 'back') {
+	    $indent = pop(@indent);
+	    warn "Unmatched =back\n" unless defined $indent;
+	    $needspace = 1;
+	}
+	elsif ($cmd eq 'item') {
+	    print qq{.Ip "$_" $indent\n};
+	}
+	else {
+	    warn "Unrecognized directive: $cmd\n";
+	}
+    }
+    else {
+	if ($needspace) {
+	    if ($indent) {
+		print ".Sp\n";
+	    }
+	    else {
+		print ".PP\n";
+	    }
+	}
+	&escapes;
+	print $_;
+	$needspace = 1;
+    }
+}
+
+print <<"END";
+.rn }` ''
+END
+
+#########################################################################
+
+sub nobreak {
+    my $string = shift;
+    $string =~ s/ /\\ /g;
+    $string;
+}
+
+sub escapes {
+    s/([^0-9a-z-])-([^-])/$1\\-$2/g;
+    if (!/""/) {
+	s/(^|\s)(['"])/$1\\*(L$2/g;
+	s/(['"])($|[\s,;\\!?.])/\\*(R$1$2/g;
+    }
+    s/\b--\b/\\*(--/g;
+}

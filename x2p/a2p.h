@@ -218,7 +218,7 @@ union u_ops {
 #else
 #define OPSMAX 50000
 #endif						 	/* 80286 hack */
-union u_ops ops[OPSMAX];
+EXT union u_ops ops[OPSMAX];
 
 #include <stdio.h>
 #include <ctype.h>
@@ -298,7 +298,7 @@ EXT char fswitch INIT(0);
 EXT int saw_FS INIT(0);
 EXT int maxfld INIT(0);
 EXT int arymax INIT(0);
-char *nameary[100];
+EXT char *nameary[100];
 
 EXT STR *opens;
 

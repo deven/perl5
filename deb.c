@@ -16,6 +16,7 @@
 #include "EXTERN.h"
 #include "perl.h"
 
+#ifdef DEBUGGING
 #if !defined(I_STDARG) && !defined(I_VARARGS)
 
 /*
@@ -28,9 +29,11 @@ deb(pat,a1,a2,a3,a4,a5,a6,a7,a8)
     char *pat;
 {
     register I32 i;
+    GV* gv = curcop->cop_filegv;
 
     fprintf(stderr,"(%s:%ld)\t",
-	SvPVX(GvSV(curcop->cop_filegv)),(long)curcop->cop_line);
+	SvTYPE(gv) == SVt_PVGV ? SvPVX(GvSV(gv)) : "<free>",
+	(long)curcop->cop_line);
     for (i=0; i<dlevel; i++)
 	fprintf(stderr,"%c%c ",debname[i],debdelim[i]);
     fprintf(stderr,pat,a1,a2,a3,a4,a5,a6,a7,a8);
@@ -51,9 +54,11 @@ deb(pat, va_alist)
 {
     va_list args;
     register I32 i;
+    GV* gv = curcop->cop_filegv;
 
     fprintf(stderr,"(%s:%ld)\t",
-	SvPVX(GvSV(curcop->cop_filegv)),(long)curcop->cop_line);
+	SvTYPE(gv) == SVt_PVGV ? SvPVX(GvSV(gv)) : "<free>",
+	(long)curcop->cop_line);
     for (i=0; i<dlevel; i++)
 	fprintf(stderr,"%c%c ",debname[i],debdelim[i]);
 
@@ -79,9 +84,12 @@ I32
 debstackptrs()
 {
     fprintf(stderr, "%8lx %8lx %8ld %8ld %8ld\n",
-	stack, stack_base, *markstack_ptr, stack_sp-stack_base, stack_max-stack_base);
+	(unsigned long)stack, (unsigned long)stack_base,
+	(long)*markstack_ptr, (long)(stack_sp-stack_base),
+	(long)(stack_max-stack_base));
     fprintf(stderr, "%8lx %8lx %8ld %8ld %8ld\n",
-	mainstack, AvARRAY(stack), mainstack, AvFILL(stack), AvMAX(stack));
+	(unsigned long)mainstack, (unsigned long)AvARRAY(stack),
+	(long)mainstack, (long)AvFILL(stack), (long)AvMAX(stack));
     return 0;
 }
 
@@ -120,3 +128,6 @@ debstack()
     fprintf(stderr, "\n");
     return 0;
 }
+#else
+static int dummy; /* avoid totally empty deb.o file */
+#endif /* DEBUGGING */

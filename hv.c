@@ -150,7 +150,7 @@ register U32 hash;
     New(501,entry, 1, HE);
 
     entry->hent_klen = klen;
-    entry->hent_key = nsavestr(key,klen);
+    entry->hent_key = savepvn(key,klen);
     entry->hent_val = val;
     entry->hent_hash = hash;
     entry->hent_next = *oentry;
@@ -213,7 +213,10 @@ U32 klen;
 	if (i && !*oentry)
 	    xhv->xhv_fill--;
 	sv = sv_mortalcopy(entry->hent_val);
-	he_free(entry);
+	if (entry == xhv->xhv_eiter)
+	    entry->hent_klen = -1;
+	else
+	    he_free(entry);
 	--xhv->xhv_keys;
 	return sv;
     }
@@ -316,7 +319,7 @@ newHV()
     register HV *hv;
     register XPVHV* xhv;
 
-    hv = (HV*)newSV(0);
+    hv = (HV*)NEWSV(502,0);
     sv_upgrade((SV *)hv, SVt_PVHV);
     xhv = (XPVHV*)SvANY(hv);
     SvPOK_off(hv);
@@ -360,6 +363,7 @@ HV *hv;
     xhv = (XPVHV*)SvANY(hv);
     hfreeentries(hv);
     xhv->xhv_fill = 0;
+    xhv->xhv_keys = 0;
     if (xhv->xhv_array)
 	(void)memzero(xhv->xhv_array, (xhv->xhv_max + 1) * sizeof(HE*));
 
@@ -418,6 +422,7 @@ HV *hv;
     xhv->xhv_array = 0;
     xhv->xhv_max = 7;		/* it's a normal associative array */
     xhv->xhv_fill = 0;
+    xhv->xhv_keys = 0;
 
     if (SvRMAGICAL(hv))
 	mg_clear((SV*)hv); 
@@ -428,6 +433,9 @@ hv_iterinit(hv)
 HV *hv;
 {
     register XPVHV* xhv = (XPVHV*)SvANY(hv);
+    HE *entry = xhv->xhv_eiter;
+    if (entry && entry->hent_klen < 0)	/* was deleted earlier? */
+	he_free(entry);
     xhv->xhv_riter = -1;
     xhv->xhv_eiter = Null(HE*);
     return xhv->xhv_fill;
@@ -439,21 +447,24 @@ HV *hv;
 {
     register XPVHV* xhv;
     register HE *entry;
+    HE *oldentry;
     MAGIC* mg;
 
     if (!hv)
 	croak("Bad associative array");
     xhv = (XPVHV*)SvANY(hv);
-    entry = xhv->xhv_eiter;
+    oldentry = entry = xhv->xhv_eiter;
 
     if (SvRMAGICAL(hv) && (mg = mg_find((SV*)hv,'P'))) {
 	SV *key = sv_newmortal();
-        if (entry)
-	    sv_setpvn(key, entry->hent_key, entry->hent_klen);
-        else {
-            Newz(504,entry, 1, HE);
-            xhv->xhv_eiter = entry;
-        }
+	if (entry) {
+	    sv_usepvn(key, entry->hent_key, entry->hent_klen);
+	    entry->hent_key = 0;
+	}
+	else {
+	    Newz(504,entry, 1, HE);
+	    xhv->xhv_eiter = entry;
+	}
 	magic_nextpack((SV*) hv,mg,key);
         if (SvOK(key)) {
 	    STRLEN len;
@@ -484,6 +495,9 @@ HV *hv;
 	    entry = ((HE**)xhv->xhv_array)[xhv->xhv_riter];
 	}
     } while (!entry);
+
+    if (oldentry && oldentry->hent_klen < 0)	/* was deleted earlier? */
+	he_free(oldentry);
 
     xhv->xhv_eiter = entry;
     return entry;

@@ -1,9 +1,11 @@
 package GDBM_File;
 
+require Carp;
+require TieHash;
 require Exporter;
 require AutoLoader;
 require DynaLoader;
-@ISA = (Exporter, AutoLoader, DynaLoader);
+@ISA = (TieHash, Exporter, AutoLoader, DynaLoader);
 @EXPORT = qw(
 	GDBM_CACHESIZE
 	GDBM_FAST
@@ -29,9 +31,7 @@ sub AUTOLOAD {
 	    goto &AutoLoader::AUTOLOAD;
 	}
 	else {
-	    ($pack,$file,$line) = caller;
-	    die "Your vendor has not defined GDBM_File macro $constname, used at $file line $line.
-";
+	    Carp::croak("Your vendor has not defined GDBM_File macro $constname, used");
 	}
     }
     eval "sub $AUTOLOAD { $val }";
@@ -42,23 +42,6 @@ bootstrap GDBM_File;
 
 # Preloaded methods go here.  Autoload methods go after __END__, and are
 # processed by the autosplit program.
-
-sub EXISTS {
-    defined FETCH(@_);
-}
-
-sub CLEAR {
-    my $key = FIRSTKEY(@_);
-    my @keys;
-
-    while (defined $key) {
-	push @keys, $key;
-	$key = NEXTKEY(@_, $key);
-    }
-    foreach $key (@keys) {
-	DELETE(@_, $key);
-    }
-}
 
 1;
 __END__

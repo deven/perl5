@@ -18,6 +18,7 @@ sub Tgetent {
 	delete $TC{$key};
     }
     $TERM = $ENV{'TERM'} unless $TERM;
+    $TERM =~ s/(\W)/\\$1/g;
     $TERMCAP = $ENV{'TERMCAP'};
     $TERMCAP = '/etc/termcap' unless $TERMCAP;
     if ($TERMCAP !~ m:^/:) {

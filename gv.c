@@ -13,7 +13,7 @@
  * of your inquisitiveness, I shall spend all the rest of my days answering
  * you.  What more do you want to know?'
  *   'The names of all the stars, and of all living things, and the whole
- * history of of Middle-earth and Over-heaven and of the Sundering Seas,'
+ * history of Middle-earth and Over-heaven and of the Sundering Seas,'
  * laughed Pippin.
  */
 
@@ -26,6 +26,8 @@ GV *
 gv_AVadd(gv)
 register GV *gv;
 {
+    if (!gv || SvTYPE((SV*)gv) != SVt_PVGV)
+	croak("Bad symbol for array");
     if (!GvAV(gv))
 	GvAV(gv) = newAV();
     return gv;
@@ -35,8 +37,21 @@ GV *
 gv_HVadd(gv)
 register GV *gv;
 {
+    if (!gv || SvTYPE((SV*)gv) != SVt_PVGV)
+	croak("Bad symbol for hash");
     if (!GvHV(gv))
 	GvHV(gv) = newHV();
+    return gv;
+}
+
+GV *
+gv_IOadd(gv)
+register GV *gv;
+{
+    if (!gv || SvTYPE((SV*)gv) != SVt_PVGV)
+	croak("Bad symbol for filehandle");
+    if (!GvIOp(gv))
+	GvIOp(gv) = newIO();
     return gv;
 }
 
@@ -79,10 +94,28 @@ int multi;
     GvEGV(gv) = gv;
     sv_magic((SV*)gv, (SV*)gv, '*', name, len);
     GvSTASH(gv) = stash;
-    GvNAME(gv) = nsavestr(name, len);
+    GvNAME(gv) = savepvn(name, len);
     GvNAMELEN(gv) = len;
     if (multi)
 	SvMULTI_on(gv);
+}
+
+static void
+gv_init_sv(gv, sv_type)
+GV* gv;
+I32 sv_type;
+{
+    switch (sv_type) {
+    case SVt_PVIO:
+	(void)GvIOn(gv);
+	break;
+    case SVt_PVAV:
+	(void)GvAVn(gv);
+	break;
+    case SVt_PVHV:
+	(void)GvHVn(gv);
+	break;
+    }
 }
 
 GV *
@@ -124,7 +157,7 @@ I32 level;
 	    HV* basestash = gv_stashsv(sv, FALSE);
 	    if (!basestash) {
 		if (dowarn)
-		    warn("Can't locate package %s for @%s'ISA",
+		    warn("Can't locate package %s for @%s::ISA",
 			SvPVX(sv), HvNAME(stash));
 		continue;
 	    }
@@ -208,7 +241,7 @@ I32 create;
 	GvHV(tmpgv) = newHV();
     stash = GvHV(tmpgv);
     if (!HvNAME(stash))
-	HvNAME(stash) = savestr(name);
+	HvNAME(stash) = savepv(name);
     return stash;
 }
 
@@ -247,10 +280,11 @@ I32 sv_type;
 
 	    len = namend - name;
 	    if (len > 0) {
-		New(601, tmpbuf, len+2, char);
-		*tmpbuf = '_';
-		Copy(name, tmpbuf+1, len, char);
-		tmpbuf[++len] = '\0';
+		New(601, tmpbuf, len+3, char);
+		Copy(name, tmpbuf, len, char);
+		tmpbuf[len++] = ':';
+		tmpbuf[len++] = ':';
+		tmpbuf[len] = '\0';
 		gvp = (GV**)hv_fetch(stash,tmpbuf,len,add);
 		Safefree(tmpbuf);
 		if (!gvp || *gvp == (GV*)&sv_undef)
@@ -268,7 +302,7 @@ I32 sv_type;
 		    stash = GvHV(gv) = newHV();
 
 		if (!HvNAME(stash))
-		    HvNAME(stash) = nsavestr(nambeg, namend - nambeg);
+		    HvNAME(stash) = savepvn(nambeg, namend - nambeg);
 	    }
 
 	    if (*namend == ':')
@@ -276,9 +310,12 @@ I32 sv_type;
 	    namend++;
 	    name = namend;
 	    if (!*name)
-		return gv ? gv : defgv;
+		return gv ? gv : *hv_fetch(defstash, "main::", 6, TRUE);
 	}
     }
+    len = namend - name;
+    if (!len)
+	len = 1;
 
     /* No stash in name, so see how we can default */
 
@@ -311,8 +348,11 @@ I32 sv_type;
 	    if (global)
 		stash = defstash;
 	    else if ((COP*)curcop == &compiling) {
-		if (!(hints & HINT_STRICT_VARS) || sv_type == SVt_PVCV)
-		    stash = curstash;
+		stash = curstash;
+		if (add && (hints & HINT_STRICT_VARS) && sv_type != SVt_PVCV) {
+		    if (stash && !hv_fetch(stash,name,len,0))
+			stash = 0;
+		}
 	    }
 	    else
 		stash = curcop->cop_stash;
@@ -320,37 +360,47 @@ I32 sv_type;
 	else
 	    stash = defstash;
     }
-    if (!SvREFCNT(stash))	/* symbol table under destruction */
-	return Nullgv;
 
     /* By this point we should have a stash and a name */
 
-    if (!stash)
-	croak("Global symbol \"%s\" requires explicit package name", name);
-    len = namend - name;
-    if (!len)
-	len = 1;
+    if (!stash) {
+	if (add) {
+	    warn("Global symbol \"%s\" requires explicit package name", name);
+	    ++error_count;
+	    stash = curstash ? curstash : defstash;	/* avoid core dumps */
+	}
+	else
+	    return Nullgv;
+    }
+
+    if (!SvREFCNT(stash))	/* symbol table under destruction */
+	return Nullgv;
+
     gvp = (GV**)hv_fetch(stash,name,len,add);
     if (!gvp || *gvp == (GV*)&sv_undef)
 	return Nullgv;
     gv = *gvp;
     if (SvTYPE(gv) == SVt_PVGV) {
-	SvMULTI_on(gv);
+	if (add) {
+	    SvMULTI_on(gv);
+	    gv_init_sv(gv, sv_type);
+	}
 	return gv;
     }
 
     /* Adding a new symbol */
 
     gv_init(gv, stash, name, len, add & 2);
-
-    switch (sv_type) {
-    case SVt_PVIO:
-	GvIO(gv) = newIO();
-	break;
-    }
+    gv_init_sv(gv, sv_type);
 
     /* set up magic where warranted */
     switch (*name) {
+    case 'A':
+	if (strEQ(name, "ARGV")) {
+	    IoFLAGS(GvIOn(gv)) |= IOf_ARGV|IOf_START;
+	}
+	break;
+
     case 'a':
     case 'b':
 	if (len == 1)
@@ -429,12 +479,12 @@ I32 sv_type;
 	sv_setpv(GvSV(gv),chopset);
 	goto magicalize;
 
-    case '[':
     case '#':
     case '*':
 	if (dowarn && len == 1 && sv_type == SVt_PV)
 	    warn("Use of $%s is deprecated", name);
 	/* FALL THROUGH */
+    case '[':
     case '!':
     case '?':
     case '^':
@@ -563,7 +613,13 @@ HV* stash;
 	return;
     for (i = 0; i <= (I32) HvMAX(stash); i++) {
 	for (entry = HvARRAY(stash)[i]; entry; entry = entry->hent_next) {
-	    if (isALPHA(*entry->hent_key)) {
+	    if (entry->hent_key[entry->hent_klen-1] == ':' &&
+		(gv = (GV*)entry->hent_val) && (hv = GvHV(gv)) && HvNAME(hv))
+	    {
+		if (hv != defstash)
+		     gv_check(hv);              /* nested package */
+	    }
+	    else if (isALPHA(*entry->hent_key)) {
 		gv = (GV*)entry->hent_val;
 		if (SvMULTI(gv))
 		    continue;
@@ -575,11 +631,6 @@ HV* stash;
 		warn("Identifier \"%s::%s\" used only once: possible typo",
 			HvNAME(stash), GvNAME(gv));
 	    }
-	    else if (*entry->hent_key == '_' &&
-		(gv = (GV*)entry->hent_val) &&
-		(hv = GvHV(gv)) && HvNAME(hv) && hv != defstash)
-		     gv_check(hv);              /* nested package */
-						      
 	}
     }
 }
@@ -677,7 +728,7 @@ HV* stash;
   gvp=(GV**)hv_fetch(stash,"OVERLOAD",8,FALSE);
   sv_unmagic((SV*)stash, 'c');
 
-  DEBUG_o( deb("Recalcing arithmetic magic in package %s\n",HvNAME(stash)) );
+  DEBUG_o( deb("Recalcing arithmetic magic in package %.200s\n",HvNAME(stash)) );
 
   if (gvp && ((gv = *gvp) != (GV*)&sv_undef && (hv = GvHV(gv)))) {
     int filled=0;
@@ -688,7 +739,7 @@ HV* stash;
     SV** svp;
 
 /*  if (*(svp)==(SV*)amagic_generation && *(svp+1)==(SV*)sub_generation) {
-      DEBUG_o( deb("Arithmetic magic in package %s up-to-date\n",HvNAME(stash))
+      DEBUG_o( deb("Arithmetic magic in package %.200s up-to-date\n",HvNAME(stash))
 );
       return HV_AMAGIC(stash)? TRUE: FALSE;
     }*/
@@ -715,7 +766,7 @@ HV* stash;
             default:
               if (!SvROK(sv)) {
                 if (!SvOK(sv)) break;
-                gv = gv_fetchpv(SvPV(sv, na), FALSE, SVt_PVCV);
+		gv = gv_fetchmethod(curcop->cop_stash, SvPV(sv, na));
                 if (gv) cv = GvCV(gv);
                 break;
               }
@@ -737,7 +788,7 @@ HV* stash;
           }
           if (cv) filled=1;
 	  else {
-	    die("Method for operation %s not found in package %s during blessing\n",
+	    die("Method for operation %s not found in package %.200s during blessing\n",
 		cp,HvNAME(stash));
 	    return FALSE;
 	  }
@@ -771,19 +822,17 @@ int flags;
   CV *cv; 
   CV **cvp=NULL, **ocvp=NULL;
   AMT *amtp, *oamtp;
-  int fl=0, off, off1, lr=0, assign=AMGf_assign & flags, notfound=0, subst=0;
-  int postpr=0;
+  int fl=0, off, off1, lr=0, assign=AMGf_assign & flags, notfound=0;
+  int postpr=0, inc_dec_ass=0, assignshift=assign?1:0;
   HV* stash;
   if (!(AMGf_noleft & flags) && SvAMAGIC(left)
       && (mg = mg_find((SV*)(stash=SvSTASH(SvRV(left))),'c'))
       && (ocvp = cvp = ((oamtp=amtp=(AMT*)mg->mg_ptr)->table))
-      && (assign ?
-             ((cv = cvp[off=method+1]) 
-	      || ( amtp->fallback > AMGfallNEVER && /* fallback to
-						     * usual method */
-		  (fl = 1, cv = cvp[off=method]))):
-             (1 && (cv = cvp[off=method]))  )) {
-    lr=-1;			/* Call method for left argument */
+      && ((cv = cvp[off=method+assignshift]) 
+	  || (assign && amtp->fallback > AMGfallNEVER && /* fallback to
+						          * usual method */
+		  (fl = 1, cv = cvp[off=method])))) {
+    lr = -1;			/* Call method for left argument */
   } else {
     if (cvp && amtp->fallback > AMGfallNEVER && flags & AMGf_unary) {
       int logic;
@@ -791,44 +840,57 @@ int flags;
       /* look for substituted methods */
 	 switch (method) {
 	 case inc_amg:
-	   if ((cv = cvp[off=add_ass_amg]) 
+	   if (((cv = cvp[off=add_ass_amg]) && (inc_dec_ass=1))
 	       || ((cv = cvp[off=add_amg]) && (postpr=1))) {
-	     right=&sv_yes; lr=-1; assign=1;
+	     right = &sv_yes; lr = -1; assign = 1;
 	   }
 	   break;
 	 case dec_amg:
-	   if ((cv = cvp[off=subtr_ass_amg]) 
+	   if (((cv = cvp[off=subtr_ass_amg])  && (inc_dec_ass=1))
 	       || ((cv = cvp[off=subtr_amg]) && (postpr=1))) {
-	     right=&sv_yes; lr=-1; assign=1;
+	     right = &sv_yes; lr = -1; assign = 1;
 	   }
 	   break;
 	 case bool__amg:
-	   (cv = cvp[off=numer_amg]) || (cv = cvp[off=string_amg]);
+	   (void)((cv = cvp[off=numer_amg]) || (cv = cvp[off=string_amg]));
 	   break;
 	 case numer_amg:
-	   (cv = cvp[off=string_amg]) || (cv = cvp[off=bool__amg]);
+	   (void)((cv = cvp[off=string_amg]) || (cv = cvp[off=bool__amg]));
 	   break;
 	 case string_amg:
-	   (cv = cvp[off=numer_amg]) || (cv = cvp[off=bool__amg]);
+	   (void)((cv = cvp[off=numer_amg]) || (cv = cvp[off=bool__amg]));
+	   break;
+	 case copy_amg:
+	   {
+	     SV* ref=SvRV(left);
+	     if (!SvROK(ref) && SvTYPE(ref) <= SVt_PVMG) { /* Just to be
+						      * extra
+						      * causious,
+						      * maybe in some
+						      * additional
+						      * cases sv_setsv
+						      * is safe too */
+	       return newSVsv(ref);
+	     }
+	   }
 	   break;
 	 case abs_amg:
-	   if ((cvp[off1=lt_amg] || cvp[off1=lt_amg]) 
+	   if ((cvp[off1=lt_amg] || cvp[off1=ncmp_amg]) 
 	       && ((cv = cvp[off=neg_amg]) || (cv = cvp[off=subtr_amg]))) {
+	     SV* nullsv=sv_2mortal(newSViv(0));
 	     if (off1==lt_amg) {
-	       SV* lessp = amagic_call(left,
-				       sv_2mortal(newSViv(0)),
+	       SV* lessp = amagic_call(left,nullsv,
 				       lt_amg,AMGf_noright);
 	       logic = SvTRUE(lessp);
 	     } else {
-	       SV* lessp = amagic_call(left,
-				       sv_2mortal(newSViv(0)),
+	       SV* lessp = amagic_call(left,nullsv,
 				       ncmp_amg,AMGf_noright);
 	       logic = (SvNV(lessp) < 0);
 	     }
 	     if (logic) {
 	       if (off==subtr_amg) {
 		 right = left;
-		 left = sv_2mortal(newSViv(0));
+		 left = nullsv;
 		 lr = 1;
 	       }
 	     } else {
@@ -853,7 +915,8 @@ int flags;
 	       && (cv = cvp[off=method])) { /* Method for right
 					     * argument found */
       lr=1;
-    } else if (((ocvp && oamtp->fallback > AMGfallNEVER && (cvp=ocvp)) 
+    } else if (((ocvp && oamtp->fallback > AMGfallNEVER 
+		 && (cvp=ocvp) && (lr=-1)) 
 		|| (cvp && amtp->fallback > AMGfallNEVER && (lr=1)))
 	       && !(flags & AMGf_unary)) {
 				/* We look for substitution for
@@ -863,7 +926,7 @@ int flags;
 	  || method==repeat_amg || method==repeat_ass_amg) {
 	return NULL;		/* Delegate operation to string conversion */
       }
-      off=-1;
+      off = -1;
       switch (method) {
 	 case lt_amg:
 	 case le_amg:
@@ -880,7 +943,7 @@ int flags;
 	 case sne_amg:
 	   postpr = 1; off=scmp_amg; break;
 	 }
-      if (off!=-1) cv = cvp[off];
+      if (off != -1) cv = cvp[off];
       if (!cv) {
 	goto not_found;
       }
@@ -892,21 +955,30 @@ int flags;
 	notfound = 1; lr = 1;
       } else {
 	char tmpstr[512];
-	sprintf(tmpstr,"Operation `%s': no method found,\n\tleft argument %s%200s,\n\tright argument %s%200s",
-		      ((char**)AMG_names)[off],
-		      SvAMAGIC(left)? 
-		        "in arithm-magical package ":
-		        "has no arithmetic magic",
-		      SvAMAGIC(left)? 
-		        HvNAME(SvSTASH(SvRV(left))):
-		        "",
-		      SvAMAGIC(right)? 
-		        "in arithm-magical package ":
-		        "has no arithmetic magic",
-		      SvAMAGIC(right)? 
-		        HvNAME(SvSTASH(SvRV(right))):
-		        "");
-	if (amtp->fallback >= AMGfallYES) {
+	sprintf(tmpstr,"Operation `%s'%s%s%s: no method found,\n\t%sargument %s%.200s%s%s%.200s",
+		((char**)AMG_names)[off],
+		method+assignshift==off? "" :
+		             " (initially `",
+		method+assignshift==off? "" :
+		             ((char**)AMG_names)[method+assignshift],
+		method+assignshift==off? "" : "')",
+		flags & AMGf_unary? "" : "left ",
+		SvAMAGIC(left)? 
+		  "in arithm-magical package ":
+		  "has no arithmetic magic",
+		SvAMAGIC(left)? 
+		  HvNAME(SvSTASH(SvRV(left))):
+		  "",
+		flags & AMGf_unary? "" : ",\n\tright argument ",
+		flags & AMGf_unary? "" : 
+		  SvAMAGIC(right)? 
+		    "in arithm-magical package ":
+		    "has no arithmetic magic",
+		flags & AMGf_unary? "" :
+		  SvAMAGIC(right)? 
+		    HvNAME(SvSTASH(SvRV(right))):
+		    "");
+	if (amtp && amtp->fallback >= AMGfallYES) {
 	  DEBUG_o( deb(tmpstr) );
 	} else {
 	  die(tmpstr);
@@ -916,15 +988,25 @@ int flags;
     }
   }
   if (!notfound) {
-    DEBUG_o( deb("Operation `%s': method for %s argument found in package %s%s\n",
+    DEBUG_o( deb("Overloaded operator `%s'%s%s%s:\n\tmethod%s found%s in package %.200s%s\n",
 		 ((char**)AMG_names)[off],
-		 (lr? "right": "left"),
+		 method+assignshift==off? "" :
+		             " (initially `",
+		 method+assignshift==off? "" :
+		             ((char**)AMG_names)[method+assignshift],
+		 method+assignshift==off? "" : "')",
+		 flags & AMGf_unary? "" :
+		   lr==1 ? " for right argument": " for left argument",
+		 flags & AMGf_unary? " for argument" : "",
 		 HvNAME(stash), 
 		 fl? ",\n\tassignment variant used": "") );
-    /* Since we use shallow copy, we need to dublicate the contents,
-       probably we need also to use user-supplied version of coping?
-       */
-    if (assign || method==inc_amg || method==dec_amg) RvDEEPCP(left);
+    /* Since we use shallow copy during assignment, we need
+     * to dublicate the contents, probably calling user-supplied
+     * version of copy operator
+     */
+    if ((method+assignshift==off 
+	 && (assign || method==inc_amg || method==dec_amg))
+	|| inc_dec_ass) RvDEEPCP(left);
   }
   {
     dSP;
@@ -991,6 +1073,13 @@ int flags;
 	SvSetSV(left,res); return res; break;
       }
       return ans? &sv_yes: &sv_no;
+    } else if (method==copy_amg) {
+      if (SvSTASH(res) != stash) {
+	SV* sv=sv_2mortal(newRV(res));
+	(void)sv_bless(sv,stash);
+      }
+      SvTEMP_off(res);
+      return SvREFCNT_inc(res);
     } else {
       return res;
     }

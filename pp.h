@@ -132,12 +132,6 @@
 
 #ifdef OVERLOAD
 
-#if defined(STANDARD_C) && !defined(vax11c)  /* vax11c is standard except ... */
-#define name2(a,b) a##b
-#else
-#define name2(a,b) a/**/b
-#endif
-
 #define AMGf_noright	1
 #define AMGf_noleft	2
 #define AMGf_assign	4
@@ -146,14 +140,14 @@
 #define tryAMAGICbinW(meth,assign,set) do { \
           if (amagic_generation) { \
 	    SV* tmpsv; \
-	    SV* right=*(sp); SV* left=*(sp-1);\
+	    SV* right= *(sp); SV* left= *(sp-1);\
 	    if ((SvAMAGIC(left)||SvAMAGIC(right))&&\
 		(tmpsv=amagic_call(left, \
 				   right, \
-				   name2(meth,_amg), \
+				   CAT2(meth,_amg), \
 				   (assign)? AMGf_assign: 0))) {\
 	       SPAGAIN;	\
-	       POPs; set(tmpsv); RETURN; } \
+	       (void)POPs; set(tmpsv); RETURN; } \
 	  } \
 	} while (0)
 
@@ -161,14 +155,14 @@
 #define tryAMAGICbinSET(meth,assign) tryAMAGICbinW(meth,assign,SETs)
 
 #define AMG_CALLun(sv,meth) amagic_call(sv,&sv_undef,  \
-					name2(meth,_amg),AMGf_noright | AMGf_unary)
+					CAT2(meth,_amg),AMGf_noright | AMGf_unary)
 #define AMG_CALLbinL(left,right,meth) \
-            amagic_call(left,right,name2(meth,_amg),AMGf_noright)
+            amagic_call(left,right,CAT2(meth,_amg),AMGf_noright)
 
 #define tryAMAGICunW(meth,set) do { \
           if (amagic_generation) { \
 	    SV* tmpsv; \
-	    SV* arg=*(sp); \
+	    SV* arg= *(sp); \
 	    if ((SvAMAGIC(arg))&&\
 		(tmpsv=AMG_CALLun(arg,meth))) {\
 	       SPAGAIN;	\
@@ -188,7 +182,7 @@
 #define RvDEEPCP(rv) do { SV* ref=SvRV(rv);      \
   if (SvREFCNT(ref)>1) {                 \
     SvREFCNT_dec(ref);                   \
-    SvRV(rv)=newSVsv(ref);               \
+    SvRV(rv)=AMG_CALLun(rv,copy);        \
   } } while (0)
 #else
 

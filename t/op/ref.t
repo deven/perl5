@@ -73,7 +73,7 @@ print ${$$ref[2]}[2] == 5 ? "ok 16\n" : "not ok 16\n";
 print scalar @{$$ref[0]} == 0 ? "ok 17\n" : "not ok 17\n";
 
 print $ref->[1] == 2 ? "ok 18\n" : "not ok 18\n";
-print $ref->[2]->[0] == 3 ? "ok 19\n" : "not ok 18\n";
+print $ref->[2]->[0] == 3 ? "ok 19\n" : "not ok 19\n";
 
 # Test references to hashes of references.
 

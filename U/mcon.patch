@@ -1,0 +1,20 @@
+Perl5 extensions often use .xs files to generate .c files.  In order
+to have metaconfig recognize these files, you have to apply the
+following patch to dist-3.0:
+	Andy Dougherty		doughera@lafcol.lafayette.edu
+	Dept. of Physics
+	Lafayette College, Easton PA  18042
+
+Index: mcon/pl/files.pl
+*** mcon/pl/files.pl.ORIG	Tue Aug 30 12:02:46 1994
+--- mcon/pl/files.pl	Fri May  6 13:01:43 1994
+***************
+*** 34,39 ****
+--- 34,40 ----
+  		next if $file eq 'confmagic.h' && $opt_M;
+  		push(@SHlist,$file) if $file =~ /\.SH$/;
+  		push(@clist,$file) if $file =~ /\.[chyl]$/;
++ 		push(@clist,$file) if $file =~ /\.xs$/;  # perl5-specific
+  	}
+  }
+  

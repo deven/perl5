@@ -89,7 +89,7 @@
    possible you should store any error messages associated with your
    implementation with the StoreError function.
 
-   In the case of SunOS the function dl_error returns the error message 
+   In the case of SunOS the function dlerror returns the error message 
    associated with the last dynamic link error. As the SunOS dynamic 
    linker functions dlopen & dlsym both return NULL on error every call 
    to a SunOS dynamic link routine is coded like this
@@ -114,59 +114,67 @@
 #include <link.h>
 #endif
 
+#ifndef HAS_DLERROR
+#define dlerror() "Unknown error - dlerror() not implemented"
+#endif
+
 
 #include "dlutils.c"	/* SaveError() etc	*/
 
 
+static void
+dl_private_init()
+{
+    (void)dl_generic_private_init();
+}
+
 MODULE = DynaLoader	PACKAGE = DynaLoader
 
-void
-dl_private_init()
-	PPCODE:
-	dl_generic_private_init();
-
+BOOT:
+    (void)dl_private_init();
 
 
 void *
 dl_load_file(filename)
-	char *		filename
-	CODE:
-	int mode = 1;     /* Solaris 1 */
+    char *		filename
+    CODE:
+    int mode = 1;     /* Solaris 1 */
 #ifdef RTLD_LAZY
-	mode = RTLD_LAZY; /* Solaris 2 */
+    mode = RTLD_LAZY; /* Solaris 2 */
 #endif
-	DLDEBUG(1,fprintf(stderr,"dl_load_file(%s): ", filename));
-	RETVAL = dlopen(filename, mode) ;
-	DLDEBUG(2,fprintf(stderr," libref=%x\n", RETVAL));
-	ST(0) = sv_newmortal() ;
-	if (RETVAL == NULL)
-	    SaveError("%s",dlerror()) ;
-	else
-	    sv_setiv( ST(0), (IV)RETVAL);
+    DLDEBUG(1,fprintf(stderr,"dl_load_file(%s):\n", filename));
+    RETVAL = dlopen(filename, mode) ;
+    DLDEBUG(2,fprintf(stderr," libref=%x\n", RETVAL));
+    ST(0) = sv_newmortal() ;
+    if (RETVAL == NULL)
+	SaveError("%s",dlerror()) ;
+    else
+	sv_setiv( ST(0), (IV)RETVAL);
 
 
 void *
 dl_find_symbol(libhandle, symbolname)
-	void *		libhandle
-	char *		symbolname
-	CODE:
+    void *	libhandle
+    char *	symbolname
+    CODE:
 #ifdef DLSYM_NEEDS_UNDERSCORE
- /* code to add a leading underscore to symbolname needed here */
+    char symbolname_buf[1024];
+    symbolname = dl_add_underscore(symbolname, symbolname_buf);
 #endif
-	DLDEBUG(2,fprintf(stderr,"dl_find_symbol(handle=%x, symbol=%s)\n",
-		libhandle, symbolname));
-	RETVAL = dlsym(libhandle, symbolname);
-	DLDEBUG(2,fprintf(stderr,"  symbolref = %x\n", RETVAL));
-	ST(0) = sv_newmortal() ;
-	if (RETVAL == NULL)
-	    SaveError("%s",dlerror()) ;
-	else
-	    sv_setiv( ST(0), (IV)RETVAL);
+    DLDEBUG(2,fprintf(stderr,"dl_find_symbol(handle=%x, symbol=%s)\n",
+	libhandle, symbolname));
+    RETVAL = dlsym(libhandle, symbolname);
+    DLDEBUG(2,fprintf(stderr,"  symbolref = %x\n", RETVAL));
+    ST(0) = sv_newmortal() ;
+    if (RETVAL == NULL)
+	SaveError("%s",dlerror()) ;
+    else
+	sv_setiv( ST(0), (IV)RETVAL);
 
 
 void
-dl_undefined_symbols()
-	PPCODE:
+dl_undef_symbols()
+    PPCODE:
 
 
 
@@ -174,20 +182,20 @@ dl_undefined_symbols()
 
 void
 dl_install_xsub(perl_name, symref, filename="$Package")
-	char *		perl_name
-	void *		symref 
-	char *		filename
-	CODE:
-	DLDEBUG(2,fprintf(stderr,"dl_install_xsub(name=%s, symref=%x)\n",
+    char *		perl_name
+    void *		symref 
+    char *		filename
+    CODE:
+    DLDEBUG(2,fprintf(stderr,"dl_install_xsub(name=%s, symref=%x)\n",
 		perl_name, symref));
     ST(0)=sv_2mortal(newRV((SV*)newXS(perl_name, (void(*)())symref, filename)));
 
 
 char *
-dl_dl_error()
-	CODE:
-	RETVAL = LastError ;
-	OUTPUT:
-	  RETVAL
+dl_error()
+    CODE:
+    RETVAL = LastError ;
+    OUTPUT:
+    RETVAL
 
 # end.

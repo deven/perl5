@@ -45,6 +45,13 @@ else
 	bootdep=''
 fi
 
+case "$dlsrc" in
+dl_aix*)
+    echo "#!" > $ext.exp
+    echo "boot_$ext" >> $ext.exp
+    ;;
+esac
+
 echo "Extracting ext/$ext/Makefile (with variable substitutions)"
 : This section of the file will have variable substitutions done on it.
 : Move anything that needs config subs from !NO!SUBS! section to !GROK!THIS!.
@@ -81,6 +88,7 @@ LDDLFLAGS = $lddlflags
 CCDLFLAGS = $ccdlflags
 CCCDLFLAGS = $cccdlflags
 SO = $so
+DLEXT = $dlext
 
 # $ext might need to be linked with some extra libraries.
 # EXTRALIBS =  full list of libraries needed for static linking.
@@ -105,8 +113,8 @@ $spitshell >>Makefile <<'!NO!SUBS!'
 # Where to put things:
 AUTO = $(TOP)/lib/auto
 INSTALLBOOT = $(AUTO)/$(EXT)/$(EXT).bs
-INSTALLDYNAMIC = $(AUTO)/$(EXT)/$(EXT).$(SO)
-INSTALLSTATIC = $(TOP)/$(EXT).a
+INSTALLDYNAMIC = $(AUTO)/$(EXT)/$(EXT).$(DLEXT)
+INSTALLSTATIC = $(EXT).a
 INSTALLPM = $(TOP)/lib/$(EXT).pm
 
 PERL = $(ABSTOP)/miniperl
@@ -120,6 +128,8 @@ CCCMD = `sh $(shellflags) $(TOP)/cflags $@`
 all:	dynamic
 # Phony target to force checking subdirectories.
 FORCE:
+
+config:
 
 # Target for Dynamic Loading:
 dynamic:	$(INSTALLDYNAMIC) $(INSTALLPM) $(INSTALLBOOT)
@@ -144,16 +154,17 @@ $(INSTALLSTATIC):	$(EXT).o
 	$(RANLIB) $@
 	echo $(EXTRALIBS) >> $(TOP)/ext.libs
 
-$(EXT).c:	$(EXT).xs $(XSUBPP) $(TOP)/ext/typemap $(EXTTYPEMAP) $(TOP)/cflags
+$(EXT).c:	$(EXT).xs $(XSUBPP) $(TOP)/ext/typemap $(EXTTYPEMAP) $(TOP)/cflags Makefile
 	$(PERL) $(XSUBPP) $(EXT).xs >tmp
 	mv tmp $@
 
 $(INSTALLPM):	$(EXT).pm
+	rm -f $@
 	cp $(EXT).pm $@
 	cd $(TOP); $(PERL) autosplit $(EXT)
 
 clean:
-	rm -f *.o *.a mon.out core $(EXT).c so_locations $(BOOTSTRAP)
+	rm -f *.o *.a mon.out core $(EXT).c so_locations $(BOOTSTRAP) $(EXT).exp
 
 realclean: 	clean
 	rm -f makefile Makefile

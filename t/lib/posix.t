@@ -10,7 +10,7 @@ BEGIN {
     }
 }
 use FileHandle;
-use POSIX qw(fcntl_h signal_h limits_h _exit getcwd open);
+use POSIX qw(fcntl_h signal_h limits_h _exit getcwd open read write);
 use strict subs;
 
 $mystdout = new_from_fd FileHandle 1,"w";
@@ -19,10 +19,10 @@ autoflush $mystdout;
 print "1..16\n";
 
 print $mystdout "ok ",fileno($mystdout),"\n";
-POSIX::write(1,"ok 2\nnot ok 2\n", 5);
+write(1,"ok 2\nnot ok 2\n", 5);
 
 $testfd = open("TEST", O_RDONLY, 0) and print "ok 3\n";
-POSIX::read($testfd, $buffer, 9) if $testfd > 2;
+read($testfd, $buffer, 9) if $testfd > 2;
 print $buffer eq "#!./perl\n" ? "ok 4\n" : "not ok 4\n";
 
 @fds = POSIX::pipe();
@@ -65,7 +65,7 @@ print getcwd() =~ m#/t$# ? "ok 14\n" : "not ok 14\n";
 print &POSIX::acos(1.0) == 0.0 ? "ok 15\n" : "not ok 15\n";
 
 ungetc STDIN 65;
-read(STDIN, $buf,1);
+CORE::read(STDIN, $buf,1);
 print $buf eq 'A' ? "ok 16\n" : "not ok 16\n";
 
 flush STDOUT;

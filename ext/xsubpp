@@ -78,9 +78,9 @@ sub Q {
 open(F, $filename) || die "cannot open $filename\n";
 
 while (<F>) {
-	last if ($Module, $foo, $Package, $foo1, $Prefix) =
-		/^MODULE\s*=\s*(\w+)(\s+PACKAGE\s*=\s*([\w:]+))?(\s+PREFIX\s*=\s*(\S+))?\s*$/;
-	print $_;
+    last if ($Module, $foo, $Package, $foo1, $Prefix) =
+	/^MODULE\s*=\s*([\w:]+)(\s+PACKAGE\s*=\s*([\w:]+))?(\s+PREFIX\s*=\s*(\S+))?\s*$/;
+    print $_;
 }
 exit 0 if $_ eq "";
 $lastline = $_;
@@ -90,8 +90,9 @@ sub fetch_para {
     @line = ();
     if ($lastline ne "") {
 	if ($lastline =~
-    /^MODULE\s*=\s*(\w+)(\s+PACKAGE\s*=\s*([\w:]+))?(\s+PREFIX\s*=\s*(\S+))?\s*$/) {
+    /^MODULE\s*=\s*([\w:]+)(\s+PACKAGE\s*=\s*([\w:]+))?(\s+PREFIX\s*=\s*(\S+))?\s*$/) {
 	    $Module = $1;
+	    ($Module_cname = $Module) =~ s/\W/_/g;
 	    $foo = $2;
 	    $Package = $3;
 	    $foo1 = $4;
@@ -101,6 +102,7 @@ sub fetch_para {
 	    $Packprefix .= "::" if defined $Packprefix && $Packprefix ne "";
 	    while (<F>) {
 		chop;
+		next if /^#/;
 		last if /^\S/;
 	    }
 	    push(@line, $_) if $_ ne "";
@@ -372,7 +374,7 @@ EOF
 			s/^\s+//;
 			($outarg, $outcode) = split(/\t+/);
 			if ($outcode) {
-			print "\t$outcode\n";
+			    print "\t$outcode\n";
 			} else {
 				die "$outarg not an argument"
 				    unless defined($args_match{$outarg});
@@ -428,7 +430,7 @@ EOF
 # print initialization routine
 print qq/extern "C"\n/ if $cplusplus;
 print Q<<"EOF";
-#XS(boot_$Module)
+#XS(boot_$Module_cname)
 #[[
 #    dXSARGS;
 #    char* file = __FILE__;
@@ -522,26 +524,26 @@ sub generate_output {
 		$subexpr =~ s/\$var/${var}[ix_$var]/g;
 		$subexpr =~ s/\n\t/\n\t\t/g;
 		$expr =~ s/DO_ARRAY_ELEM\n/$subexpr/;
-		eval "print qq\f$expr\f";
+		eval "print qq\a$expr\a";
 	    }
 	    elsif ($var eq 'RETVAL') {
 		if ($expr =~ /^\t\$arg = /) {
-		    eval "print qq\f$expr\f";
+		    eval "print qq\a$expr\a";
 		    print "\tsv_2mortal(ST(0));\n";
 		}
 		else {
 		    print "\tST(0) = sv_newmortal();\n";
-		    eval "print qq\f$expr\f";
+		    eval "print qq\a$expr\a";
 		}
 	    }
 	    elsif ($arg =~ /^ST\(\d+\)$/) {
-		eval "print qq\f$expr\f";
+		eval "print qq\a$expr\a";
 	    }
 	    elsif ($arg =~ /^ST\(\d+\)$/) {
-		eval "print qq\f$expr\f";
+		eval "print qq\a$expr\a";
 	    }
 	    elsif ($arg =~ /^ST\(\d+\)$/) {
-		eval "print qq\f$expr\f";
+		eval "print qq\a$expr\a";
 	    }
     }
 }

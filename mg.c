@@ -65,7 +65,8 @@ SV* sv;
 	SvFLAGS(sv) |= savemagic;
     else
 	mg_magical(sv);
-    SvFLAGS(sv) &= ~(SVf_IOK|SVf_NOK|SVf_POK);
+    if (SvGMAGICAL(sv))
+	SvFLAGS(sv) &= ~(SVf_IOK|SVf_NOK|SVf_POK);
 
     return 0;
 }
@@ -376,7 +377,7 @@ MAGIC *mg;
 	break;
     case '.':
 #ifndef lint
-	if (last_in_gv && GvIO(last_in_gv)) {
+	if (GvIO(last_in_gv)) {
 	    sv_setiv(sv,(I32)IoLINES(GvIO(last_in_gv)));
 	}
 #endif
@@ -385,7 +386,7 @@ MAGIC *mg;
 	sv_setiv(sv,(I32)statusvalue);
 	break;
     case '^':
-	s = IoTOP_NAME(GvIO(defoutgv));
+	s = IoTOP_NAME(GvIOp(defoutgv));
 	if (s)
 	    sv_setpv(sv,s);
 	else {
@@ -394,20 +395,20 @@ MAGIC *mg;
 	}
 	break;
     case '~':
-	s = IoFMT_NAME(GvIO(defoutgv));
+	s = IoFMT_NAME(GvIOp(defoutgv));
 	if (!s)
 	    s = GvENAME(defoutgv);
 	sv_setpv(sv,s);
 	break;
 #ifndef lint
     case '=':
-	sv_setiv(sv,(I32)IoPAGE_LEN(GvIO(defoutgv)));
+	sv_setiv(sv,(I32)IoPAGE_LEN(GvIOp(defoutgv)));
 	break;
     case '-':
-	sv_setiv(sv,(I32)IoLINES_LEFT(GvIO(defoutgv)));
+	sv_setiv(sv,(I32)IoLINES_LEFT(GvIOp(defoutgv)));
 	break;
     case '%':
-	sv_setiv(sv,(I32)IoPAGE(GvIO(defoutgv)));
+	sv_setiv(sv,(I32)IoPAGE(GvIOp(defoutgv)));
 	break;
 #endif
     case ':':
@@ -418,9 +419,7 @@ MAGIC *mg;
 	sv_setiv(sv,(I32)curcop->cop_arybase);
 	break;
     case '|':
-	if (!GvIO(defoutgv))
-	    GvIO(defoutgv) = newIO();
-	sv_setiv(sv, (IoFLAGS(GvIO(defoutgv)) & IOf_FLUSH) != 0 );
+	sv_setiv(sv, (IoFLAGS(GvIOp(defoutgv)) & IOf_FLUSH) != 0 );
 	break;
     case ',':
 	sv_setpvn(sv,ofs,ofslen);
@@ -589,6 +588,8 @@ char *meth;
 {
     dSP;
 
+    ENTER;
+    SAVETMPS;
     PUSHMARK(sp);
     EXTEND(sp, 2);
     PUSHs(mg->mg_obj);
@@ -600,6 +601,9 @@ char *meth;
 
     if (perl_call_method(meth, G_SCALAR))
 	sv_setsv(sv, *stack_sp--);
+
+    FREETMPS;
+    LEAVE;
     return 0;
 }
 
@@ -668,6 +672,8 @@ SV* key;
     dSP;
     char *meth = SvOK(key) ? "NEXTKEY" : "FIRSTKEY";
 
+    ENTER;
+    SAVETMPS;
     PUSHMARK(sp);
     EXTEND(sp, 2);
     PUSHs(mg->mg_obj);
@@ -678,6 +684,8 @@ SV* key;
     if (perl_call_method(meth, G_SCALAR))
 	sv_setsv(key, *stack_sp--);
 
+    FREETMPS;
+    LEAVE;
     return 0;
 }
 
@@ -741,7 +749,7 @@ MAGIC* mg;
 	    return 0;
 	}
     }
-    SvOK_off(sv);
+    (void)SvOK_off(sv);
     return 0;
 }
 
@@ -751,7 +759,7 @@ SV* sv;
 MAGIC* mg;
 {
     SV* lsv = LvTARG(sv);
-    STRLEN pos;
+    SSize_t pos;
     STRLEN len;
 
     mg = 0;
@@ -815,8 +823,8 @@ MAGIC* mg;
 	gv_AVadd(gv);
     if (!GvHV(gv))
 	gv_HVadd(gv);
-    if (!GvIO(gv))
-	GvIO(gv) = newIO();
+    if (!GvIOp(gv))
+	GvIOp(gv) = newIO();
     return 0;
 }
 
@@ -916,7 +924,7 @@ MAGIC* mg;
 	if (inplace)
 	    Safefree(inplace);
 	if (SvOK(sv))
-	    inplace = savestr(SvPV(sv,na));
+	    inplace = savepv(SvPV(sv,na));
 	else
 	    inplace = Nullch;
 	break;
@@ -940,35 +948,33 @@ MAGIC* mg;
 	if (localizing)
 	    save_sptr((SV**)&last_in_gv);
 	else if (SvOK(sv))
-	    IoLINES(GvIO(last_in_gv)) = (long)SvIV(sv);
+	    IoLINES(GvIOp(last_in_gv)) = (long)SvIV(sv);
 	break;
     case '^':
-	Safefree(IoTOP_NAME(GvIO(defoutgv)));
-	IoTOP_NAME(GvIO(defoutgv)) = s = savestr(SvPV(sv,na));
-	IoTOP_GV(GvIO(defoutgv)) = gv_fetchpv(s,TRUE, SVt_PVIO);
+	Safefree(IoTOP_NAME(GvIOp(defoutgv)));
+	IoTOP_NAME(GvIOp(defoutgv)) = s = savepv(SvPV(sv,na));
+	IoTOP_GV(GvIOp(defoutgv)) = gv_fetchpv(s,TRUE, SVt_PVIO);
 	break;
     case '~':
-	Safefree(IoFMT_NAME(GvIO(defoutgv)));
-	IoFMT_NAME(GvIO(defoutgv)) = s = savestr(SvPV(sv,na));
-	IoFMT_GV(GvIO(defoutgv)) = gv_fetchpv(s,TRUE, SVt_PVIO);
+	Safefree(IoFMT_NAME(GvIOp(defoutgv)));
+	IoFMT_NAME(GvIOp(defoutgv)) = s = savepv(SvPV(sv,na));
+	IoFMT_GV(GvIOp(defoutgv)) = gv_fetchpv(s,TRUE, SVt_PVIO);
 	break;
     case '=':
-	IoPAGE_LEN(GvIO(defoutgv)) = (long)(SvIOK(sv) ? SvIVX(sv) : sv_2iv(sv));
+	IoPAGE_LEN(GvIOp(defoutgv)) = (long)(SvIOK(sv) ? SvIVX(sv) : sv_2iv(sv));
 	break;
     case '-':
-	IoLINES_LEFT(GvIO(defoutgv)) = (long)(SvIOK(sv) ? SvIVX(sv) : sv_2iv(sv));
-	if (IoLINES_LEFT(GvIO(defoutgv)) < 0L)
-	    IoLINES_LEFT(GvIO(defoutgv)) = 0L;
+	IoLINES_LEFT(GvIOp(defoutgv)) = (long)(SvIOK(sv) ? SvIVX(sv) : sv_2iv(sv));
+	if (IoLINES_LEFT(GvIOp(defoutgv)) < 0L)
+	    IoLINES_LEFT(GvIOp(defoutgv)) = 0L;
 	break;
     case '%':
-	IoPAGE(GvIO(defoutgv)) = (long)(SvIOK(sv) ? SvIVX(sv) : sv_2iv(sv));
+	IoPAGE(GvIOp(defoutgv)) = (long)(SvIOK(sv) ? SvIVX(sv) : sv_2iv(sv));
 	break;
     case '|':
-	if (!GvIO(defoutgv))
-	    GvIO(defoutgv) = newIO();
-	IoFLAGS(GvIO(defoutgv)) &= ~IOf_FLUSH;
+	IoFLAGS(GvIOp(defoutgv)) &= ~IOf_FLUSH;
 	if ((SvIOK(sv) ? SvIVX(sv) : sv_2iv(sv)) != 0) {
-	    IoFLAGS(GvIO(defoutgv)) |= IOf_FLUSH;
+	    IoFLAGS(GvIOp(defoutgv)) |= IOf_FLUSH;
 	}
 	break;
     case '*':
@@ -993,17 +999,17 @@ MAGIC* mg;
     case '\\':
 	if (ors)
 	    Safefree(ors);
-	ors = savestr(SvPV(sv,orslen));
+	ors = savepv(SvPV(sv,orslen));
 	break;
     case ',':
 	if (ofs)
 	    Safefree(ofs);
-	ofs = savestr(SvPV(sv, ofslen));
+	ofs = savepv(SvPV(sv, ofslen));
 	break;
     case '#':
 	if (ofmt)
 	    Safefree(ofmt);
-	ofmt = savestr(SvPV(sv,na));
+	ofmt = savepv(SvPV(sv,na));
 	break;
     case '[':
 	compiling.cop_arybase = SvIOK(sv) ? SvIVX(sv) : sv_2iv(sv);
@@ -1030,8 +1036,10 @@ MAGIC* mg;
 #else
 	if (uid == euid)		/* special case $< = $> */
 	    (void)setuid(uid);
-	else
+	else {
+	    uid = (I32)getuid();
 	    croak("setruid() not implemented");
+	}
 #endif
 #endif
 #endif
@@ -1055,8 +1063,10 @@ MAGIC* mg;
 #else
 	if (euid == uid)		/* special case $> = $< */
 	    setuid(euid);
-	else
+	else {
+	    euid = (I32)geteuid();
 	    croak("seteuid() not implemented");
+	}
 #endif
 #endif
 #endif
@@ -1186,11 +1196,7 @@ int sig;
     HV *st;
     SV *sv;
     CV *cv;
-    CONTEXT *cx;
     AV *oldstack;
-    I32 hasargs = 1;
-    I32 items = 1;
-    I32 gimme = G_SCALAR;
 
 #ifdef OS2		/* or anybody else who requires SIG_ACK */
     signal(sig, SIG_ACK);
@@ -1218,34 +1224,19 @@ int sig;
     }
 
     oldstack = stack;
+    if (stack != signalstack)
+	AvFILL(signalstack) = 0;
     SWITCHSTACK(stack, signalstack);
 
     sv = sv_newmortal();
     sv_setpv(sv,sig_name[sig]);
+    PUSHMARK(sp);
     PUSHs(sv);
-
-    ENTER;
-    SAVETMPS;
-
-    push_return(op);
-    push_return(0);
-    PUSHBLOCK(cx, CXt_SUB, sp);
-    PUSHSUB(cx);
-    cx->blk_sub.savearray = GvAV(defgv);
-    cx->blk_sub.argarray = av_fake(items, sp);
-    SAVEFREESV(cx->blk_sub.argarray);
-    GvAV(defgv) = cx->blk_sub.argarray;
-    CvDEPTH(cv)++;
-    if (CvDEPTH(cv) >= 2) {
-	if (CvDEPTH(cv) == 100 && dowarn)
-	    warn("Deep recursion on subroutine \"%s\"",GvENAME(gv));
-    }
-    op = CvSTART(cv);
     PUTBACK;
-    run();		/* Does the LEAVE for us. */
+
+    perl_call_sv((SV*)cv, G_DISCARD);
 
     SWITCHSTACK(signalstack, oldstack);
-    op = pop_return();
 
     return;
 }

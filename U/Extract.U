@@ -9,6 +9,10 @@
 ?RCS: of the source tree for dist 3.0.
 ?RCS:
 ?RCS: $Log: Extract.U,v $
+?RCS:
+?RCS: This private version for perl5 will also extract files from
+?RCS: extension MANIFEST.  (ext/Blah/MANIFEST).
+?RCS:
 ?RCS: Revision 3.0  1993/08/18  12:04:52  ram
 ?RCS: Baseline for dist 3.0 netwide release.
 ?RCS:

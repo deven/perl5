@@ -4,7 +4,7 @@
 #include "sdbm/sdbm.h"
 
 typedef DBM* SDBM_File;
-#define sdbm_new(dbtype,filename,flags,mode) sdbm_open(filename,flags,mode)
+#define sdbm_TIEHASH(dbtype,filename,flags,mode) sdbm_open(filename,flags,mode)
 #define sdbm_FETCH(db,key)			sdbm_fetch(db,key)
 #define sdbm_STORE(db,key,value,flags)		sdbm_store(db,key,value,flags)
 #define sdbm_DELETE(db,key)			sdbm_delete(db,key)
@@ -15,7 +15,7 @@ typedef DBM* SDBM_File;
 MODULE = SDBM_File	PACKAGE = SDBM_File	PREFIX = sdbm_
 
 SDBM_File
-sdbm_new(dbtype, filename, flags, mode)
+sdbm_TIEHASH(dbtype, filename, flags, mode)
 	char *		dbtype
 	char *		filename
 	int		flags
@@ -38,6 +38,14 @@ sdbm_STORE(db, key, value, flags = DBM_REPLACE)
 	datum		key
 	datum		value
 	int		flags
+    CLEANUP:
+	if (RETVAL) {
+	    if (RETVAL < 0 && errno == EPERM)
+		croak("No write permission to sdbm file");
+	    warn("sdbm store returned %d, errno %d, key \"%s\"",
+			RETVAL,errno,key.dptr);
+	    sdbm_clearerr(db);
+	}
 
 int
 sdbm_DELETE(db, key)

@@ -62,6 +62,10 @@ $define|y|true)
 	dflt='y'
 	usedl="$define"
 	;;
+$undef|n|false)
+	dflt='n'
+	usedl="$undef"
+	;;
 *) 
 	dflt='n'
 	case "$d_dlopen" in
@@ -79,17 +83,23 @@ rp="Do you wish to use dynamic loading?"
 usedl="$ans"
 case "$ans" in
 y*) usedl="$define"
-	if $test -f ../$dldir/dl_${osname}.xs ; then
-		dflt="$dldir/dl_${osname}.xs"
-	elif $test "$d_dlopen" = "$define" ; then
-		dflt="$dldir/dl_dlopen.xs"
-	elif $test "$i_dld" = "$define" ; then
-		dflt="$dldir/dl_dld.xs"
-	else
-		dflt=''
-	fi
+	case "$dlsrc" in
+	'')
+		if $test -f ../$dldir/dl_${osname}.xs ; then
+			dflt="$dldir/dl_${osname}.xs"
+		elif $test "$d_dlopen" = "$define" ; then
+			dflt="$dldir/dl_dlopen.xs"
+		elif $test "$i_dld" = "$define" ; then
+			dflt="$dldir/dl_dld.xs"
+		else
+			dflt=''
+		fi
+		;;
+	*)	dflt="$dldir/$dlsrc"
+		;;
+	esac
     echo "The following dynamic loading files are available:"
-?X: Can't go over to $dldir because getfile has path hard-coded in.
+	: Can not go over to $dldir because getfile has path hard-coded in.
     cd ..; ls -C $dldir/dl*.xs; cd UU
     rp="Source file to use for dynamic loading"
     fn="fne~"

@@ -97,6 +97,9 @@ typedef U16 PADOFFSET;
 /* Private for OP_LIST */
 #define OPpLIST_GUESSED		64	/* Guessed that pushmark was needed. */
 
+/* Private for OP_LEAVE and friends */
+#define OPpLEAVE_VOID		64	/* No need to copy out values. */
+
 struct op {
     BASEOP
 };
@@ -160,7 +163,8 @@ struct pmop {
 #define PMf_WHITE	0x0800		/* pattern is \s+ */
 #define PMf_MULTILINE	0x1000		/* assume multiple lines */
 #define PMf_SINGLELINE	0x2000		/* assume single line */
-#define PMf_QUOTE	0x4000		/* quote any interpolated metachars */
+#define PMf_UNUSED	0x4000		/* (unused) */
+#define PMf_EXTENDED	0x8000		/* chuck embedded whitespace */
 
 struct svop {
     BASEOP

@@ -23,18 +23,13 @@
 ?RCS: Revision 3.0  1993/08/18  12:09:03  ram
 ?RCS: Baseline for dist 3.0 netwide release.
 ?RCS:
-?MAKE:libs libnames: test cat Myread Oldconfig Loc libpth package so sed
+?MAKE:libs: test cat Myread Oldconfig Loc libpth package xlibpth so
 ?MAKE:	-pick add $@ %<
 ?S:libs:
 ?S:	This variable holds the additional libraries we want to use.
-?S:	It is up to the Makefile to deal with it.
+?S: It is up to the Makefile to deal with it.
 ?S:.
-?S:libnames:
-?S:	This variable contains the full pathnames of the libraries used
-?S:	to compile the package.   This is later used for nm extraction
-?S:	in libc.U.  libc is NOT included in this list.
-?S:.
-?T:fullname thislib thispth libswanted
+?T:xxx thislib libswanted
 ?D:libs=''
 ?X:
 ?X: This order is chosen so that libraries  -lndir, -ldir, -lucb, -lbsd,
@@ -54,64 +49,67 @@
 ?X: Set proper libswanted in your private Myinit.U if needed.
 ?X:
 ?X:: default ordered library list
-?X:libswanted='net socket inet nsl nm ndbm sdbm gdbm dbm malloc dl'
+?X:libswanted='net socket inet nsl nm sdbm gdbm ndbm dbm malloc dl'
 ?X:libswanted="$libswanted dld sun m c_s c posix cposix ndir dir ucb"
 ?X:libswanted="$libswanted bsd BSD PW x"
 ?X:
+?INIT:: default library list
+?INIT:libswanted=''
 : Looking for optional libraries
 echo " "
 echo "Checking for optional libraries..." >&4
-
-?X: Comparisons via case statement use the string " $dflt " to ensure that
-?X: each library is separated by a space. That way, by looking to something
-?X: like *"-l$thatlib "*, we ensure we find -lm and not -lmalloc (which was
-?X: the case with the old looking pattern *-l$thatlib*.
-?X:
-?X: We'll search through $libpth in order.  Some systems (e.g. HP-UX)
-?X: have archive versions in one library /lib/pa1.1 and shared versions
-?X: in another library, e.g. /usr/lib.  We want to be sure we pick up
-?X:	the right one.
-?X:
-?X:	filenames of the form lib$thislib.so.* present a special challenge
-?X:	since there might be multiple ones around, and we want the highest
-?X:	version number.
-?X:
-dflt=''
+case "$libs" in
+' '|'') dflt='';;
+*) dflt="$libs";;
+esac
+case "$libswanted" in
+'') libswanted='c_s';;
+esac
 for thislib in $libswanted; do
-	for thispth in $libpth; do
-		fullname=`echo $thispth/lib$thislib.$so.[0-9]* |
-			tr ' ' '\012' | tail -1`
-		if $test -f $fullname; then
-			break
-		elif fullname=$thispth/lib$thislib.$so && $test -f $fullname; then
-			break
-		elif fullname=$thispth/lib${thislib}_s.a && $test -f $fullname; then
-			thislib=${thislib}_s
-			break
-		elif fullname=$thispth/lib${thislib}.a && $test -f $fullname; then
-			break
-		elif fullname=$thispth/Slib${thislib}.a && $test -f $fullname; then
-			break
-		else
-			fullname=''
-		fi
-	done
-	case $fullname in 
-	'') echo "No -l$thislib"
-		;;
-	*)	case " $dflt " in
-		*" -l$thislib "*) ;;
-		*)	dflt="$dflt -l$thislib" 
-			echo "Found -l$thislib		$fullname"
-			;;
+	
+?X:
+?X: Comparaisons via case statement use the string " $dflt " to ensure that
+?X: each library is separated by a space. That way, by looking to something
+?X: like *"-l$thislib "*, we ensure we find -lm and not -lmalloc (which was
+?X: the case with the old looking pattern *-l$thislib*.
+?X:
+	if xxx=`./loc lib$thislib.$so.[0-9]'*' X $libpth`; $test -f "$xxx"; then
+		echo "Found -l$thislib (shared)."
+		case " $dflt " in
+		*"-l$thislib "*);;
+		*) dflt="$dflt -l$thislib";;
 		esac
-		;;
-	esac
+	elif xxx=`./loc lib$thislib.$so X $libpth` ; $test -f "$xxx"; then
+		echo "Found -l$thislib (shared)."
+		case " $dflt " in
+		*"-l$thislib "*);;
+		*) dflt="$dflt -l$thislib";;
+		esac
+	elif xxx=`./loc lib$thislib.a X $libpth`; $test -f "$xxx"; then
+		echo "Found -l$thislib."
+		case " $dflt " in
+		*"-l$thislib "*);;
+		*) dflt="$dflt -l$thislib";;
+		esac
+	elif xxx=`./loc lib${thislib}_s.a X $libpth`; $test -f "$xxx"; then
+		echo "Found -l${thislib}_s."
+		case " $dflt " in
+		*"-l$thislib "*);;
+		*) dflt="$dflt -l${thislib}_s";;
+		esac
+	elif xxx=`./loc Slib$thislib.a X $xlibpth`; $test -f "$xxx"; then
+		echo "Found -l$thislib."
+		case " $dflt " in
+		*"-l$thislib "*);;
+		*) dflt="$dflt -l$thislib";;
+		esac
+	else
+		echo "No -l$thislib."
+	fi
 done
 set X $dflt
 shift
 dflt="$*"
-: Allow hint file or old config.sh to override
 case "$libs" in
 '') dflt="$dflt";;
 *) dflt="$libs";;
@@ -122,45 +120,22 @@ esac
 
 $cat <<EOM
  
-If your system needs any libraries to compile $package, include 
-them here.  Say "none" for none.
+Some versions of Unix support shared libraries, which make executables smaller
+but make load time slightly longer.
+
+On some systems, mostly newer Unix System V's, the shared library is included
+by putting the option "-lc_s" as the last thing on the cc command line when
+linking.  Other systems use shared libraries by default.  There may be other
+libraries needed to compile $package on your machine as well.  If your system
+needs the "-lc_s" option, include it here.  Include any other special libraries
+here as well.  Say "none" for none.
 EOM
 
 echo " "
-rp="Any libraries?"
+rp="Any additional libraries?"
 . ./myread
 case "$ans" in
 none) libs=' ';;
 *) libs="$ans";;
 esac
-
-?X:	Now figure out full filenames.  We need to do this again because
-?X:	the user may have asked for a library that we hadn't anticipated.
-?X:	(I suppose we could cache the values and only check for new ones,
-?X:	but it's probably not worth the trouble.)
-libnames=''
-: C library is taken care of elsewhere, in libc.U
-for thislib in `echo " $libs " | $sed -e 's/-l/ /g' -e 's/ c / /'` ; do
-	for thispth in $libpth; do
-		fullname=`echo $thispth/lib$thislib.$so.[0-9]* | 
-			tr ' ' '\012' | tail -1`
-		if $test -f $fullname; then
-			break
-		elif fullname=$thispth/lib$thislib.$so && $test -f $fullname; then
-			break
-		elif fullname=$thispth/lib${thislib}_s.a && $test -f $fullname; then
-			break
-		elif fullname=$thispth/lib${thislib}.a && $test -f $fullname; then
-			break
-		elif fullname=$thispth/Slib${thislib}.a && $test -f $fullname; then
-			break
-		else
-			fullname=''
-		fi
-	done
-	libnames="$libnames $fullname"
-done
-set X $libnames
-shift
-libnames="$*"
 

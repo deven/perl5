@@ -55,8 +55,8 @@ HV* stash;
 		dump_sub(gv);
 	    if (GvFORM(gv))
 		dump_form(gv);
-	    if (*entry->hent_key == '_' && (hv = GvHV(gv)) && HvNAME(hv) &&
-	      hv != defstash)
+	    if (entry->hent_key[entry->hent_klen-1] == ':' &&
+	      (hv = GvHV(gv)) && HvNAME(hv) && hv != defstash)
 		dump_packsubs(hv);		/* nested package */
 	}
     }

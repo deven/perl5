@@ -16,8 +16,8 @@
 ?RCS: Baseline for dist 3.0 netwide release.
 ?RCS:
 ?MAKE:mallocsrc mallocobj usemymalloc malloctype d_mymalloc: Myread \
-	Oldconfig package Guess Setvar test rm cat +cc +ccflags Findhdr \
-	sed libs
+	Oldconfig package Guess Setvar rm cat +cc +ccflags Findhdr \
+	i_malloc sed libs
 ?MAKE:	-pick add $@ %<
 ?S:usemymalloc:
 ?S:	This variable contains y if the malloc that comes with this package
@@ -104,11 +104,13 @@ esac
 echo " "
 case "$malloctype" in
 '')
-	if $test `./findhdr malloc.h`; then
-		echo "#include <malloc.h>" > malloc.c
-	fi
+	$cat >malloc.c <<END
+#$i_malloc I_MALLOC
+#include <stdio.h>
+#include <sys/types.h>
+#ifdef I_MALLOC
 #include <malloc.h>
-	$cat >>malloc.c <<'END'
+#endif
 void *malloc();
 END
 	if $cc $ccflags -c malloc.c >/dev/null 2>&1; then

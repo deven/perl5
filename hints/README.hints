@@ -6,55 +6,52 @@ good starting point.
 The following hints files have been tested with at least some version
 of perl5 and are probably reasonably close to being correct:
 
+aix.sh
+bsd386.sh
 dec_osf.sh
-hp9k_700.9.sh
+dgux.sh
+esix4.sh
+freebsd.sh
+hpux_9.sh
+irix_4.sh
+irix_5.sh
 isc.sh
 linux.sh
+netbsd.sh
 next_3_2.sh
-sgi_5.sh
+sco_3.sh
 solaris_2.sh
 sunos_4_1.sh
+svr4.sh
+titanos.sh
 ultrix_4.sh
 unicos.sh
+utekv.sh
 
 The following hints files have not been tested with perl5:
 
 3b1.sh
-aix.sh
 altos486.sh
-apollo_C6_7.sh
-apollo_C6_8.sh
+apollo.sh
 aux.sh
-dgux.sh
 dnix.sh
 dynix.sh
 fps.sh
 genix.sh
 greenhills.sh
-hp9000_300.sh
-hp9000_400.sh
 i386.sh
 isc_2.sh
 mips.sh
 mpc.sh
 ncr_tower.sh
 opus.sh
-osf_1.sh
 sco_2_3_0.sh
 sco_2_3_1.sh
 sco_2_3_2.sh
 sco_2_3_3.sh
 sco_2_3_4.sh
-sco_3.sh
-sgi_4.sh
 stellar.sh
-sunos_3.sh
 sunos_4_0.sh
-svr4.sh
 ti1500.sh
-titan.sh
-ultrix_1.sh
-ultrix_3.sh
 unisysdynix.sh
-utekv.sh
 uts.sh

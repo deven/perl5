@@ -157,21 +157,15 @@ malloc(nbytes)
 	}
 
 #ifdef safemalloc
-#if !(defined(I286) || defined(atarist))
-    DEBUG_m(fprintf(stderr,"0x%x: (%05d) malloc %ld bytes\n",p+1,an++,(long)size));
-#else
-    DEBUG_m(fprintf(stderr,"0x%lx: (%05d) malloc %ld bytes\n",p+1,an++,(long)size));
-#endif
+    DEBUG_m(fprintf(stderr,"0x%lx: (%05d) malloc %ld bytes\n",
+	(unsigned long)(p+1),an++,(long)size));
 #endif /* safemalloc */
 
 	/* remove from linked list */
 #ifdef RCHECK
 	if (*((int*)p) & (sizeof(union overhead) - 1))
-#if !(defined(I286) || defined(atarist))
-	    fprintf(stderr,"Corrupt malloc ptr 0x%x at 0x%x\n",*((int*)p),p);
-#else
-	    fprintf(stderr,"Corrupt malloc ptr 0x%lx at 0x%lx\n",*((int*)p),p);
-#endif
+	    fprintf(stderr,"Corrupt malloc ptr 0x%lx at 0x%lx\n",
+		(unsigned long)*((int*)p),(unsigned long)p);
 #endif
   	nextf[bucket] = p->ov_next;
 	p->ov_magic = MAGIC;
@@ -269,11 +263,7 @@ free(mp)
 	char *cp = (char*)mp;
 
 #ifdef safemalloc
-#if !(defined(I286) || defined(atarist))
-	DEBUG_m(fprintf(stderr,"0x%x: (%05d) free\n",cp,an++));
-#else
-	DEBUG_m(fprintf(stderr,"0x%lx: (%05d) free\n",cp,an++));
-#endif
+    DEBUG_m(fprintf(stderr,"0x%lx: (%05d) free\n",(unsigned long)cp,an++));
 #endif /* safemalloc */
 
   	if (cp == NULL)
@@ -406,17 +396,11 @@ realloc(mp, nbytes)
 
 #ifdef safemalloc
 #ifdef DEBUGGING
-#  if !(defined(I286) || defined(atarist))
-	if (debug & 128) {
-	    fprintf(stderr,"0x%x: (%05d) rfree\n",res,an++);
-	    fprintf(stderr,"0x%x: (%05d) realloc %ld bytes\n",res,an++,(long)size);
-	}
-#  else
-	if (debug & 128) {
-	    fprintf(stderr,"0x%lx: (%05d) rfree\n",res,an++);
-	    fprintf(stderr,"0x%lx: (%05d) realloc %ld bytes\n",res,an++,(long)size);
-	}
-#  endif
+    if (debug & 128) {
+	fprintf(stderr,"0x%lx: (%05d) rfree\n",(unsigned long)res,an++);
+	fprintf(stderr,"0x%lx: (%05d) realloc %ld bytes\n",
+	    (unsigned long)res,an++,(long)size);
+    }
 #endif
 #endif /* safemalloc */
   	return ((Malloc_t)res);

@@ -139,7 +139,7 @@ Incompatibilities
     You can't do a goto into a block that is optimized away.  Darn.
 
     It is no longer syntactically legal to use whitespace as the name
-    of a variable.
+    of a variable, or as a delimiter for any kind of quote construct.
 
     Some error messages will be different.
 

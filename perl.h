@@ -111,7 +111,7 @@ char Error[1];
 
 
 /* Use all the "standard" definitions? */
-#ifdef STANDARD_C
+#if defined(STANDARD_C) && defined(I_STDLIB)
 #   include <stdlib.h>
 #endif /* STANDARD_C */
 
@@ -123,7 +123,12 @@ char Error[1];
 #   include <strings.h>
 #endif
 
-#if defined(HAS_MEMCMP) && defined(mips) && defined(ultrix)
+#if !defined(HAS_STRCHR) && defined(HAS_INDEX) && !defined(strchr)
+#define strchr index
+#define strrchr rindex
+#endif
+
+#if defined(mips) && defined(ultrix) && !defined(__STDC__)
 #   undef HAS_MEMCMP
 #endif
 
@@ -203,21 +208,22 @@ char Error[1];
 
 #include <sys/stat.h>
 
-#if defined(uts) || defined(UTekV)
+/* The stat macros for Amdahl UTS, Unisoft System V/88 (and derivatives
+   like UTekV) are broken, sometimes giving false positives.  Undefine
+   them here and let the code below set them to proper values.
+
+   The ghs macro stands for GreenHills Software C-1.8.5 which
+   is the C compiler for sysV88 and the various derivatives.
+   This header file bug is corrected in gcc-2.5.8 and later versions.
+   --Kaveh Ghazi (ghazi@noc.rutgers.edu) 10/3/94.  */
+
+#if defined(uts) || (defined(m88k) && defined(ghs))
 #   undef S_ISDIR
 #   undef S_ISCHR
 #   undef S_ISBLK
 #   undef S_ISREG
 #   undef S_ISFIFO
 #   undef S_ISLNK
-#   define S_ISDIR(P) (((P)&S_IFMT)==S_IFDIR)
-#   define S_ISCHR(P) (((P)&S_IFMT)==S_IFCHR)
-#   define S_ISBLK(P) (((P)&S_IFMT)==S_IFBLK)
-#   define S_ISREG(P) (((P)&S_IFMT)==S_IFREG)
-#   define S_ISFIFO(P) (((P)&S_IFMT)==S_IFIFO)
-#   ifdef S_IFLNK
-#	define S_ISLNK(P) (((P)&S_IFMT)==S_IFLNK)
-#   endif
 #endif
 
 #ifdef I_TIME
@@ -243,6 +249,12 @@ char Error[1];
 #if defined(HAS_STRERROR) && (!defined(HAS_MKDIR) || !defined(HAS_RMDIR))
 #   undef HAS_STRERROR
 #endif
+
+#ifndef HAS_MKFIFO
+#  ifndef mkfifo
+#    define mkfifo(path, mode) (mknod((path), (mode) | S_IFIFO, 0))
+#  endif
+#endif /* !HAS_MKFIFO */
 
 #include <errno.h>
 #ifdef HAS_SOCKET
@@ -431,7 +443,7 @@ char Error[1];
 #   undef ff_next
 #endif
 
-#if defined(cray) || defined(gould) || defined(i860)
+#if defined(cray) || defined(gould) || defined(i860) || defined(pyr)
 #   define SLOPPYDIVIDE
 #endif
 
@@ -459,10 +471,12 @@ char Error[1];
 
 #ifdef DOSISH
 #   include "dosish.h"
-#elif defined(VMS)
-#   include "vmsish.h"
 #else
+# if defined(VMS)
+#   include "vmsish.h"
+# else
 #   include "unixish.h"
+# endif
 #endif
 
 #ifndef HAS_PAUSE
@@ -527,6 +541,8 @@ typedef struct xpvio XPVIO;
 typedef struct mgvtbl MGVTBL;
 typedef union any ANY;
 
+typedef FILE * (*cryptswitch_t) _((FILE *rfp));
+
 #include "handy.h"
 
 #ifdef QUAD
@@ -563,9 +579,9 @@ union any {
 
 #ifndef	STANDARD_C
 #   ifdef CHARSPRINTF
-	char *sprintf _((char *, ...));
+	char *sprintf _((char *, const char *, ...));
 #   else
-	int sprintf _((char *, ...));
+	int sprintf _((char *, const char *, ...));
 #   endif
 #endif
 
@@ -636,9 +652,12 @@ U32 cast_ulong _((double));
 
 #ifdef CASTI32
 #define I_32(what) ((I32)(what))
+#define I_V(what) ((IV)(what))
 #else
 I32 cast_i32 _((double));
 #define I_32(what) (cast_i32(what))
+IV cast_iv _((double));
+#define I_V(what) (cast_iv(what))
 #endif
 
 struct Outrec {
@@ -651,11 +670,15 @@ struct Outrec {
 #   define MAXSYSFD 2
 #endif
 
-#ifndef DOSISH
-#define TMPPATH "/tmp/perl-eXXXXXX"
-#else
+#ifdef DOSISH
 #define TMPPATH "plXXXXXX"
-#endif /* MSDOS */
+#else
+#ifdef VMS
+#define TMPPATH "/sys$scratch/perl-eXXXXXX"
+#else
+#define TMPPATH "/tmp/perl-eXXXXXX"
+#endif
+#endif
 
 #ifndef __cplusplus
 Uid_t getuid _((void));
@@ -754,6 +777,9 @@ char *strcpy(), *strcat();
 #   endif
 #endif
 
+#if !defined(HAS_FMOD) && defined(HAS_DREM)
+#define fmod(x,y) drem((x),(y))
+#endif
 
 #ifndef __cplusplus
 char *crypt _((const char*, const char*));
@@ -816,6 +842,7 @@ EXT U32		evalseq;	/* eval sequence number */
 EXT U32		sub_generation;	/* inc to force methods to be looked up again */
 EXT char **	origenviron;
 EXT U32		origalen;
+EXT U32 *	profiledata;
 
 EXT XPV*	xiv_arenaroot;	/* list of allocated xiv areas */
 EXT IV **	xiv_root;	/* free xiv list--shared by interpreters */
@@ -1018,6 +1045,8 @@ EXT char* block_type[];
 /*****************************************************************************/
 /* XXX This needs to be revisited, since BEGIN makes yacc re-enter... */
 
+#include "perly.h"
+
 typedef enum {
     XOPERATOR,
     XTERM,
@@ -1027,6 +1056,28 @@ typedef enum {
     XTERMBLOCK
 } expectation;
 
+EXT U32		lex_state;	/* next token is determined */
+EXT U32		lex_defer;	/* state after determined token */
+EXT expectation	lex_expect;	/* expect after determined token */
+EXT I32		lex_brackets;	/* bracket count */
+EXT I32		lex_formbrack;	/* bracket count at outer format level */
+EXT I32		lex_fakebrack;	/* outer bracket is mere delimiter */
+EXT I32		lex_casemods;	/* casemod count */
+EXT I32		lex_dojoin;	/* doing an array interpolation */
+EXT I32		lex_starts;	/* how many interps done on level */
+EXT SV *	lex_stuff;	/* runtime pattern from m// or s/// */
+EXT SV *	lex_repl;	/* runtime replacement from s/// */
+EXT OP *	lex_op;		/* extra info to pass back on op */
+EXT OP *	lex_inpat;	/* in pattern $) and $| are special */
+EXT I32		lex_inwhat;	/* what kind of quoting are we in */
+EXT char *	lex_brackstack;	/* what kind of brackets to pop */
+EXT char *	lex_casestack;	/* what kind of case mods in effect */
+
+/* What we know when we're in LEX_KNOWNEXT state. */
+EXT YYSTYPE	nextval[5];	/* value of next token, if any */
+EXT I32		nexttype[5];	/* type of next token */
+EXT I32		nexttoke;
+
 EXT FILE * VOL	rsfp INIT(Nullfp);
 EXT SV *	linestr;
 EXT char *	bufptr;
@@ -1034,6 +1085,7 @@ EXT char *	oldbufptr;
 EXT char *	oldoldbufptr;
 EXT char *	bufend;
 EXT expectation expect INIT(XSTATE);	/* how to interpret ambiguous tokens */
+EXT char *	autoboot_preamble INIT(Nullch);
 
 EXT I32		multi_start;	/* 1st line of multi-line string */
 EXT I32		multi_end;	/* last line of multi-line string */
@@ -1086,21 +1138,18 @@ EXT char *	regxend;	/* End of input for compile */
 EXT I32		regnpar;	/* () count. */
 EXT char *	regcode;	/* Code-emit pointer; &regdummy = don't. */
 EXT I32		regsize;	/* Code size. */
-EXT I32		regflags;	/* are we folding, multilining? */
-EXT I32		regsawbracket;	/* Did we do {d,d} trick? */
+EXT I32		regnaughty;	/* How bad is this pattern? */
 EXT I32		regsawback;	/* Did we see \1, ...? */
 
 EXT char *	reginput;	/* String-input pointer. */
-EXT char	regprev;	/* char before regbol, \n if none */
 EXT char *	regbol;		/* Beginning of input, for ^ check. */
 EXT char *	regeol;		/* End of input, for $ check. */
 EXT char **	regstartp;	/* Pointer to startp array. */
 EXT char **	regendp;	/* Ditto for endp. */
-EXT char *	reglastparen;	/* Similarly for lastparen. */
+EXT U32 *	reglastparen;	/* Similarly for lastparen. */
 EXT char *	regtill;	/* How far we are required to go. */
-EXT I32		regmyp_size;
-EXT char **	regmystartp;
-EXT char **	regmyendp;
+EXT U16		regflags;	/* are we folding, multilining? */
+EXT char	regprev;	/* char before regbol, \n if none */
 
 /***********************************************/
 /* Global only to current interpreter instance */
@@ -1325,8 +1374,14 @@ extern "C" {
 #endif
 
 #include "proto.h"
+
+#ifdef EMBED
+#define Perl_sv_setptrobj(rv,ptr,name) Perl_sv_setref_iv(rv,name,(IV)ptr)
+#define Perl_sv_setptrref(rv,ptr) Perl_sv_setref_iv(rv,Nullch,(IV)ptr)
+#else
 #define sv_setptrobj(rv,ptr,name) sv_setref_iv(rv,name,(IV)ptr)
 #define sv_setptrref(rv,ptr) sv_setref_iv(rv,Nullch,(IV)ptr)
+#endif
 
 #ifdef __cplusplus
 };
@@ -1419,7 +1474,7 @@ EXT MGVTBL vtbl_amagicelem;
 #ifdef OVERLOAD
 EXT long amagic_generation;
 
-#define NofAMmeth 27
+#define NofAMmeth 28
 #ifdef DOINIT
 char * AMG_names[NofAMmeth][2] = {
   {"fallback","abs"},
@@ -1448,7 +1503,8 @@ char * AMG_names[NofAMmeth][2] = {
   {"sin", "exp"},
   {"log", "sqrt"},
   {"x","x="},
-  {".",".="}
+  {".",".="},
+  {"=",NULL}
 };
 #else
 extern char * AMG_names[NofAMmeth][2];
@@ -1493,7 +1549,8 @@ enum {
   sin_amg,	exp_amg,
   log_amg,	sqrt_amg,
   repeat_amg,   repeat_ass_amg,
-  concat_amg,	concat_ass_amg
+  concat_amg,	concat_ass_amg,
+  copy_amg
 };
 #endif /* OVERLOAD */
 

@@ -9,7 +9,7 @@ require Exporter;
 
 sub longmess {
     my $error = shift;
-    my $mess;
+    my $mess = "";
     my $i = 2;
     my ($pack,$file,$line,$sub);
     while (($pack,$file,$line,$sub) = caller($i++)) {

@@ -229,10 +229,10 @@ struct xpvfm {
     OP *	xcv_root;
     void      (*xcv_xsub)_((CV*));
     ANY		xcv_xsubany;
+    GV *	xcv_gv;
     GV *	xcv_filegv;
     long	xcv_depth;		/* >= 2 indicates recursive call */
     AV *	xcv_padlist;
-    bool	xcv_deleted;
     I32		xfm_lines;
 };
 

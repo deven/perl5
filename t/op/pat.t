@@ -73,7 +73,7 @@ while ($_ = shift(XXX)) {
     /not ok 26/ && reset 'X';
 }
 
-while (($key,$val) = each(XXX)) {
+while (($key,$val) = each(%XXX)) {
     print "not ok 27\n";
     exit;
 }

@@ -58,8 +58,8 @@ I32 len;
 FILE *supplied_fp;
 {
     FILE *fp;
-    register IO *io = GvIO(gv);
-    char *myname = savestr(name);
+    register IO *io = GvIOn(gv);
+    char *myname = savepv(name);
     int result;
     int fd;
     int writing = 0;
@@ -75,9 +75,7 @@ FILE *supplied_fp;
     forkprocess = 1;		/* assume true if no fork */
     while (len && isSPACE(name[len-1]))
 	name[--len] = '\0';
-    if (!io)
-	io = GvIO(gv) = newIO();
-    else if (IoIFP(io)) {
+    if (IoIFP(io)) {
 	fd = fileno(IoIFP(io));
 	if (IoTYPE(io) == '-')
 	    result = 0;
@@ -149,16 +147,18 @@ FILE *supplied_fp;
 		if (isDIGIT(*name))
 		    fd = atoi(name);
 		else {
+		    IO* thatio;
 		    gv = gv_fetchpv(name,FALSE,SVt_PVIO);
-		    if (!gv || !GvIO(gv)) {
+		    thatio = GvIO(gv);
+		    if (!thatio) {
 #ifdef EINVAL
 			errno = EINVAL;
 #endif
 			goto say_false;
 		    }
-		    if (GvIO(gv) && IoIFP(GvIO(gv))) {
-			fd = fileno(IoIFP(GvIO(gv)));
-			if (IoTYPE(GvIO(gv)) == 's')
+		    if (IoIFP(thatio)) {
+			fd = fileno(IoIFP(thatio));
+			if (IoTYPE(thatio) == 's')
 			    IoTYPE(io) = 's';
 		    }
 		    else
@@ -242,7 +242,7 @@ FILE *supplied_fp;
 	    !statbuf.st_mode
 #endif
 	) {
-	    I32 buflen = sizeof tokenbuf;
+	    int buflen = sizeof tokenbuf;
 	    if (getsockname(fileno(fp), (struct sockaddr *)tokenbuf, &buflen) >= 0
 		|| errno != ENOTSOCK)
 		IoTYPE(io) = 's'; /* some OS's return 0 on fstat()ed socket */
@@ -266,11 +266,11 @@ FILE *supplied_fp;
 
 	    dup2(fileno(fp), fd);
 	    sv = *av_fetch(fdpid,fileno(fp),TRUE);
-	    SvUPGRADE(sv, SVt_IV);
+	    (void)SvUPGRADE(sv, SVt_IV);
 	    pid = SvIVX(sv);
 	    SvIVX(sv) = 0;
 	    sv = *av_fetch(fdpid,fd,TRUE);
-	    SvUPGRADE(sv, SVt_IV);
+	    (void)SvUPGRADE(sv, SVt_IV);
 	    SvIVX(sv) = pid;
 	    fclose(fp);
 
@@ -319,7 +319,7 @@ register GV *gv;
     if (!argvoutgv)
 	argvoutgv = gv_fetchpv("ARGVOUT",TRUE,SVt_PVIO);
     if (filemode & (S_ISUID|S_ISGID)) {
-	fflush(IoIFP(GvIO(argvoutgv)));  /* chmod must follow last write */
+	fflush(IoIFP(GvIOn(argvoutgv)));  /* chmod must follow last write */
 #ifdef HAS_FCHMOD
 	(void)fchmod(lastfd,filemode);
 #else
@@ -339,7 +339,7 @@ register GV *gv;
 		TAINT_PROPER("inplace open");
 		if (strEQ(oldname,"-")) {
 		    defoutgv = gv_fetchpv("STDOUT",TRUE,SVt_PVIO);
-		    return IoIFP(GvIO(gv));
+		    return IoIFP(GvIOp(gv));
 		}
 #ifndef FLEXFILENAMES
 		filedev = statbuf.st_dev;
@@ -418,7 +418,7 @@ register GV *gv;
 		    continue;
 		}
 		defoutgv = argvoutgv;
-		lastfd = fileno(IoIFP(GvIO(argvoutgv)));
+		lastfd = fileno(IoIFP(GvIOp(argvoutgv)));
 		(void)fstat(lastfd,&statbuf);
 #ifdef HAS_FCHMOD
 		(void)fchmod(lastfd,filemode);
@@ -435,7 +435,7 @@ register GV *gv;
 #endif
 		}
 	    }
-	    return IoIFP(GvIO(gv));
+	    return IoIFP(GvIOp(gv));
 	}
 	else
 	    fprintf(stderr,"Can't open %s: %s\n",SvPV(sv, na), Strerror(errno));
@@ -463,16 +463,12 @@ GV *wgv;
     if (!wgv)
 	goto badexit;
 
-    rstio = GvIO(rgv);
-    wstio = GvIO(wgv);
+    rstio = GvIOn(rgv);
+    wstio = GvIOn(wgv);
 
-    if (!rstio)
-	rstio = GvIO(rgv) = newIO();
-    else if (IoIFP(rstio))
+    if (IoIFP(rstio))
 	do_close(rgv,FALSE);
-    if (!wstio)
-	wstio = GvIO(wgv) = newIO();
-    else if (IoIFP(wstio))
+    if (IoIFP(wstio))
 	do_close(wgv,FALSE);
 
     if (pipe(fd) < 0)
@@ -500,13 +496,13 @@ badexit:
 #endif
 
 bool
-#ifndef STANDARD_C
+#ifndef CAN_PROTOTYPE
 do_close(gv,explicit)
 GV *gv;
 bool explicit;
 #else
 do_close(GV *gv, bool explicit)
-#endif /* STANDARD_C */
+#endif /* CAN_PROTOTYPE */
 {
     bool retval = FALSE;
     register IO *io;
@@ -818,7 +814,11 @@ dARGS
 	    statgv = cGVOP->op_gv;
 	    sv_setpv(statname,"");
 	    laststype = OP_STAT;
+#ifndef VMS
 	    return (laststatval = fstat(fileno(IoIFP(io)), &statcache));
+#else
+	    return (laststatval = flex_fstat(fileno(IoIFP(io)), &statcache));
+#endif
 	}
 	else {
 	    if (cGVOP->op_gv == defgv)
@@ -837,7 +837,11 @@ dARGS
 	statgv = Nullgv;
 	sv_setpv(statname,SvPV(sv, na));
 	laststype = OP_STAT;
+#ifndef VMS
 	laststatval = stat(SvPV(sv, na),&statcache);
+#else
+	laststatval = flex_stat(SvPV(sv, na),&statcache);
+#endif
 	if (laststatval < 0 && dowarn && strchr(SvPV(sv, na), '\n'))
 	    warn(warn_nl, "stat");
 	return laststatval;
@@ -975,7 +979,7 @@ char *cmd;
 	}
     }
     New(402,Argv, (s - cmd) / 2 + 2, char*);
-    Cmd = nsavestr(cmd, s-cmd);
+    Cmd = savepvn(cmd, s-cmd);
     a = Argv;
     for (s = Cmd; *s;) {
 	while (*s && isSPACE(*s)) s++;

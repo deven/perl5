@@ -26,7 +26,7 @@ static int dbmrefcnt;
 MODULE = ODBM_File	PACKAGE = ODBM_File	PREFIX = odbm_
 
 ODBM_File
-odbm_new(dbtype, filename, flags, mode)
+odbm_TIEHASH(dbtype, filename, flags, mode)
 	char *		dbtype
 	char *		filename
 	int		flags
@@ -71,6 +71,13 @@ odbm_STORE(db, key, value, flags = DBM_REPLACE)
 	datum		key
 	datum		value
 	int		flags
+    CLEANUP:
+	if (RETVAL) {
+	    if (RETVAL < 0 && errno == EPERM)
+		croak("No write permission to odbm file");
+	    warn("odbm store returned %d, errno %d, key \"%s\"",
+			RETVAL,errno,key.dptr);
+	}
 
 int
 odbm_DELETE(db, key)

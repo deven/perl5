@@ -96,7 +96,7 @@ char *name;
 	croak("Can't use global %s in \"my\"",name);
     }
     off = pad_alloc(OP_PADSV, SVs_PADMY);
-    sv = NEWSV(0,0);
+    sv = NEWSV(1102,0);
     sv_upgrade(sv, SVt_PVNV);
     sv_setpv(sv, name);
     av_store(comppad_name, off, sv);
@@ -174,7 +174,7 @@ char *name;
 		    PADOFFSET newoff = pad_alloc(OP_PADSV, SVs_PADMY);
 		    AV *oldpad = (AV*)*av_fetch(curlist, CvDEPTH(cv), FALSE);
 		    SV *oldsv = *av_fetch(oldpad, off, TRUE);
-		    SV *sv = NEWSV(0,0);
+		    SV *sv = NEWSV(1103,0);
 		    sv_upgrade(sv, SVt_PVNV);
 		    sv_setpv(sv, name);
 		    av_store(comppad_name, newoff, sv);
@@ -242,12 +242,12 @@ U32 tmptype;
 }
 
 SV *
-#ifndef STANDARD_C
+#ifndef CAN_PROTOTYPE
 pad_sv(po)
 PADOFFSET po;
 #else
 pad_sv(PADOFFSET po)
-#endif /* STANDARD_C */
+#endif /* CAN_PROTOTYPE */
 {
     if (!po)
 	croak("panic: pad_sv po");
@@ -256,13 +256,15 @@ pad_sv(PADOFFSET po)
 }
 
 void
-#ifndef STANDARD_C
+#ifndef CAN_PROTOTYPE
 pad_free(po)
 PADOFFSET po;
 #else
 pad_free(PADOFFSET po)
-#endif /* STANDARD_C */
+#endif /* CAN_PROTOTYPE */
 {
+    if (!curpad)
+	return;
     if (AvARRAY(comppad) != curpad)
 	croak("panic: pad_free curpad");
     if (!po)
@@ -275,20 +277,21 @@ pad_free(PADOFFSET po)
 }
 
 void
-#ifndef STANDARD_C
+#ifndef CAN_PROTOTYPE
 pad_swipe(po)
 PADOFFSET po;
 #else
 pad_swipe(PADOFFSET po)
-#endif /* STANDARD_C */
+#endif /* CAN_PROTOTYPE */
 {
     if (AvARRAY(comppad) != curpad)
 	croak("panic: pad_swipe curpad");
     if (!po)
 	croak("panic: pad_swipe po");
     DEBUG_X(fprintf(stderr, "Pad swipe %d\n", po));
-    curpad[po] = NEWSV(0,0);
     SvPADTMP_off(curpad[po]);
+    curpad[po] = NEWSV(1107,0);
+    SvPADTMP_on(curpad[po]);
     if ((I32)po < padix)
 	padix = po - 1;
 }
@@ -332,9 +335,12 @@ OP *op;
     case OP_NULL:
 	op->op_targ = 0;	/* Was holding old type, if any. */
 	break;
+    case OP_ENTEREVAL:
+	op->op_targ = 0;	/* Was holding hints. */
+	break;
     case OP_GVSV:
     case OP_GV:
-	SvREFCNT_dec((SV*)cGVOP->op_gv);
+	SvREFCNT_dec(cGVOP->op_gv);
 	break;
     case OP_NEXTSTATE:
     case OP_DBSTATE:
@@ -380,7 +386,9 @@ OP* op;
     OP* kid = cLISTOP->op_first;
     assert(kid->op_type == OP_PUSHMARK);
     null(kid);
-    null(op);
+    if (op->op_type != OP_LIST ||
+      !((op->op_flags & (OPf_KNOW|OPf_LIST)) == OPf_KNOW))
+	null(op);
 }
 
 /* Contextualizers */
@@ -463,6 +471,10 @@ OP *op;
 	for (kid = cUNOP->op_first->op_sibling; kid; kid = kid->op_sibling)
 	    scalar(kid);
 	break;
+    case OP_SPLIT:
+	if (!((PMOP*)op)->op_pmreplroot)
+	    deprecate("implicit split to @_");
+	/* FALL THROUGH */
     case OP_MATCH:
     case OP_SUBST:
     case OP_NULL:
@@ -647,10 +659,16 @@ OP *op;
     case OP_SCOPE:
     case OP_LEAVE:
     case OP_LEAVETRY:
+    case OP_LEAVELOOP:
+	op->op_private |= OPpLEAVE_VOID;
     case OP_LINESEQ:
     case OP_LIST:
 	for (kid = cLISTOP->op_first; kid; kid = kid->op_sibling)
 	    scalarvoid(kid);
+	break;
+    case OP_SPLIT:
+	if (!((PMOP*)op)->op_pmreplroot)
+	    deprecate("implicit split to @_");
 	break;
     }
     if (useless && dowarn)
@@ -788,6 +806,8 @@ I32 type;
 	else if (!type) {
 	    SAVEI32(compiling.cop_arybase);
 	}
+	else if (type == OP_REFGEN)
+	    goto nomod;
 	else
 	    croak("That use of $[ is unsupported");
 	break;
@@ -855,7 +875,7 @@ I32 type;
     case OP_NEXTSTATE:
     case OP_DBSTATE:
     case OP_REFGEN:
-    case OP_SAFECHOP:
+    case OP_CHOMP:
 	modcount = 10000;
 	break;
     case OP_RV2SV:
@@ -1101,7 +1121,7 @@ scope(o)
 OP *o;
 {
     if (o) {
-	if (o->op_flags & OPf_PARENS) {
+	if (o->op_flags & OPf_PARENS || perldb) {
 	    o = prepend_elem(OP_LINESEQ, newOP(OP_ENTER, 0), o);
 	    o->op_type = OP_LEAVE;
 	    o->op_ppaddr = ppaddr[OP_LEAVE];
@@ -1122,21 +1142,62 @@ OP *o;
     return o;
 }
 
-OP *
-block_head(o, startp)
-OP *o;
-OP **startp;
+int
+block_start()
 {
-    if (!o) {
-	*startp = 0;
-	return o;
+    int retval = savestack_ix;
+    comppad_name_fill = AvFILL(comppad_name);
+    SAVEINT(min_intro_pending);
+    SAVEINT(max_intro_pending);
+    min_intro_pending = 0;
+    SAVEINT(comppad_name_fill);
+    SAVEINT(padix_floor);
+    padix_floor = padix;
+    pad_reset_pending = FALSE;
+    SAVEINT(hints);
+    hints &= ~HINT_BLOCK_SCOPE;
+    return retval;
+}
+
+OP*
+block_end(line, floor, seq)
+int line;
+int floor;
+OP* seq;
+{
+    int needblockscope = hints & HINT_BLOCK_SCOPE;
+    OP* retval = scalarseq(seq);
+    if (copline > (line_t)line)
+	copline = line;
+    LEAVE_SCOPE(floor);
+    pad_reset_pending = FALSE;
+    if (needblockscope)
+	hints |= HINT_BLOCK_SCOPE; /* propagate out */
+    pad_leavemy(comppad_name_fill);
+    return retval;
+}
+
+void
+newPROG(op)
+OP *op;
+{
+    if (in_eval) {
+	eval_root = newUNOP(OP_LEAVEEVAL, 0, op);
+	eval_start = linklist(eval_root);
+	eval_root->op_next = 0;
+	peep(eval_start);
     }
-    o = scope(sawparens(scalarvoid(o)));
-    curcop = &compiling;
-    *startp = LINKLIST(o);
-    o->op_next = 0;
-    peep(*startp);
-    return o;
+    else {
+	if (!op) {
+	    main_start = 0;
+	    return;
+	}
+	main_root = scope(sawparens(scalarvoid(op)));
+	curcop = &compiling;
+	main_start = LINKLIST(main_root);
+	main_root->op_next = 0;
+	peep(main_start);
+    }
 }
 
 OP *
@@ -1213,7 +1274,7 @@ register OP *o;
     if (o->op_targ && *stack_sp == PAD_SV(o->op_targ))	/* grab pad temp? */
 	pad_swipe(o->op_targ);
     else if (SvTEMP(*stack_sp)) {			/* grab mortal temp? */
-	SvREFCNT_inc(*stack_sp);
+	(void)SvREFCNT_inc(*stack_sp);
 	SvTEMP_off(*stack_sp);
     }
     op_free(o);
@@ -1321,19 +1382,18 @@ OP* last;
     if (!last)
 	return first;
 
-    if (first->op_type == type) {
-	if (first->op_flags & OPf_KIDS)
-	    ((LISTOP*)first)->op_last->op_sibling = last;
-	else {
-	    first->op_flags |= OPf_KIDS;
-	    ((LISTOP*)first)->op_first = last;
-	}
-	((LISTOP*)first)->op_last = last;
-	((LISTOP*)first)->op_children++;
-	return first;
-    }
+    if (first->op_type != type || type==OP_LIST && first->op_flags & OPf_PARENS)
+	    return newLISTOP(type, 0, first, last);
 
-    return newLISTOP(type, 0, first, last);
+    if (first->op_flags & OPf_KIDS)
+	((LISTOP*)first)->op_last->op_sibling = last;
+    else {
+	first->op_flags |= OPf_KIDS;
+	((LISTOP*)first)->op_first = last;
+    }
+    ((LISTOP*)first)->op_last = last;
+    ((LISTOP*)first)->op_children++;
+    return first;
 }
 
 OP *
@@ -1650,10 +1710,12 @@ OP *repl;
 	    p = SvPV(pat, plen);
 	    pm->op_pmflags |= PMf_SKIPWHITE;
 	}
+#ifdef NOTDEF
 	scan_prefix(pm, p, plen);
 	if (pm->op_pmshort && (pm->op_pmflags & PMf_SCANFIRST))
 	    fbm_compile(pm->op_pmshort, pm->op_pmflags & PMf_FOLD);
-	pm->op_pmregexp = regcomp(p, p + plen, pm->op_pmflags);
+#endif
+	pm->op_pmregexp = regcomp(p, p + plen, pm);
 	if (strEQ("\\s+", pm->op_pmregexp->precomp)) 
 	    pm->op_pmflags |= PMf_WHITE;
 	hoistmust(pm);
@@ -1970,7 +2032,9 @@ OP *right;
 	if (right && right->op_type == OP_SPLIT) {
 	    if ((op = ((LISTOP*)right)->op_first) && op->op_type == OP_PUSHRE) {
 		PMOP *pm = (PMOP*)op;
-		if (left->op_type == OP_RV2AV) {
+		if (left->op_type == OP_RV2AV &&
+		    !(left->op_private & OPpLVAL_INTRO) )
+		{
 		    op = ((UNOP*)left)->op_first;
 		    if (op->op_type == OP_GV && !pm->op_pmreplroot) {
 			pm->op_pmreplroot = (OP*)((GVOP*)op)->op_gv;
@@ -2056,7 +2120,7 @@ OP *op;
 	I32 i;
 	SV *sv;
 	for (i = min_intro_pending; i <= max_intro_pending; i++) {
-	    if (sv = svp[i])
+	    if ((sv = svp[i]) && sv != &sv_undef)
 		SvIVX(sv) = 999999999;	/* Don't know scope end yet. */
 	}
 	min_intro_pending = 0;
@@ -2096,7 +2160,7 @@ OP *op;
 	SV **svp = av_fetch(GvAV(curcop->cop_filegv),(I32)cop->cop_line, FALSE);
 	if (svp && *svp != &sv_undef && !SvIOK(*svp)) {
 	    SvIVX(*svp) = 1;
-	    SvIOK_on(*svp);
+	    (void)SvIOK_on(*svp);
 	    SvSTASH(*svp) = (HV*)cop;
 	}
     }
@@ -2381,7 +2445,7 @@ OP *cont;
 }
 
 OP *
-#ifndef STANDARD_C
+#ifndef CAN_PROTOTYPE
 newFOROP(flags,label,forline,sv,expr,block,cont)
 I32 flags;
 char *label;
@@ -2392,7 +2456,7 @@ OP*block;
 OP*cont;
 #else
 newFOROP(I32 flags,char *label,line_t forline,OP *sv,OP *expr,OP *block,OP *cont)
-#endif /* STANDARD_C */
+#endif /* CAN_PROTOTYPE */
 {
     LOOP *loop;
     int padoff = 0;
@@ -2434,7 +2498,10 @@ OP* label;
 {
     OP *op;
     if (type != OP_GOTO || label->op_type == OP_CONST) {
-	op = newPVOP(type, 0, savestr(SvPVx(((SVOP*)label)->op_sv, na)));
+	op = newPVOP(type, 0, savepv(
+		label->op_type == OP_CONST
+		    ? SvPVx(((SVOP*)label)->op_sv, na)
+		    : "" ));
 	op_free(label);
     }
     else {
@@ -2451,20 +2518,15 @@ cv_undef(cv)
 CV *cv;
 {
     if (!CvXSUB(cv) && CvROOT(cv)) {
+	if (CvDEPTH(cv))
+	    croak("Can't undef active subroutine");
 	ENTER;
-	if (CvPADLIST(cv)) {
-	    SV** svp = av_fetch(CvPADLIST(cv), 0, FALSE);
-	    if (svp) {
-		SAVESPTR(comppad);
-		SAVESPTR(curpad);
-		comppad = (AV*)*svp;	/* Need same context we had compiling */
-		curpad = AvARRAY(comppad);
-	    }
-	}
+
+	SAVESPTR(curpad);
+	curpad = 0;
+
 	op_free(CvROOT(cv));
 	CvROOT(cv) = Nullop;
-	if (CvDEPTH(cv))
-	    warn("Deleting active subroutine");		/* XXX */
 	if (CvPADLIST(cv)) {
 	    I32 i = AvFILL(CvPADLIST(cv));
 	    while (i >= 0) {
@@ -2486,10 +2548,11 @@ OP *op;
 OP *block;
 {
     register CV *cv;
-    char *name = op ? SvPVx(cSVOP->op_sv, na) : "_ANON_";
+    char *name = op ? SvPVx(cSVOP->op_sv, na) : "__ANON__";
     GV *gv = gv_fetchpv(name,2, SVt_PVCV);
     AV* av;
     char *s;
+    I32 ix;
 
     if (op)
 	sub_generation++;
@@ -2497,18 +2560,14 @@ OP *block;
 	if (GvCVGEN(gv))
 	    cv = 0;			/* just a cached method */
 	else if (CvROOT(cv)) {		/* already defined? */
-	    if (CvDEPTH(cv))
-		CvDELETED(cv) = TRUE;	/* in use--defer the free */
-	    else {
-		if (dowarn) {
-		    line_t oldline = curcop->cop_line;
+	    if (dowarn) {
+		line_t oldline = curcop->cop_line;
 
-		    curcop->cop_line = copline;
-		    warn("Subroutine %s redefined",name);
-		    curcop->cop_line = oldline;
-		}
-		SvREFCNT_dec(cv);
+		curcop->cop_line = copline;
+		warn("Subroutine %s redefined",name);
+		curcop->cop_line = oldline;
 	    }
+	    SvREFCNT_dec(cv);
 	    cv = 0;
 	}
     }
@@ -2517,9 +2576,8 @@ OP *block;
 	SvREFCNT_dec(CvGV(cv));
     }
     else {
-	Newz(101,cv,1,CV);
+	cv = (CV*)NEWSV(1104,0);
 	sv_upgrade((SV *)cv, SVt_PVCV);
-	SvREFCNT(cv) = 1;
     }
     GvCV(gv) = cv;
     GvCVGEN(gv) = 0;
@@ -2540,12 +2598,17 @@ OP *block;
     av_store(comppad, 0, (SV*)av);
     AvFLAGS(av) = AVf_REIFY;
 
+    for (ix = AvFILL(comppad); ix > 0; ix--) {
+	if (!SvPADMY(curpad[ix]))
+	    SvPADTMP_on(curpad[ix]);
+    }
+
     av = newAV();
     AvREAL_off(av);
     if (AvFILL(comppad_name) < AvFILL(comppad))
 	av_store(comppad_name, AvFILL(comppad), Nullsv);
-    av_store(av, 0, (SV*)comppad_name);
-    av_store(av, 1, (SV*)comppad);
+    av_store(av, 0, SvREFCNT_inc((SV*)comppad_name));
+    av_store(av, 1, SvREFCNT_inc((SV*)comppad));
     AvFILL(av) = 1;
     CvPADLIST(cv) = av;
 
@@ -2553,7 +2616,6 @@ OP *block;
     CvSTART(cv) = LINKLIST(CvROOT(cv));
     CvROOT(cv)->op_next = 0;
     peep(CvSTART(cv));
-    CvDELETED(cv) = FALSE;
     if (s = strrchr(name,':'))
 	s++;
     else
@@ -2630,7 +2692,7 @@ void (*subaddr) _((CV*));
 char *filename;
 {
     register CV *cv;
-    GV *gv = gv_fetchpv((name ? name : "_ANON_"), 2, SVt_PVCV);
+    GV *gv = gv_fetchpv((name ? name : "__ANON__"), 2, SVt_PVCV);
     char *s;
 
     if (name)
@@ -2639,18 +2701,14 @@ char *filename;
 	if (GvCVGEN(gv))
 	    cv = 0;			/* just a cached method */
 	else if (CvROOT(cv)) {		/* already defined? */
-	    if (CvDEPTH(cv))
-		CvDELETED(cv) = TRUE;	/* in use--defer the free */
-	    else {
-		if (dowarn) {
-		    line_t oldline = curcop->cop_line;
+	    if (dowarn) {
+		line_t oldline = curcop->cop_line;
 
-		    curcop->cop_line = copline;
-		    warn("Subroutine %s redefined",name);
-		    curcop->cop_line = oldline;
-		}
-		SvREFCNT_dec(cv);
+		curcop->cop_line = copline;
+		warn("Subroutine %s redefined",name);
+		curcop->cop_line = oldline;
 	    }
+	    SvREFCNT_dec(cv);
 	    cv = 0;
 	}
     }
@@ -2659,18 +2717,16 @@ char *filename;
 	SvREFCNT_dec(CvGV(cv));
     }
     else {
-	Newz(101,cv,1,CV);
+	cv = (CV*)NEWSV(1105,0);
 	sv_upgrade((SV *)cv, SVt_PVCV);
-	SvREFCNT(cv) = 1;
     }
     GvCV(gv) = cv;
     CvGV(cv) = SvREFCNT_inc(gv);
     GvCVGEN(gv) = 0;
     CvFILEGV(cv) = gv_fetchfile(filename);
     CvXSUB(cv) = subaddr;
-    CvDELETED(cv) = FALSE;
     if (!name)
-	s = "_ANON_";
+	s = "__ANON__";
     else if (s = strrchr(name,':'))
 	s++;
     else
@@ -2701,6 +2757,7 @@ OP *block;
     char *name;
     GV *gv;
     AV* av;
+    I32 ix;
 
     if (op)
 	name = SvPVx(cSVOP->op_sv, na);
@@ -2718,23 +2775,26 @@ OP *block;
 	}
 	SvREFCNT_dec(cv);
     }
-    Newz(101,cv,1,CV);
+    cv = (CV*)NEWSV(1106,0);
     sv_upgrade((SV *)cv, SVt_PVFM);
-    SvREFCNT(cv) = 1;
     GvFORM(gv) = cv;
     CvGV(cv) = SvREFCNT_inc(gv);
     CvFILEGV(cv) = curcop->cop_filegv;
 
+    for (ix = AvFILL(comppad); ix > 0; ix--) {
+	if (!SvPADMY(curpad[ix]))
+	    SvPADTMP_on(curpad[ix]);
+    }
+
     CvPADLIST(cv) = av = newAV();
     AvREAL_off(av);
-    av_store(av, 1, (SV*)comppad);
+    av_store(av, 1, SvREFCNT_inc((SV*)comppad));
     AvFILL(av) = 1;
 
     CvROOT(cv) = newUNOP(OP_LEAVEWRITE, 0, scalarseq(block));
     CvSTART(cv) = LINKLIST(CvROOT(cv));
     CvROOT(cv)->op_next = 0;
     peep(CvSTART(cv));
-    CvDELETED(cv) = FALSE;
     FmLINES(cv) = 0;
     op_free(op);
     copline = NOLINE;
@@ -2846,10 +2906,13 @@ OP *o;
 }
 
 OP *
-newGVREF(o)
+newGVREF(type,o)
+I32 type;
 OP *o;
 {
-    return newUNOP(OP_RV2GV, 0, scalar(o));
+    if (type == OP_MAPSTART)
+	return newUNOP(OP_NULL, 0, o);
+    return newUNOP(OP_RV2GV, 0, o);
 }
 
 OP *
@@ -2997,6 +3060,7 @@ OP *op;
 	op_free(op);
 	op = newUNOP(OP_ENTEREVAL, 0, newSVREF(newGVOP(OP_GV, 0, defgv)));
     }
+    op->op_targ = (PADOFFSET)hints;
     return op;
 }
 
@@ -3031,13 +3095,15 @@ ck_rvconst(op)
 register OP *op;
 {
     SVOP *kid = (SVOP*)cUNOP->op_first;
-    int iscv = (op->op_type==OP_RV2CV);
+    int iscv = (op->op_type==OP_RV2CV)*2;
 
     op->op_private = (hints & HINT_STRICT_REFS);
     if (kid->op_type == OP_CONST) {
+	GV *gv = 0;
 	kid->op_type = OP_GV;
-	kid->op_sv = SvREFCNT_inc(gv_fetchpv(SvPVx(kid->op_sv, na),
-		1+iscv,
+	for (gv = 0; !gv; iscv++) {
+	    gv = gv_fetchpv(SvPVx(kid->op_sv, na),
+		iscv,
 		iscv
 		    ? SVt_PVCV
 		    : op->op_type == OP_RV2SV
@@ -3046,7 +3112,9 @@ register OP *op;
 			    ? SVt_PVAV
 			    : op->op_type == OP_RV2HV
 				? SVt_PVHV
-				: SVt_PVGV));
+				: SVt_PVGV);
+	}
+	kid->op_sv = SvREFCNT_inc(gv);
     }
     return op;
 }
@@ -3231,10 +3299,10 @@ ck_glob(op)
 OP *op;
 {
     GV *gv = newGVgen("main");
-    GvIOn(gv);
+    gv_IOadd(gv);
     append_elem(OP_GLOB, op, newGVOP(OP_GV, 0, gv));
     scalarkids(op);
-    return op;
+    return ck_fun(op);
 }
 
 OP *
@@ -3246,9 +3314,15 @@ OP *op;
     OPCODE type = op->op_type == OP_GREPSTART ? OP_GREPWHILE : OP_MAPWHILE;
 
     op->op_ppaddr = ppaddr[OP_GREPSTART];
+    Newz(1101, gwop, 1, LOGOP);
     
     if (op->op_flags & OPf_STACKED) {
+	OP* k;
 	op = ck_sort(op);
+	for (k = cLISTOP->op_first->op_sibling->op_next; k; k = k->op_next) {
+	    kid = k;
+	}
+	kid->op_next = (OP*)gwop;
 	op->op_flags &= ~OPf_STACKED;
     }
     kid = cLISTOP->op_first->op_sibling;
@@ -3264,7 +3338,6 @@ OP *op;
 	croak("panic: ck_grep");
     kid = kUNOP->op_first;
 
-    Newz(1101, gwop, 1, LOGOP);
     gwop->op_type = type;
     gwop->op_ppaddr = ppaddr[type];
     gwop->op_first = listkids(op);
@@ -3384,6 +3457,14 @@ OP *op;
 	SVOP *kid = (SVOP*)cUNOP->op_first;
 
 	if (kid->op_type == OP_CONST && (kid->op_private & OPpCONST_BARE)) {
+	    char *s;
+	    for (s = SvPVX(kid->op_sv); *s; s++) {
+		if (*s == ':' && s[1] == ':') {
+		    *s = '/';
+		    strcpy(s+1,s+2);	/* known to be okay here */
+		    --SvCUR(kid->op_sv);
+		}
+	    }
 	    sv_catpvn(kid->op_sv, ".pm", 3);
 	}
     }
@@ -3445,7 +3526,6 @@ OP *op;
 	    if (kid->op_type == OP_SCOPE) {
 		k = kid->op_next;
 		kid->op_next = 0;
-		peep(k);
 	    }
 	    else if (kid->op_type == OP_LEAVE) {
 		null(kid);			/* wipe out leave */
@@ -3455,11 +3535,16 @@ OP *op;
 		    if (k->op_next == kid)
 			k->op_next = 0;
 		}
-		peep(kLISTOP->op_first);
+		k = kLISTOP->op_first;
 	    }
+	    peep(k);
+
 	    kid = cLISTOP->op_first->op_sibling;	/* get past pushmark */
 	    null(kid);					/* wipe out rv2gv */
-	    kid->op_next = kid;
+	    if (op->op_type == OP_SORT)
+		kid->op_next = kid;
+	    else
+		kid->op_next = k;
 	    op->op_flags |= OPf_SPECIAL;
 	}
     }
@@ -3556,7 +3641,10 @@ OP *op;
     if (op->op_flags & OPf_KIDS) {
 	SVOP *kid = (SVOP*)cUNOP->op_first;
 
-	if (kid->op_type == OP_CONST && (kid->op_private & OPpCONST_BARE))
+	if (kid->op_type == OP_NULL)
+	    kid = (SVOP*)kid->op_sibling;
+	if (kid &&
+	  kid->op_type == OP_CONST && (kid->op_private & OPpCONST_BARE))
 	    op->op_flags |= OPf_SPECIAL;
     }
     return ck_fun(op);
@@ -3565,16 +3653,25 @@ OP *op;
 /* A peephole optimizer.  We visit the ops in the order they're to execute. */
 
 void
-peep(op)
-register OP* op;
+peep(o)
+register OP* o;
 {
     register OP* oldop = 0;
-    if (!op || op->op_seq)
+    if (!o || o->op_seq)
 	return;
-    for (; op; op = op->op_next) {
-	if (op->op_seq)
-	    return;
-	switch (op->op_type) {
+    ENTER;
+    SAVESPTR(op);
+    SAVESPTR(curcop);
+    for (; o; o = o->op_next) {
+	if (o->op_seq)
+	    break;
+	op = o;
+	switch (o->op_type) {
+	case OP_NEXTSTATE:
+	case OP_DBSTATE:
+	    curcop = ((COP*)o);		/* for warnings */
+	    break;
+
 	case OP_CONCAT:
 	case OP_CONST:
 	case OP_JOIN:
@@ -3583,13 +3680,13 @@ register OP* op;
 	case OP_LC:
 	case OP_LCFIRST:
 	case OP_QUOTEMETA:
-	    if (op->op_next->op_type == OP_STRINGIFY)
-		null(op->op_next);
-	    op->op_seq = ++op_seqmax;
+	    if (o->op_next->op_type == OP_STRINGIFY)
+		null(o->op_next);
+	    o->op_seq = ++op_seqmax;
 	    break;
 	case OP_STUB:
-	    if ((op->op_flags & (OPf_KNOW|OPf_LIST)) != (OPf_KNOW|OPf_LIST)) {
-		op->op_seq = ++op_seqmax;
+	    if ((o->op_flags & (OPf_KNOW|OPf_LIST)) != (OPf_KNOW|OPf_LIST)) {
+		o->op_seq = ++op_seqmax;
 		break;	/* Scalar stub must produce undef.  List stub is noop */
 	    }
 	    /* FALL THROUGH */
@@ -3597,27 +3694,28 @@ register OP* op;
 	case OP_SCALAR:
 	case OP_LINESEQ:
 	case OP_SCOPE:
-	    if (oldop) {
-		oldop->op_next = op->op_next;
+	    if (oldop && o->op_next) {
+		oldop->op_next = o->op_next;
 		continue;
 	    }
-	    op->op_seq = ++op_seqmax;
+	    o->op_seq = ++op_seqmax;
 	    break;
 
 	case OP_GV:
-	    if (op->op_next->op_type == OP_RV2SV) {
-		if (!(op->op_next->op_private & (OPpDEREF_HV|OPpDEREF_AV))) {
-		    null(op->op_next);
-		    op->op_private |= op->op_next->op_private & OPpLVAL_INTRO;
-		    op->op_next = op->op_next->op_next;
-		    op->op_type = OP_GVSV;
-		    op->op_ppaddr = ppaddr[OP_GVSV];
+	    if (o->op_next->op_type == OP_RV2SV) {
+		if (!(o->op_next->op_private & (OPpDEREF_HV|OPpDEREF_AV))) {
+		    null(o->op_next);
+		    o->op_private |= o->op_next->op_private & OPpLVAL_INTRO;
+		    o->op_next = o->op_next->op_next;
+		    o->op_type = OP_GVSV;
+		    o->op_ppaddr = ppaddr[OP_GVSV];
 		}
 	    }
-	    else if (op->op_next->op_type == OP_RV2AV) {
-		OP* pop = op->op_next->op_next;
+	    else if (o->op_next->op_type == OP_RV2AV) {
+		OP* pop = o->op_next->op_next;
 		IV i;
 		if (pop->op_type == OP_CONST &&
+		    (op = pop->op_next) &&
 		    pop->op_next->op_type == OP_AELEM &&
 		    !(pop->op_next->op_private &
 			(OPpDEREF_HV|OPpDEREF_AV|OPpLVAL_INTRO)) &&
@@ -3625,36 +3723,36 @@ register OP* op;
 				<= 255 &&
 		    i >= 0)
 		{
-		    null(op->op_next);
+		    null(o->op_next);
 		    null(pop->op_next);
 		    null(pop);
-		    op->op_flags |= pop->op_next->op_flags & OPf_MOD;
-		    op->op_next = pop->op_next->op_next;
-		    op->op_type = OP_AELEMFAST;
-		    op->op_ppaddr = ppaddr[OP_AELEMFAST];
-		    op->op_private = (U8)i;
-		    GvAVn((GV*)cSVOP->op_sv);
+		    o->op_flags |= pop->op_next->op_flags & OPf_MOD;
+		    o->op_next = pop->op_next->op_next;
+		    o->op_type = OP_AELEMFAST;
+		    o->op_ppaddr = ppaddr[OP_AELEMFAST];
+		    o->op_private = (U8)i;
+		    GvAVn((GV*)(((SVOP*)o)->op_sv));
 		}
 	    }
-	    op->op_seq = ++op_seqmax;
+	    o->op_seq = ++op_seqmax;
 	    break;
 
 	case OP_MAPWHILE:
 	case OP_GREPWHILE:
 	case OP_AND:
 	case OP_OR:
-	    op->op_seq = ++op_seqmax;
+	    o->op_seq = ++op_seqmax;
 	    peep(cLOGOP->op_other);
 	    break;
 
 	case OP_COND_EXPR:
-	    op->op_seq = ++op_seqmax;
+	    o->op_seq = ++op_seqmax;
 	    peep(cCONDOP->op_true);
 	    peep(cCONDOP->op_false);
 	    break;
 
 	case OP_ENTERLOOP:
-	    op->op_seq = ++op_seqmax;
+	    o->op_seq = ++op_seqmax;
 	    peep(cLOOP->op_redoop);
 	    peep(cLOOP->op_nextop);
 	    peep(cLOOP->op_lastop);
@@ -3662,18 +3760,18 @@ register OP* op;
 
 	case OP_MATCH:
 	case OP_SUBST:
-	    op->op_seq = ++op_seqmax;
-	    peep(cPMOP->op_pmreplroot);
+	    o->op_seq = ++op_seqmax;
+	    peep(cPMOP->op_pmreplstart);
 	    break;
 
 	case OP_EXEC:
-	    op->op_seq = ++op_seqmax;
-	    if (dowarn && op->op_next && op->op_next->op_type == OP_NEXTSTATE) {
-		if (op->op_next->op_sibling &&
-			op->op_next->op_sibling->op_type != OP_DIE) {
+	    o->op_seq = ++op_seqmax;
+	    if (dowarn && o->op_next && o->op_next->op_type == OP_NEXTSTATE) {
+		if (o->op_next->op_sibling &&
+			o->op_next->op_sibling->op_type != OP_DIE) {
 		    line_t oldline = curcop->cop_line;
 
-		    curcop->cop_line = ((COP*)op->op_next)->cop_line;
+		    curcop->cop_line = ((COP*)o->op_next)->cop_line;
 		    warn("Statement unlikely to be reached");
 		    warn("(Maybe you meant system() when you said exec()?)\n");
 		    curcop->cop_line = oldline;
@@ -3681,9 +3779,10 @@ register OP* op;
 	    }
 	    break;
 	default:
-	    op->op_seq = ++op_seqmax;
+	    o->op_seq = ++op_seqmax;
 	    break;
 	}
-	oldop = op;
+	oldop = o;
     }
+    LEAVE;
 }

@@ -1,0 +1,95 @@
+=head1 NAME
+
+perlipc - Perl interprocess communication
+
+=head1 DESCRIPTION
+
+=head2 Interprocess Communication
+
+The IPC facilities of perl are built on the Berkeley socket mechanism.
+If you don't have sockets, you can ignore this section.  The calls have
+the same names as the corresponding system calls, but the arguments
+tend to differ, for two reasons.  First, perl file handles work
+differently than C file descriptors.  Second, perl already knows the
+length of its strings, so you don't need to pass that information.
+Here is a sample client (untested):
+
+    ($them,$port) = @ARGV;
+    $port = 2345 unless $port;
+    $them = 'localhost' unless $them;
+
+    $SIG{'INT'} = 'dokill';
+    sub dokill { kill 9,$child if $child; }
+
+    require 'sys/socket.ph';
+
+    $sockaddr = 'S n a4 x8';
+    chop($hostname = `hostname`);
+
+    ($name, $aliases, $proto) = getprotobyname('tcp');
+    ($name, $aliases, $port) = getservbyname($port, 'tcp')
+	unless $port =~ /^\d+$/;
+    ($name, $aliases, $type, $len, $thisaddr) =
+		    gethostbyname($hostname);
+    ($name, $aliases, $type, $len, $thataddr) = gethostbyname($them);
+
+    $this = pack($sockaddr, &AF_INET, 0, $thisaddr);
+    $that = pack($sockaddr, &AF_INET, $port, $thataddr);
+
+    socket(S, &PF_INET, &SOCK_STREAM, $proto) || die "socket: $!";
+    bind(S, $this) || die "bind: $!";
+    connect(S, $that) || die "connect: $!";
+
+    select(S); $| = 1; select(stdout);
+
+    if ($child = fork) {
+	while (<>) {
+	    print S;
+	}
+	sleep 3;
+	do dokill();
+    }
+    else {
+	while (<S>) {
+	    print;
+	}
+    }
+
+And here's a server:
+
+    ($port) = @ARGV;
+    $port = 2345 unless $port;
+
+    require 'sys/socket.ph';
+
+    $sockaddr = 'S n a4 x8';
+
+    ($name, $aliases, $proto) = getprotobyname('tcp');
+    ($name, $aliases, $port) = getservbyname($port, 'tcp')
+	unless $port =~ /^\d+$/;
+
+    $this = pack($sockaddr, &AF_INET, $port, "\0\0\0\0");
+
+    select(NS); $| = 1; select(stdout);
+
+    socket(S, &PF_INET, &SOCK_STREAM, $proto) || die "socket: $!";
+    bind(S, $this) || die "bind: $!";
+    listen(S, 5) || die "connect: $!";
+
+    select(S); $| = 1; select(stdout);
+
+    for (;;) {
+	print "Listening again\n";
+	($addr = accept(NS,S)) || die $!;
+	print "accept ok\n";
+
+	($af,$port,$inetaddr) = unpack($sockaddr,$addr);
+	@inetaddr = unpack('C4',$inetaddr);
+	print "$af $port @inetaddr\n";
+
+	while (<NS>) {
+	    print;
+	    print NS;
+	}
+    }
+

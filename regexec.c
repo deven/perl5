@@ -86,17 +86,19 @@ regcppush(parenfloor)
 I32 parenfloor;
 {
     int retval = savestack_ix;
-    int i = (*reglastparen - parenfloor) * 3;
+    int i = (regsize - parenfloor) * 3;
     int p;
 
-    SSCHECK(i + 3);
-    for (p = *reglastparen; p > parenfloor; p--) {
+    SSCHECK(i + 5);
+    for (p = regsize; p > parenfloor; p--) {
 	SSPUSHPTR(regendp[p]);
 	SSPUSHPTR(regstartp[p]);
 	SSPUSHINT(p);
     }
+    SSPUSHINT(regsize);
+    SSPUSHINT(*reglastparen);
     SSPUSHPTR(reginput);
-    SSPUSHINT(i + 1);
+    SSPUSHINT(i + 3);
     SSPUSHINT(SAVEt_REGCONTEXT);
     return retval;
 }
@@ -105,14 +107,25 @@ char*
 regcppop()
 {
     I32 i = SSPOPINT;
+    U32 paren = 0;
     char *input;
+    char *tmps;
     assert(i == SAVEt_REGCONTEXT);
     i = SSPOPINT;
     input = (char *) SSPOPPTR;
-    for (i--; i > 0; i -= 3) {
-	I32 paren = SSPOPINT;
+    *reglastparen = SSPOPINT;
+    regsize = SSPOPINT;
+    for (i -= 3; i > 0; i -= 3) {
+	paren = (U32)SSPOPINT;
 	regstartp[paren] = (char *) SSPOPPTR;
-	regendp[paren] = (char *) SSPOPPTR;
+	tmps = (char*)SSPOPPTR;
+	if (paren <= *reglastparen)
+	    regendp[paren] = tmps;
+    }
+    for (paren = *reglastparen + 1; paren <= regnpar; paren++) {
+	if (paren > regsize)
+	    regstartp[paren] = Nullch;
+	regendp[paren] = Nullch;
     }
     return input;
 }
@@ -175,6 +188,7 @@ I32 safebase;	/* no need to remember string in subbase */
 	    regprev = '\0';		/* force ^ to NOT match */
     }
     regprecomp = prog->precomp;
+    regnpar = prog->nparens;
     /* Check validity of program. */
     if (UCHARAT(prog->program) != MAGIC) {
 	FAIL("corrupted regexp program");
@@ -216,7 +230,7 @@ I32 safebase;	/* no need to remember string in subbase */
 		s = startpos;
 	    minlen = prog->regback + SvCUR(prog->regmust);
 	}
-	else if (--BmUSEFUL(prog->regmust) < 0) { /* boo */
+	else if (!prog->naughty && --BmUSEFUL(prog->regmust) < 0) { /* boo */
 	    SvREFCNT_dec(prog->regmust);
 	    prog->regmust = Nullsv;	/* disable regmust */
 	    s = startpos;
@@ -468,7 +482,7 @@ got_it:
 	    prog->subend = s+i;
 	}
 	else if (strbeg != prog->subbase) {
-	    s = nsavestr(strbeg,i);	/* so $digit will work later */
+	    s = savepvn(strbeg,i);	/* so $digit will work later */
 	    if (prog->subbase)
 		Safefree(prog->subbase);
 	    prog->subbeg = prog->subbase = s;
@@ -513,6 +527,7 @@ char *startpos;
     regendp = prog->endp;
     reglastparen = &prog->lastparen;
     prog->lastparen = 0;
+    regsize = 0;
 
     sp = prog->startp;
     ep = prog->endp;
@@ -729,6 +744,8 @@ char *prog;
 	case OPEN:
 	    n = ARG1(scan);  /* which paren pair */
 	    regstartp[n] = locinput;
+	    if (n > regsize)
+		regsize = n;
 	    break;
 	case CLOSE:
 	    n = ARG1(scan);  /* which paren pair */
@@ -750,13 +767,13 @@ char *prog;
 		cc.minmod = minmod;
 		cc.lastloc = 0;
 		reginput = locinput;
-		n = regmatch(PREVOPER(next));	/* start on the WHILE */
+		n = regmatch(PREVOPER(next));	/* start on the WHILEM */
 		regcpblow(cp);
 		regcc = cc.oldcc;
 		return n;
 	    }
 	    /* NOT REACHED */
-	case WHILE: {
+	case WHILEM: {
 		/*
 		 * This is really hard to understand, because after we match
 		 * what we're trying to match, we must make sure the rest of
@@ -902,7 +919,7 @@ char *prog;
 	    }
 	    else {
 		n = regrepeat(scan, n);
-		if (ln < n && regkind[OP(next)] == EOL &&
+		if (ln < n && regkind[(U8)OP(next)] == EOL &&
 		    (!multiline || OP(next) == SEOL))
 		    ln = n;			/* why back off? */
 		while (n >= ln) {
@@ -926,7 +943,7 @@ char *prog;
 	    if (!regmatch(scan))
 		return 0;
 	    break;
-	case UNLESS:
+	case UNLESSM:
 	    reginput = locinput;
 	    scan = NEXTOPER(scan);
 	    if (regmatch(scan))

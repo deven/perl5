@@ -4,9 +4,9 @@ require 5.000;
 
 $ExportLevel = 0;
 
-sub import {
-    my ($callpack, $callfile, $callline) = caller($ExportLevel);
+sub export {
     my $pack = shift;
+    my $callpack = shift;
     my @imports = @_;
     *exports = \@{"${pack}::EXPORT"};
     if (@imports) {
@@ -47,5 +47,11 @@ sub import {
 		    warn "Can't export symbol: $type$sym\n";
     }
 };
+
+sub import {
+    local ($callpack, $callfile, $callline) = caller($ExportLevel);
+    my $pack = shift;
+    export $pack, $callpack, @_;
+}
 
 1;

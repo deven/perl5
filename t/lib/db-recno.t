@@ -10,7 +10,7 @@ BEGIN {
 }
 
 use DB_File; 
-use POSIX 'fcntl_h' ;	# only want O_RDWR & O_CREAT
+use Fcntl;
 
 print "1..30\n";
 
@@ -21,7 +21,7 @@ umask(0);
 
 # Check the interface to RECNOINFO
 
-$dbh = new DB_File::RECNOINFO ;
+$dbh = TIEHASH DB_File::RECNOINFO ;
 print (($dbh->{bval} == undef) ? "ok 1\n" : "not ok 1\n") ;
 print (($dbh->{cachesize} == undef) ? "ok 2\n" : "not ok 2\n") ;
 print (($dbh->{psize} == undef) ? "ok 3\n" : "not ok 3\n") ;

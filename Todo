@@ -8,12 +8,6 @@ Tie Modules
 	VirtualArray		Implement array using a file
 	ShiftSplice		Defines shift et al in terms of splice method
 
-Bugs
-	Make "delete $array{$key} while ($key) = each %array" safe
-	<$handle> doesn't work intuitively if $handle is ARGV
-	debugger X doesn't list arrays of arrays
-	Anything in the Bugs directory
-
 Would be nice to have
 	Profiler
 	pack "(stuff)*"
@@ -41,6 +35,7 @@ Possible pragmas
 	optimize (use less memory, CPU)
 
 Optimizations
+	constant function cache
 	switch structures
 	foreach(@array)
 	foreach (1..1000000)

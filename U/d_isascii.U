@@ -1,4 +1,4 @@
-?RCS: $Id: d_isascii.U,v 3.0 1993/08/18 12:06:44 ram Exp $
+?RCS: $Id: d_isascii.U,v 3.0.1.1 1994/08/29 16:09:32 ram Exp $
 ?RCS:
 ?RCS: Copyright (c) 1991-1993, Raphael Manfredi
 ?RCS: 
@@ -8,43 +8,47 @@
 ?RCS: that same Artistic Licence; a copy of which may be found at the root
 ?RCS: of the source tree for dist 3.0.
 ?RCS:
-?RCS: $Log: d_isascii.U,v $
-?RCS: Revision 3.0  1993/08/18  12:06:44  ram
-?RCS: Baseline for dist 3.0 netwide release.
+?RCS: Original Author: Andy Dougherty <doughera@lafcol.lafayette.edu>
 ?RCS:
-?MAKE:d_isascii: cc cat cppflags rm Setvar Findhdr
+?RCS: $Log: d_isascii.U,v $
+?RCS: Revision 3.0.1.1  1994/08/29  16:09:32  ram
+?RCS: patch32: created by ADO
+?RCS:
+?MAKE:d_isascii: cc cat ccflags ldflags rm libs Setvar
 ?MAKE:	-pick add $@ %<
 ?S:d_isascii:
-?S:	This variable conditionally defines the HAS_ISASCII manifest constant,
+?S:	This variable conditionally defines the HAS_ISASCII constant,
 ?S:	which indicates to the C program that isascii() is available.
 ?S:.
-?C:HAS_ISASCII (ISASCII):
-?C:	This manifest constant lets the C program know that the
-?C:	isascii is available.
+?C:HAS_ISASCII:
+?C:	This manifest constant lets the C program know that isascii 
+?C:	is available.
 ?C:.
 ?H:#$d_isascii HAS_ISASCII		/**/
 ?H:.
 ?LINT:set d_isascii
+?X: Can't use Inlibc because isascii() might be a macro.
 : Look for isascii
 echo " "
 $cat >isascii.c <<'EOCP'
 #include <stdio.h>
 #include <ctype.h>
 main() {
-        int c = 'A';
+	int c = 'A';
 	if (isascii(c))
-	    exit(0);
+		exit(0);
 	else
-	    exit(1);
+		exit(1);
 }
 EOCP
-if $cc $cppflags -o isascii isascii.c >/dev/null 2>&1 ; then
-    echo "isascii() found."
-    val="$define"
+if $cc $ccflags $ldflags -o isascii isascii.c $libs >/dev/null 2>&1 ; then
+	echo "isascii() found." >&4
+	val="$define"
 else
-    echo "isascii() NOT found."
-    val="$undef"
+	echo "isascii() NOT found." >&4
+	val="$undef"
 fi
 set d_isascii
 eval $setvar
 $rm -f isascii*
+

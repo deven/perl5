@@ -78,6 +78,7 @@ __END__
 # options chosen when building perl or site-specific data; these should
 # be hand-edited appropriately.  Someday, perhaps, we'll get this automated.
 
+arch=VMS/VAX
 osname=VMS
 osvers=5.5-2
 CONFIG=true
@@ -86,8 +87,8 @@ cppflags=/Define=(DEBUGGING)
 dldir=/ext/dl
 dlobj=dl_vms.obj
 dlsrc=dl_vms.c
-so=.exe
-libpth=
+so=exe
+libpth=/sys$share /sys$library
 hintfile=
 intsize=4
 alignbytes=8

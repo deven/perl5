@@ -1,0 +1,214 @@
+=head1 NAME
+
+perltrap - Perl traps for the unwary
+
+=head1 DESCRIPTION
+
+Accustomed I<awk> users should take special note of the following:
+
+=over 4
+
+=item *
+
+Semicolons are required after all simple statements in I<perl> (except
+at the end of a block).  Newline is not a statement delimiter.
+
+=item *
+
+Curly brackets are required on ifs and whiles.
+
+=item *
+
+Variables begin with $ or @ in I<perl>.
+
+=item *
+
+Arrays index from 0 unless you set $[.  Likewise string positions in
+substr() and index().
+
+=item *
+
+You have to decide whether your array has numeric or string indices.
+
+=item *
+
+Associative array values do not spring into existence upon mere
+reference.
+
+=item *
+
+You have to decide whether you want to use string or numeric
+comparisons.
+
+=item *
+
+Reading an input line does not split it for you.  You get to split it
+yourself to an array.  And the I<split> operator has different
+arguments.
+
+=item *
+
+The current input line is normally in $_, not $0.  It generally does
+not have the newline stripped.  ($0 is the name of the program
+executed.)
+
+=item *
+
+$<digit> does not refer to fields--it refers to substrings matched by
+the last match pattern.
+
+=item *
+
+The I<print> statement does not add field and record separators unless
+you set $, and $\.
+
+=item *
+
+You must open your files before you print to them.
+
+=item *
+
+The range operator is "..", not comma.  (The comma operator works as in
+C.)
+
+=item *
+
+The match operator is "=~", not "~".  ("~" is the one's complement
+operator, as in C.)
+
+=item *
+
+The exponentiation operator is "**", not "^".  ("^" is the XOR
+operator, as in C.)
+
+=item *
+
+The concatenation operator is ".", not the null string.  (Using the
+null string would render "/pat/ /pat/" unparsable, since the third
+slash would be interpreted as a division operator--the tokener is in
+fact slightly context sensitive for operators like /, ?, and <.  And in
+fact, . itself can be the beginning of a number.)
+
+=item *
+
+I<Next>, I<exit> and I<continue> work differently.
+
+=item *
+
+The following variables work differently
+
+      Awk	Perl
+      ARGC	$#ARGV or scalar @ARGV
+      ARGV[0]	$0
+      FILENAME	$ARGV
+      FNR	$. - something
+      FS	(whatever you like)
+      NF	$#Fld, or some such
+      NR	$.
+      OFMT	$#
+      OFS	$,
+      ORS	$\
+      RLENGTH	length($&)
+      RS	$/
+      RSTART	length($`)
+      SUBSEP	$;
+
+=item *
+
+When in doubt, run the I<awk> construct through a2p and see what it
+gives you.
+
+Cerebral C programmers should take note of the following:
+
+=item *
+
+Curly brackets are required on ifs and whiles.
+
+=item *
+
+You should use "elsif" rather than "else if".
+
+=item *
+
+I<Break> and I<continue> become I<last> and I<next>, respectively.
+
+=item *
+
+There's no switch statement.
+
+=item *
+
+Variables begin with $ or @ in I<perl>.
+
+=item *
+
+Printf does not implement *.
+
+=item *
+
+Comments begin with #, not /*.
+
+=item *
+
+You can't take the address of anything.
+
+=item *
+
+ARGV must be capitalized.
+
+=item *
+
+System calls such as link, unlink, rename, etc. return nonzero for
+success, not 0.
+
+=item *
+
+Signal handlers deal with signal names, not numbers.
+
+Seasoned I<sed> programmers should take note of the following:
+
+=item *
+
+Backreferences in substitutions use $ rather than \.
+
+=item *
+
+The pattern matching metacharacters (, ), and | do not have backslashes
+in front.
+
+=item *
+
+The range operator is .. rather than comma.
+
+Sharp shell programmers should take note of the following:
+
+=item *
+
+The backtick operator does variable interpretation without regard to
+the presence of single quotes in the command.
+
+=item *
+
+The backtick operator does no translation of the return value, unlike csh.
+
+=item *
+
+Shells (especially csh) do several levels of substitution on each
+command line.  I<Perl> does substitution only in certain constructs
+such as double quotes, backticks, angle brackets and search patterns.
+
+=item *
+
+Shells interpret scripts a little bit at a time.  I<Perl> compiles the
+whole program before executing it.
+
+=item *
+
+The arguments are available via @ARGV, not $1, $2, etc.
+
+=item *
+
+The environment is not automatically made available as variables.
+
+=back
+

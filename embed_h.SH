@@ -6,6 +6,16 @@ cat <<'END' >embed.h
 /* (Doing namespace management portably in C is really gross.) */
 
 #ifdef EMBED
+#ifndef HIDE_GLOBAL_NAMES
+#define HIDE_GLOBAL_NAMES 1
+#endif
+#endif
+
+/* We may need to hide global names because of a name conflict 
+   in an extension or because we are embedding perl within
+   another program.
+*/
+#ifdef HIDE_GLOBAL_NAMES
 
 /* globals we need to hide from the world */
 END
@@ -18,7 +28,7 @@ sed <global.sym >>embed.h						\
 
 cat <<'END' >> embed.h
 
-#endif /* EMBED */
+#endif /* HIDE_GLOBAL_NAMES */
 
 /* Put interpreter specific symbols into a struct? */
 

@@ -177,7 +177,7 @@ SV **sptr;
     SSPUSHINT(SAVEt_SVREF);
 
     sv = *sptr = NEWSV(0,0);
-    if (SvTYPE(osv) >= SVt_PVMG && SvMAGIC(sv)) {
+    if (SvTYPE(osv) >= SVt_PVMG && SvMAGIC(osv)) {
 	sv_upgrade(sv, SvTYPE(osv));
 	if (SvGMAGICAL(osv)) {
 	    mg_get(osv);
@@ -429,7 +429,7 @@ I32 base;
 	    gv = (GV*)SSPOPPTR;
 	    sv = GvSV(gv);
 	    if (SvTYPE(sv) >= SVt_PVMG && SvMAGIC(sv)) {
-		SvUPGRADE(value, SvTYPE(sv));
+		(void)SvUPGRADE(value, SvTYPE(sv));
 		SvMAGIC(value) = SvMAGIC(sv);
 		SvFLAGS(value) |= SvMAGICAL(sv);
 		SvMAGICAL_off(sv);
@@ -444,7 +444,7 @@ I32 base;
 	    sv = *(SV**)ptr;
 	    value = (SV*)SSPOPPTR;
 	    if (SvTYPE(sv) >= SVt_PVMG) {
-		SvUPGRADE(value, SvTYPE(sv));
+		(void)SvUPGRADE(value, SvTYPE(sv));
 		SvMAGIC(value) = SvMAGIC(sv);
 		SvFLAGS(value) |= SvMAGICAL(sv);
 		SvMAGICAL_off(sv);
@@ -549,8 +549,8 @@ I32 base;
 		    break;
 		default:
 		    if (SvPOK(sv) && SvLEN(sv))
-			SvOOK_off(sv);
-		    SvOK_off(sv);
+			(void)SvOOK_off(sv);
+		    (void)SvOK_off(sv);
 		    break;
 		}
 	    }

@@ -33,10 +33,9 @@ struct gp {
 #define GvMAGIC(gv)	(GvGP(gv)->gp_magic)
 #define GvSV(gv)	(GvGP(gv)->gp_sv)
 #define GvREFCNT(gv)	(GvGP(gv)->gp_refcnt)
-#define GvIO(gv)	(GvGP(gv)->gp_io)
-#define GvIOn(gv)	(GvIO(gv) ?			\
-			 GvIO(gv) :			\
-			 (GvIO(gv) = newIO()))
+#define GvIO(gv)	((gv) && SvTYPE((SV*)gv) == SVt_PVGV ? GvIOp(gv) : 0)
+#define GvIOp(gv)	(GvGP(gv)->gp_io)
+#define GvIOn(gv)	(GvIO(gv) ? GvIOp(gv) : GvIOp(gv_IOadd(gv)))
 
 #define GvFORM(gv)	(GvGP(gv)->gp_form)
 #define GvAV(gv)	(GvGP(gv)->gp_av)
@@ -89,3 +88,4 @@ HV *GvHVn();
 #define DM_DELAY 0x100
 
 #define GVf_INTRO 0x01
+#define GVf_IMPORTED 0x02

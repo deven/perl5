@@ -27,20 +27,30 @@
 #ifdef I_STDDEF
 #include <stddef.h>
 #endif
+/* XXX This comment is just to make I_TERMIO and I_SGTTY visible to 
+   metaconfig for future extension writers.  We don't use them in POSIX.
+   (This is really sneaky :-)  --AD
+*/
 #if defined(I_TERMIOS)
 #include <termios.h>
 #endif
 #include <stdio.h>
+#ifdef I_STDLIB
 #include <stdlib.h>
+#endif
 #include <string.h>
 #include <sys/stat.h>
 #include <sys/times.h>
 #include <sys/types.h>
+#ifdef HAS_UNAME
 #include <sys/utsname.h>
+#endif
 #include <sys/wait.h>
 #include <time.h>
 #include <unistd.h>
+#ifdef I_UTIME
 #include <utime.h>
+#endif
 
 typedef FILE * InputStream;
 typedef FILE * OutputStream;
@@ -48,12 +58,28 @@ typedef int SysRet;
 typedef long SysRetLong;
 typedef sigset_t* POSIX__SigSet;
 typedef HV* POSIX__SigAction;
+#ifdef I_TERMIOS
 typedef struct termios* POSIX__Termios;
+#else /* Define termios types to int, and call not_here for the functions.*/
+#define POSIX__Termios int
+#define speed_t int
+#define tcflag_t int
+#define cc_t int
+#define cfgetispeed(x) not_here("cfgetispeed")
+#define cfgetospeed(x) not_here("cfgetospeed")
+#define tcdrain(x) not_here("tcdrain")
+#define tcflush(x,y) not_here("tcflush")
+#define tcsendbreak(x,y) not_here("tcsendbreak")
+#define cfsetispeed(x,y) not_here("cfsetispeed")
+#define cfsetospeed(x,y) not_here("cfsetospeed")
+#define ctermid(x) (char *) not_here("ctermid")
+#define tcflow(x,y) not_here("tcflow")
+#define tcgetattr(x,y) not_here("tcgetattr")
+#define tcsetattr(x,y,z) not_here("tcsetattr")
+#endif
 
 /* Possibly needed prototypes */
 char *cuserid _((char *));
-
-#define HAS_UNAME
 
 #ifndef HAS_CUSERID
 #define cuserid(a) (char *) not_here("cuserid")
@@ -63,11 +89,20 @@ char *cuserid _((char *));
 #define difftime(a,b) not_here("difftime")
 #endif
 #endif
+#ifndef HAS_FPATHCONF
+#define fpathconf(f,n) 	(SysRetLong) not_here("fpathconf")
+#endif
 #ifndef HAS_MKTIME
 #define mktime(a) not_here("mktime")
 #endif
 #ifndef HAS_NICE
 #define nice(a) not_here("nice")
+#endif
+#ifndef HAS_PATHCONF
+#define pathconf(f,n) 	(SysRetLong) not_here("pathconf")
+#endif
+#ifndef HAS_SYSCONF
+#define sysconf(n) 	(SysRetLong) not_here("sysconf")
 #endif
 #ifndef HAS_READLINK
 #define readlink(a,b,c) not_here("readlink")
@@ -108,7 +143,9 @@ char *cuserid _((char *));
 #endif
 
 #ifndef HAS_MBLEN
+#ifndef mblen
 #define mblen(a,b) not_here("mblen")
+#endif
 #endif
 #ifndef HAS_MBSTOWCS
 #define mbstowcs(s, pwcs, n) not_here("mbstowcs")
@@ -121,6 +158,20 @@ char *cuserid _((char *));
 #endif
 #ifndef HAS_WCTOMB
 #define wctomb(s, wchar) not_here("wcstombs")
+#endif
+#if !defined(HAS_MBLEN) && !defined(HAS_MBSTOWCS) && !defined(HAS_MBTOWC) && !defined(HAS_WCSTOMBS) && !defined(HAS_WCTOMB)
+/* If we don't have these functions, then we wouldn't have gotten a typedef
+   for wchar_t, the wide character type.  Defining wchar_t allows the
+   functions referencing it to compile.  Its actual type is then meaningless,
+   since without the above functions, all sections using it end up calling
+   not_here() and croak.  --Kaveh Ghazi (ghazi@noc.rutgers.edu) 9/18/94. */
+#ifndef wchar_t
+#define wchar_t char
+#endif
+#endif
+
+#ifndef HAS_LOCALECONV
+#define localeconv() not_here("localeconv")
 #endif
 
 #ifdef HAS_TZNAME
@@ -2146,7 +2197,11 @@ new(packname = "POSIX::Termios", ...)
     char *		packname
     CODE:
 	{
+#ifdef I_TERMIOS
 	    RETVAL = (struct termios*)safemalloc(sizeof(struct termios));
+#else
+	    not_here("termios");
+#endif
 	}
     OUTPUT:
 	RETVAL
@@ -2155,7 +2210,11 @@ void
 DESTROY(termios_ref)
 	POSIX::Termios	termios_ref
     CODE:
+#ifdef I_TERMIOS
 	safefree((char *)termios_ref);
+#else
+	    not_here("termios");
+#endif
 
 SysRet
 getattr(termios_ref, fd = 0)
@@ -2188,7 +2247,11 @@ tcflag_t
 getiflag(termios_ref)
 	POSIX::Termios	termios_ref
     CODE:
+#ifdef I_TERMIOS /* References a termios structure member so ifdef it out. */
 	RETVAL = termios_ref->c_iflag;
+#else
+	    not_here("getiflag");
+#endif
     OUTPUT:
 	RETVAL
 
@@ -2196,7 +2259,11 @@ tcflag_t
 getoflag(termios_ref)
 	POSIX::Termios	termios_ref
     CODE:
+#ifdef I_TERMIOS /* References a termios structure member so ifdef it out. */
 	RETVAL = termios_ref->c_oflag;
+#else
+	    not_here("getoflag");
+#endif
     OUTPUT:
 	RETVAL
 
@@ -2204,7 +2271,11 @@ tcflag_t
 getcflag(termios_ref)
 	POSIX::Termios	termios_ref
     CODE:
+#ifdef I_TERMIOS /* References a termios structure member so ifdef it out. */
 	RETVAL = termios_ref->c_cflag;
+#else
+	    not_here("getcflag");
+#endif
     OUTPUT:
 	RETVAL
 
@@ -2212,7 +2283,11 @@ tcflag_t
 getlflag(termios_ref)
 	POSIX::Termios	termios_ref
     CODE:
+#ifdef I_TERMIOS /* References a termios structure member so ifdef it out. */
 	RETVAL = termios_ref->c_lflag;
+#else
+	    not_here("getlflag");
+#endif
     OUTPUT:
 	RETVAL
 
@@ -2221,9 +2296,13 @@ getcc(termios_ref, ccix)
 	POSIX::Termios	termios_ref
 	int		ccix
     CODE:
+#ifdef I_TERMIOS /* References a termios structure member so ifdef it out. */
 	if (ccix >= NCCS)
 	    croak("Bad getcc subscript");
 	RETVAL = termios_ref->c_cc[ccix];
+#else
+	    not_here("getcc");
+#endif
     OUTPUT:
 	RETVAL
 
@@ -2242,28 +2321,44 @@ setiflag(termios_ref, iflag)
 	POSIX::Termios	termios_ref
 	tcflag_t	iflag
     CODE:
+#ifdef I_TERMIOS /* References a termios structure member so ifdef it out. */
 	termios_ref->c_iflag = iflag;
+#else
+	    not_here("setiflag");
+#endif
 
 void
 setoflag(termios_ref, oflag)
 	POSIX::Termios	termios_ref
 	tcflag_t	oflag
     CODE:
+#ifdef I_TERMIOS /* References a termios structure member so ifdef it out. */
 	termios_ref->c_oflag = oflag;
+#else
+	    not_here("setoflag");
+#endif
 
 void
 setcflag(termios_ref, cflag)
 	POSIX::Termios	termios_ref
 	tcflag_t	cflag
     CODE:
+#ifdef I_TERMIOS /* References a termios structure member so ifdef it out. */
 	termios_ref->c_cflag = cflag;
+#else
+	    not_here("setcflag");
+#endif
 
 void
 setlflag(termios_ref, lflag)
 	POSIX::Termios	termios_ref
 	tcflag_t	lflag
     CODE:
+#ifdef I_TERMIOS /* References a termios structure member so ifdef it out. */
 	termios_ref->c_lflag = lflag;
+#else
+	    not_here("setlflag");
+#endif
 
 void
 setcc(termios_ref, ccix, cc)
@@ -2271,9 +2366,15 @@ setcc(termios_ref, ccix, cc)
 	int		ccix
 	cc_t		cc
     CODE:
+#ifdef I_TERMIOS /* References a termios structure member so ifdef it out. */
 	if (ccix >= NCCS)
 	    croak("Bad setcc subscript");
 	termios_ref->c_cc[ccix] = cc;
+#else
+	    not_here("setcc");
+#endif
+
+
 
 MODULE = FileHandle	PACKAGE = FileHandle	PREFIX = f
 
@@ -2475,11 +2576,12 @@ SysRet
 open(filename, flags = O_RDONLY, mode = 0666)
 	char *		filename
 	int		flags
-	mode_t		mode
+	Mode_t		mode
 
 HV *
 localeconv()
     CODE:
+#ifdef HAS_LOCALECONV
 	struct lconv *lcbuf;
 	RETVAL = newHV();
 	if (lcbuf = localeconv()) {
@@ -2540,6 +2642,9 @@ localeconv()
 		hv_store(RETVAL, "n_sign_posn", 11,
 		    newSViv(lcbuf->n_sign_posn), 0);
 	}
+#else
+	localeconv(); /* A stub to call not_here(). */
+#endif
     OUTPUT:
 	RETVAL
 
@@ -2675,6 +2780,8 @@ sigaction(sig, action, oldaction = 0)
 		RETVAL = sigaction(sig, & act, (struct sigaction*)0);
 	    else if (oldaction)
 		RETVAL = sigaction(sig, (struct sigaction*)0, & oact);
+	    else
+		RETVAL = -1;
 
 	    if (oldaction) {
 		/* Get back the mask. */
@@ -2791,6 +2898,7 @@ tcsetpgrp(fd, pgrp_id)
 int
 uname()
     PPCODE:
+#ifdef HAS_UNAME
 	struct utsname buf;
 	if (uname(&buf) >= 0) {
 	    EXTEND(sp, 5);
@@ -2800,6 +2908,9 @@ uname()
 	    PUSHs(sv_2mortal(newSVpv(buf.version, 0)));
 	    PUSHs(sv_2mortal(newSVpv(buf.machine, 0)));
 	}
+#else
+	uname((char *) 0); /* A stub to call not_here(). */
+#endif
 
 SysRet
 write(fd, buffer, nbytes)
@@ -2871,7 +2982,7 @@ strxfrm(src)
 SysRet
 mkfifo(filename, mode)
 	char *		filename
-	mode_t		mode
+	Mode_t		mode
 
 SysRet
 tcdrain(fd)
@@ -3005,7 +3116,7 @@ tzname()
 SysRet
 access(filename, mode)
 	char *		filename
-	mode_t		mode
+	Mode_t		mode
 
 char *
 ctermid(s = 0)

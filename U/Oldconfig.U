@@ -25,7 +25,7 @@
 ?X: This unit tries to remember what we did last time we ran Configure, mostly
 ?X: for the sake of setting defaults.
 ?X:
-?MAKE:Oldconfig hint hintfile myuname osname osvers: Instruct Myread uname \
+?MAKE:Oldconfig hint myuname osname osvers: Instruct Myread uname \
 	sed test cat rm lns n c contains Loc Options
 ?MAKE:	-pick wipe $@ %<
 ?S:myuname:
@@ -36,10 +36,6 @@
 ?S:hint:
 ?S:	Gives the type of hints used for previous answers. May be one of
 ?S:	"default", "recommended" or "previous".
-?S:.
-?S:hintfile:
-?S:	Gives the name of the hint file used.  Set to '' if no hint file
-?S:	is used.
 ?S:.
 ?S:osname:
 ?S:	This variable contains the operating system name (e.g. sunos,
@@ -56,7 +52,8 @@
 ?S:	same for this package, hints files might just be os_4.0 or
 ?S:	os_4.1, etc., not keeping separate files for each little release.
 ?S:.
-?T:tmp file xxxfile xxfile xfile oldmyuname tans _
+?T:tmp file xxxxfile xxxfile xxfile xfile hintfile oldmyuname tans _ isesix
+?T:INITPROG
 ?LINT:change n c
 : Try to determine whether config.sh was made on this system
 case "$config_sh" in
@@ -72,7 +69,7 @@ myuname=`( ($uname -a) 2>/dev/null || hostname) 2>&1`
 ?X:  release=2.3.2 .. etc...
 ?X: Therefore, we strip all this variable assignment junk and remove all the
 ?X: new lines to keep the myuname variable sane... --RAM
-myuname=`echo $myuname | $sed -e 's/^[^=]*=//' | \
+myuname=`echo $myuname | $sed -e 's/^[^=]*=//' -e 's/\///g' | \
 	tr '[A-Z]' '[a-z]' | tr '\012' ' '`
 dflt=n
 if test -f ../config.sh; then
@@ -120,13 +117,13 @@ EOM
 	: Half the following guesses are probably wrong... If you have better
 	: tests or hints, please send them to <MAINTLOC>
 	: The metaconfig authors would also appreciate a copy...
-	$test -f /irix && osname=sgi
+	$test -f /irix && osname=irix
 	$test -f /xenix && osname=sco_xenix
 	$test -f /dynix && osname=dynix
 	$test -f /dnix && osname=dnix
  	$test -f /unicos && osname=unicos && osvers=`$uname -r`
 	$test -f /bin/mips && /bin/mips && osname=mips
-	$test -d /NextApps && $test -f /usr/adm/software_version && osname=next
+	$test -d /NextApps && set X `hostinfo | grep 'NeXT Mach.*:' | sed -e 's/://' -e 's/\./_/'` && osname=next && osvers=$4
 	$test -d /usr/apollo/bin && osname=apollo
 	$test -f /etc/saf/_sactab && osname=svr4
 	$test -d /usr/include/minix && osname=minix
@@ -170,11 +167,15 @@ EOM
 			*) osvers='' ;;
 			esac
 			;;
-		dnix) osname=dnix ;;
+		dnix) osname=dnix
+			osvers="$3"
+			;;
 		domainos) osname=apollo
 			osvers="$3"
 			;;
-		dgux) osname=dgux ;;
+		dgux) osname=dgux 
+			osvers="$3"
+			;;
 		freebsd) osname=freebsd 
 			osvers="$3" ;;
 		genix) osname=genix ;;
@@ -185,7 +186,7 @@ EOM
 			*.10.*) osvers=10 ;;
 			esac
 			;;
-		irix) osname=sgi
+		irix) osname=irix
 			case "$3" in
 			4*) osvers=4 ;;
 			5*) osvers=5 ;;
@@ -197,6 +198,12 @@ EOM
 			*)	osvers="$3" ;;
 			esac
 			;;
+		netbsd*) osname=netbsd 
+				osvers="$3"
+				;;
+		bsd386) osname=bsd386
+			osvers=`$uname -r`
+			;;
 		next*) osname=next ;;
 		solaris) osname=solaris
 			case "$3" in
@@ -205,12 +212,17 @@ EOM
 			;;
 		sunos) osname=sunos
 			case "$3" in
-			3*) osvers=3 ;;
-			4.0*) osvers=4.0 ;;
-			4.1*) osvers=4.1 ;;
-			4.2*) osvers=4.2 ;;
 			5*) osname=solaris
 				osvers=`echo $3 | $sed 's/^5/2/g'` ;;
+			*)	osvers="$3" ;;
+			esac
+			;;
+		titanos) osname=titanos
+			case "$3" in
+			1*) osvers=1 ;;
+			2*) osvers=2 ;;
+			3*) osvers=3 ;;
+			4*) osvers=4 ;;
 			esac
 			;;
 		ultrix) osname=ultrix
@@ -234,7 +246,9 @@ EOM
 			# TR =	Technology Releases: unsupported
 			esac
 			;;
-		uts) osname=uts ;;
+		uts) osname=uts 
+			osvers="$3"
+			;;
 		$2) case "$osname" in
 			*isc*) ;;
 			*freebsd*) ;;
@@ -246,11 +260,24 @@ EOM
 					osvers=$4
 					;;
 				esac
+				case "$osname" in
+				svr4.0)
+					: Check for ESIX
+					if test -f /stand/boot ; then
+						eval `grep '^INITPROG=[a-z/0-9]*$' /stand/boot`
+						if test -n $INITPROG -a -f $INITPROG; then
+							isesix=`strings -a $INITPROG|grep 'ESIX SYSTEM V/386 Release 4.0'`
+							if test -n $isesix; then
+								osname=esix4
+							fi
+						fi
+					fi
+					;;
+				esac
 				;;
-
 			*)	if test -f /etc/systemid; then
-				osname=sco
-				set `echo $3 | $sed 's/\./ /g'` $4
+					osname=sco
+					set `echo $3 | $sed 's/\./ /g'` $4
 					if $test -f sco_$1_$2_$3.sh; then
 						osvers=$1.$2.$3
 					elif $test -f sco_$1_$2.sh; then
@@ -258,7 +285,21 @@ EOM
 					elif $test -f sco_$1.sh; then
 						osvers=$1
 					fi
+				else
+					case "$osname" in
+					'') : Still unknown.  Probably a generic Sys V.
+						osname="sysv"
+						osvers="$3"
+						;;
+					esac
 				fi
+				;;
+			esac
+			;;
+		*)	case "$osname" in
+			'') : Still unknown.  Probably a generic BSD.
+				osname="$1"
+				osvers="$3"
 				;;
 			esac
 			;;
@@ -280,9 +321,10 @@ EOM
 	''|' ')
 		file=`echo "${osname}_${osvers}" | sed -e 's@\.@_@g' -e 's@_$@@'`
 		: Also try without trailing minor version numbers.
-		xfile=`echo $file | sed -e 's@_.$@@'`
-		xxfile=`echo $xfile | sed -e 's@_.$@@'`
-		xxxfile=`echo $xxfile | sed -e 's@_.$@@'`
+		xfile=`echo $file | sed -e 's@_[^_]*$@@'`
+		xxfile=`echo $xfile | sed -e 's@_[^_]*$@@'`
+		xxxfile=`echo $xxfile | sed -e 's@_[^_]*$@@'`
+		xxxxfile=`echo $xxxfile | sed -e 's@_[^_]*$@@'`
 		case "$file" in
 		'') dflt=none ;;
 		*)  case "$osvers" in
@@ -296,6 +338,8 @@ EOM
 					dflt=$xxfile
 				elif $test -f $xxxfile.sh ; then
 					dflt=$xxxfile
+				elif $test -f $xxxxfile.sh ; then
+					dflt=$xxxxfile
 				elif $test -f "${osname}.sh" ; then
 					dflt="${osname}"
 				else
@@ -359,6 +403,7 @@ cd UU
 @else
 : Get old answers, if there is a config file out there
 hint=default
+hintfile=''
 if test -f ../config.sh; then
 	echo " "
 	rp="I see a config.sh file.  Shall I use it to set the defaults?"
@@ -401,8 +446,9 @@ for file in $loclist $trylist; do
 	eval $file="\$_$file"
 done
 
-echo " "
+@if osname
 cat << EOM
+
 Configure uses the operating system name and version to set some defaults.
 Say "none" to leave it blank.
 
@@ -423,13 +469,18 @@ case "$ans" in
     none)  osname='' ;;
     *) osname="$ans" ;;
 esac
-
+@end
+@if osvers
 case "$osvers" in
 	''|' ')
 		case "$hintfile" in
 		''|' '|none) dflt=none ;;
 		*)	dflt=`echo $hintfile | sed -e 's/\.sh$//' -e 's/^[^_]*//'`
-    		dflt=`echo $dflt | sed -e 's/^_//' -e 's/_/./g'` ;;
+    		dflt=`echo $dflt | sed -e 's/^_//' -e 's/_/./g'`
+			case "$dflt" in
+			''|' ') dflt=none ;;
+			esac
+			;;
 		esac
 		;;
 	*) dflt="$osvers" ;;
@@ -440,4 +491,4 @@ case "$ans" in
     none)  osvers='' ;;
     *) osvers="$ans" ;;
 esac
-
+@end

@@ -1,0 +1,320 @@
+#!../miniperl
+
+# Convert nroff commands and -ms macros to html.
+# Designed for -ms macros but handles many -mm macros and some -me macros.
+
+# This is primitive, so be gentle.
+
+# usage:
+#    ../miniperl ms2ht p5api.ms > p5api.html
+
+$inhead = 0;
+$beghead = $endhead = "";
+$intitle = 0;
+$inauthor = 0;
+$indent = 0;
+$tindent = 0;
+$intable = 0;
+$intablehdr = 0;
+$defining = 0;
+%href = ();
+$href = 0;
+%name = ();
+$name = 0;
+$ref = \%href;
+$cref = \$href;
+$listitem = 0;
+$usetbl = 0;
+$table = "tblfh1";
+$seewhite = 0;
+%toc = ();
+@toc = ();
+$inlisting = 0;
+
+print "<html>\n";
+while(<>){
+	study;
+	last if /^\.ex/o;
+
+	if( $usetbl ){
+		if( /^\.\\"<\s*endtable/o ){
+			close $table;
+			open( $table, "tbl /tmp/$table | nroff -ms |" ) ||
+			open( $table, "groff -t -ms /tmp/$table |" ) ||
+				die;
+			print "<listing>\n";
+			while( <$table> ){
+				last if ! /^\s$/o;
+			}
+			print;
+			$seewhite = 0;
+			while( <$table> ){
+				last if $seewhite > 1;
+				++$seewhite if /^\s$/o;
+				print;
+			}
+			print "</listing>\n";
+			close $table;
+			unlink "/tmp/$table";
+			$usetbl = 0;
+		}
+		else{
+			print $table "$_";
+		}
+		next;
+	}
+
+	if( $defining ){
+		$defining = 0 if /^\.\./o;
+		next;
+	}
+
+	if( $intablehdr ){
+		$intablehdr = 0 if /\.\s$/o;
+		next;
+	}
+	
+	if( /^\.\\"</o ){
+		chop;
+		$toc = 0;
+		if( /<\s*TOC/o ){
+			print qq{<p><a href="#TOC">};
+			print "Table of Contents</a><p>\n";
+			next;
+		}
+		elsif( s/.*?href\s+//o ){
+			$ref = \%href;
+			$cref = \$href;
+		}
+		elsif( s/.*?name(\/X)?\s+//o ){
+			$ref = \%name;
+			$cref = \$name;
+			$toc++ if $1;
+		}
+		elsif( /<\s*table/o ){
+			$usetbl = 1;
+			open( $table, ">/tmp/$table" ) ||
+				die "unable to open file /tmp/$table: $!";
+			next;
+		}
+		elsif( /<\s*line\s*/o ){
+			print "<hr>\n";
+			next;
+		}
+		else {
+			next;
+		}
+		# only href and name should come to this point
+		if( /"?([^"=]*)"?=(.*)/o ){
+			($a,$b) = ($1,$2);
+			$$ref{$a} = $b;
+			$$cref++;
+			if( $toc ){
+				push( @toc, $a );
+				$toc{$a} = $b;
+			}
+		}
+		else {
+			s/"//og;
+			$$ref{$_} = $_;
+			$$cref++;
+			if( $toc ){
+				push( @toc, $_ );
+				$toc{$_} = $_;
+			}
+		}
+		next;
+	}
+
+	if(
+		/^\.\\"/o	||
+		/^\.K[SE]/o	||
+		/^\.ce/o	||
+		/^\.[\(\)]b/o	|| # -me
+		/^\.n[ahr]/o	||
+		/^\.SA/o	|| # -mm
+		/^\.AF/o	|| # -mm
+		/^\.P[FHX]/o	|| # -mm
+		/^\.ds/o	||
+		/^\.MT/o	|| # -mm
+		/^\.AA/o	|| # -mm
+		/^\.bp/o	||
+		/^\.af/o	||
+		/^\.RP/o	||
+		/^\.[BA]L\s+\d+/o	 # -mm
+	){ next }
+
+	if(
+		s/^\.[ILP]?P/<p>/io		|| # -ms,-me,-mm
+		s/^\.nf/<pre><code>/o		||
+		s/^\.fi/<\/code><\/pre>/o	||
+		s/^\.br/<br>/o			||
+		s/^\.hl/<hr>/o			|| # -me
+		s/^\.[AB]L/<ul>/o		|| # -mm
+		s/^\.LE/<\/ul>/o		|| # -mm
+		s/^\.I/<em>/o			|| # -mm
+		s/^\.R/<\/em>/o			|| # -mm
+		s/^\.AE/<\/blockquote>/o	||
+		s/^\.AB/<h3>Abstract<\/h3>\n<blockquote>/o
+	){ print; next }
+
+	s/&/&amp;/go				&& study;
+	s/</&lt;/go				&& study;
+	s/>/&gt;/go				&& study;
+	if( $inlisting ){
+		s/\\fB(.*?)\\f[RP]/\1/go	&& study;
+		s/\\fI(.*?)\\f[RP]/\1/go	&& study;
+	}
+	else{
+		s/\\fB(.*?)\\f[RP]/<b>\1<\/b>/go	&& study;
+		s/\\fI(.*?)\\f[RP]/<i>\1<\/i>/go	&& study;
+	}
+	s/\\0/ /go				&& study;
+	s/\\e/\\/go				&& study;
+
+	if( $intable ){
+		s/^([^!]+)?!/sprintf("$1%s"," "x(10-length("$1")))/e
+		&& s/$/<br>/o
+		&& study;
+	}
+
+	if( $intitle ){
+		$x = $_;
+		s/^/<head><title>/o;
+		s/$/<\/title><\/head>/o;
+		$intitle = 0;
+		$x =~ s/^/<strong>/o;
+		$x =~ s/$/<\/strong><br>/o;
+		$_ .= $x;
+	}
+	elsif( $inauthor ){
+		s/^/<em>/o;
+		s/$/<\/em><br>/o;
+		$inauthor = 0;
+	}
+	elsif( $inhead ){
+		s/^/$beghead/;
+		s/$/$endhead/;
+		$inhead = 0;
+	}
+	elsif( /^\.TL/o ){
+		$intitle = 1;
+		next;
+	}
+	elsif( /^\.A[UI]/o ){
+		if( /"/o ){ # -mm
+			/"([^"]+)/o;
+			$_ = $1;
+			s/^/<em>/o;
+			s/$/<\/em><br>/o;
+		}
+		else{
+			$inauthor = 1;
+			next;
+		}
+	}
+	elsif( /^\.de/o ){
+		$defining = 1;
+		next;
+	}
+	elsif( /^\.NH\s+(\d)/o ){
+		$inhead = 1;
+		$beghead = "<h$1>";
+		$endhead = "</h$1>";
+		next;
+	}
+	elsif( /^\.SH/o ){
+		$inhead = 1;
+		$beghead = "<h1>";
+		$endhead = "</h1>";
+		next;
+	}
+	elsif( /^\.sH\s+"(.*?)"/o ){ # macro in p5api.ms
+		$_ = "<h1>$1</h1>\n";
+	}
+	elsif( /^\.LI/o ){ # -mm
+		$listitem = 1;
+		next;
+	}
+	elsif( $listitem ){ # -mm
+		$listitem = 0;
+		s/^/<li>/o;
+	}
+	elsif( s/^\.H\s+(\d)\s+//o ){ # -mm
+		$z = $1;
+		s/"//og;
+		$_ = "<h$z>$_</h$z>";
+	}
+	elsif( /^\.cS/o ){ # macro in p5api.ms
+		print "<listing>\n";
+		$inlisting++;
+		$indent += 5;
+		next;
+	}
+	elsif( /^\.cE/o ){ # macro in p5api.ms
+		print "</listing>\n";
+		$inlisting--;
+		$indent = 0;
+		next;
+	}
+	elsif( /^\.in\s+([-+]?)(\d+)/o ){
+		if( $1 eq "+" ){ $indent += $2 }
+		elsif( $1 eq "-" ){ $indent -= $2 }
+		else{ $indent = $2 }
+		next;
+	}
+	elsif( $indent > 0 ){
+		print " " x $indent;
+	}
+	elsif( /^\.ti\s+([-+]?)(\d+)/o ){
+		if( $1 eq "+" ){ $tindent += $2 }
+		else{ $tindent = $2 }
+		next;
+	}
+	elsif( s/^\.TS/<pre>/o ){
+		$intable = $intablehdr = 1;
+	}
+	elsif( s/^\.TE/<\/pre>/o ){
+		$intable = $intablehdr = 0;
+	}
+	elsif( $tindent > 0 ){
+		print "<listing>\n", " " x $tindent, $_, "</listing>\n";
+		$tindent = 0;
+		next;
+	}
+
+	if( $href ){
+		foreach $x (keys %href){
+			$y = quotemeta $x;
+			/($y)/ && do {
+				$xx = $href{$x} == 1 ? $x : $href{$x};
+				s/($y)/<a href="#$xx">$x<\/a>/;
+				delete( $href{$x} );
+				--$href;
+			};
+		}
+	}
+	if( $name ){
+		foreach $x (keys %name){
+			$y = quotemeta $x;
+			/($y)/ && do {
+				$xx = $name{$x} == 1 ? $x : $name{$x};
+				s/($y)/<a name="$xx">$x<\/a>/;
+				delete( $name{$x} );
+				--$name;
+			};
+		}
+	}
+
+	print;
+}
+
+print "<hr>\n<h1>";
+print qq{<a name="TOC">Table of Contents<a></h1><p>\n};
+print "<ul>\n";
+while( @toc ){
+	$_ = shift @toc;
+	print qq{<li><a href="#$toc{$_}">$_</a><br>\n};
+}
+print "</ul>\n";
+print "</html>\n";

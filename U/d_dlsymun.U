@@ -2,8 +2,8 @@
 ?RCS:
 ?RCS: $Log: d_dlsymun.U,v $
 ?RCS:
-?MAKE:d_dlsymun: cat cc ccflags rm Setvar dlsrc i_dlfcn so \
-	cccdlflags ccdlflags lddlflags libs
+?MAKE:d_dlsymun: cat cc ccflags ldflags rm Setvar dlsrc i_dlfcn \
+	cccdlflags ccdlflags lddlflags libs dlext
 ?MAKE:	-pick add $@ %<
 ?X: This is specific to perl5.
 ?S:d_dlsymun:
@@ -39,6 +39,7 @@ $cat >fred.c<<EOM
 #ifdef I_DLFCN
 #include <dlfcn.h>      /* the dynamic linker include file for Sunos/Solaris */
 #else
+#include <sys/types.h>
 #include <nlist.h>
 #include <link.h>
 #endif
@@ -54,7 +55,7 @@ main()
 #else
     int mode = RTLD_LAZY ;
 #endif
-    handle = dlopen("./dyna.$so", mode) ;
+    handle = dlopen("./dyna.$dlext", mode) ;
     if (handle == NULL) {
         printf ("1\n") ;
 	    exit(0);
@@ -75,12 +76,14 @@ main()
 }
 EOM
 	if $cc $ccflags $cccdlflags -c dyna.c > /dev/null 2>&1 && 
-		ld $lddlflags -o dyna.$so dyna.o > /dev/null 2>&1 && 
-		$cc $ccflags $cccdlflags $ccdlflags fred.c -o fred $libs > /dev/null 2>&1; then
+		ld $lddlflags -o dyna.$dlext dyna.o > /dev/null 2>&1 && 
+		$cc $ccflags $ldflags $cccdlflags $ccdlflags fred.c -o fred $libs > /dev/null 2>&1; then
 		xxx=`./fred`
 		case $xxx in
-		1)	echo "Test program failed using dlopen." >&4;;
-		2)	echo "Test program failed using dlsym." >&4;;
+		1)	echo "Test program failed using dlopen." >&4
+			echo "Perhaps you should not use dynamic loading." >&4;;
+		2)	echo "Test program failed using dlsym." >&4
+			echo "Perhaps you should not use dynamic loading." >&4;;
 		3)	echo "dlsym needs a leading underscore" >&4
 			val="$define" ;;
 		4)	echo "dlsym doesn't need a leading underscore." >&4;;
@@ -91,7 +94,7 @@ EOM
 	;;
 esac
 		
-$rm -f fred fred.? dyna.so dyna.?
+$rm -f fred fred.? dyna.$dlext dyna.?
 
 set d_dlsymun
 eval $setvar

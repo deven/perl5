@@ -192,7 +192,7 @@ bless		bless			ck_fun		s	S S?
 # Pushy I/O.
 
 backtick	backticks		ck_null		t	
-glob		glob			ck_glob		t	
+glob		glob			ck_glob		t	S S
 readline	<HANDLE>		ck_null		t	
 rcatline	append I/O operator	ck_null		t	
 
@@ -211,22 +211,22 @@ sassign		scalar assignment	ck_null		s
 aassign		list assignment		ck_null		t	L L
 
 chop		chop			ck_spair	mts	L
-schop		scalar chop		ck_null		tsu	S?
-safechop	safe chop		ck_spair	mts	L
-ssafechop	scalar safe chop	ck_null		su	S?
+schop		scalar chop		ck_null		stu	S?
+chomp		safe chop		ck_spair	mts	L
+schomp		scalar safe chop	ck_null		stu	S?
 defined		defined operator	ck_rfun		isu	S?
 undef		undef operator		ck_lfun		s	S?
 study		study			ck_fun		stu	S?
 pos		match position		ck_lfun		stu	S?
 
-preinc		preincrement		ck_lfun		Is	S
-i_preinc	integer preincrement	ck_lfun		is	S
-predec		predecrement		ck_lfun		Is	S
-i_predec	integer predecrement	ck_lfun		is	S
-postinc		postincrement		ck_lfun		Ist	S
-i_postinc	integer postincrement	ck_lfun		ist	S
-postdec		postdecrement		ck_lfun		Ist	S
-i_postdec	integer postdecrement	ck_lfun		ist	S
+preinc		preincrement		ck_lfun		dIs	S
+i_preinc	integer preincrement	ck_lfun		dis	S
+predec		predecrement		ck_lfun		dIs	S
+i_predec	integer predecrement	ck_lfun		dis	S
+postinc		postincrement		ck_lfun		dIst	S
+i_postinc	integer postincrement	ck_lfun		dist	S
+postdec		postdecrement		ck_lfun		dIst	S
+i_postdec	integer postdecrement	ck_lfun		dist	S
 
 # Ordinary operators.
 

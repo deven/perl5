@@ -36,8 +36,8 @@ typedef enum {
 	OP_AASSIGN,	/* 34 */
 	OP_CHOP,	/* 35 */
 	OP_SCHOP,	/* 36 */
-	OP_SAFECHOP,	/* 37 */
-	OP_SSAFECHOP,	/* 38 */
+	OP_CHOMP,	/* 37 */
+	OP_SCHOMP,	/* 38 */
 	OP_DEFINED,	/* 39 */
 	OP_UNDEF,	/* 40 */
 	OP_STUDY,	/* 41 */
@@ -757,8 +757,8 @@ OP *	pp_sassign	_((void));
 OP *	pp_aassign	_((void));
 OP *	pp_chop		_((void));
 OP *	pp_schop	_((void));
-OP *	pp_safechop	_((void));
-OP *	pp_ssafechop	_((void));
+OP *	pp_chomp	_((void));
+OP *	pp_schomp	_((void));
 OP *	pp_defined	_((void));
 OP *	pp_undef	_((void));
 OP *	pp_study	_((void));
@@ -1102,8 +1102,8 @@ OP * (*ppaddr[])() = {
 	pp_aassign,
 	pp_chop,
 	pp_schop,
-	pp_safechop,
-	pp_ssafechop,
+	pp_chomp,
+	pp_schomp,
 	pp_defined,
 	pp_undef,
 	pp_study,
@@ -1449,8 +1449,8 @@ OP * (*check[])() = {
 	ck_null,	/* aassign */
 	ck_spair,	/* chop */
 	ck_null,	/* schop */
-	ck_spair,	/* safechop */
-	ck_null,	/* ssafechop */
+	ck_spair,	/* chomp */
+	ck_null,	/* schomp */
 	ck_rfun,	/* defined */
 	ck_lfun,	/* undef */
 	ck_fun,		/* study */
@@ -1783,7 +1783,7 @@ U32 opargs[] = {
 	0x0000098c,	/* ref */
 	0x00009104,	/* bless */
 	0x00000008,	/* backtick */
-	0x00000008,	/* glob */
+	0x00001108,	/* glob */
 	0x00000008,	/* readline */
 	0x00000008,	/* rcatline */
 	0x00000104,	/* regcmaybe */
@@ -1796,20 +1796,20 @@ U32 opargs[] = {
 	0x00002208,	/* aassign */
 	0x0000020d,	/* chop */
 	0x0000098c,	/* schop */
-	0x0000020d,	/* safechop */
-	0x00000984,	/* ssafechop */
+	0x0000020d,	/* chomp */
+	0x0000098c,	/* schomp */
 	0x00000994,	/* defined */
 	0x00000904,	/* undef */
 	0x0000098c,	/* study */
 	0x0000098c,	/* pos */
-	0x00000124,	/* preinc */
-	0x00000114,	/* i_preinc */
-	0x00000124,	/* predec */
-	0x00000114,	/* i_predec */
-	0x0000012c,	/* postinc */
-	0x0000011c,	/* i_postinc */
-	0x0000012c,	/* postdec */
-	0x0000011c,	/* i_postdec */
+	0x00000164,	/* preinc */
+	0x00000154,	/* i_preinc */
+	0x00000164,	/* predec */
+	0x00000154,	/* i_predec */
+	0x0000016c,	/* postinc */
+	0x0000015c,	/* i_postinc */
+	0x0000016c,	/* postdec */
+	0x0000015c,	/* i_postdec */
 	0x0000110e,	/* pow */
 	0x0000112e,	/* multiply */
 	0x0000111e,	/* i_multiply */

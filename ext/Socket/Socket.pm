@@ -1,4 +1,5 @@
 package Socket;
+use Carp;
 
 require Exporter;
 require AutoLoader;
@@ -99,8 +100,7 @@ sub AUTOLOAD {
 	}
 	else {
 	    ($pack,$file,$line) = caller;
-	    die "Your vendor has not defined Socket macro $constname, used at $file line $line.
-";
+	    croak "Your vendor has not defined Socket macro $constname, used";
 	}
     }
     eval "sub $AUTOLOAD { $val }";

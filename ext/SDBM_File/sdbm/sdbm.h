@@ -171,7 +171,7 @@ extern long sdbm_hash proto((char *, int));
 #include <memory.h>
 #endif
 
-#if defined(HAS_MEMCMP) && defined(mips) && defined(ultrix)
+#if defined(mips) && defined(ultrix) && !defined(__STDC__)
 #   undef HAS_MEMCMP
 #endif
 

@@ -1,0 +1,95 @@
+=head1 NAME
+
+perlsec - Perl security
+
+=head1 DESCRIPTION
+
+=head2 Setuid Scripts
+
+I<Perl> is designed to make it easy to write secure setuid and setgid
+scripts.  Unlike shells, which are based on multiple substitution
+passes on each line of the script, I<perl> uses a more conventional
+evaluation scheme with fewer hidden "gotchas".  Additionally, since the
+language has more built-in functionality, it has to rely less upon
+external (and possibly untrustworthy) programs to accomplish its
+purposes.
+
+In an unpatched 4.2 or 4.3bsd kernel, setuid scripts are intrinsically
+insecure, but this kernel feature can be disabled.  If it is, I<perl>
+can emulate the setuid and setgid mechanism when it notices the
+otherwise useless setuid/gid bits on perl scripts.  If the kernel
+feature isn't disabled, I<perl> will complain loudly that your setuid
+script is insecure.  You'll need to either disable the kernel setuid
+script feature, or put a C wrapper around the script.
+
+When perl is executing a setuid script, it takes special precautions to
+prevent you from falling into any obvious traps.  (In some ways, a perl
+script is more secure than the corresponding C program.)  Any command
+line argument, environment variable, or input is marked as "tainted",
+and may not be used, directly or indirectly, in any command that
+invokes a subshell, or in any command that modifies files, directories
+or processes.  Any variable that is set within an expression that has
+previously referenced a tainted value also becomes tainted (even if it
+is logically impossible for the tainted value to influence the
+variable).  For example:
+
+    $foo = shift;		# $foo is tainted
+    $bar = $foo,'bar';		# $bar is also tainted
+    $xxx = <>;			# Tainted
+    $path = $ENV{'PATH'};	# Tainted, but see below
+    $abc = 'abc';		# Not tainted
+
+    system "echo $foo";		# Insecure
+    system "/bin/echo", $foo;	# Secure (doesn't use sh)
+    system "echo $bar";		# Insecure
+    system "echo $abc";		# Insecure until PATH set
+
+    $ENV{'PATH'} = '/bin:/usr/bin';
+    $ENV{'IFS'} = '' if $ENV{'IFS'} ne '';
+
+    $path = $ENV{'PATH'};	# Not tainted
+    system "echo $abc";		# Is secure now!
+
+    open(FOO,"$foo");		# OK
+    open(FOO,">$foo"); 		# Not OK
+
+    open(FOO,"echo $foo|");	# Not OK, but...
+    open(FOO,"-|") || exec 'echo', $foo;	# OK
+
+    $zzz = `echo $foo`;		# Insecure, zzz tainted
+
+    unlink $abc,$foo;		# Insecure
+    umask $foo;			# Insecure
+
+    exec "echo $foo";		# Insecure
+    exec "echo", $foo;		# Secure (doesn't use sh)
+    exec "sh", '-c', $foo;	# Considered secure, alas
+
+The taintedness is associated with each scalar value, so some elements
+of an array can be tainted, and others not.
+
+If you try to do something insecure, you will get a fatal error saying
+something like "Insecure dependency" or "Insecure PATH".  Note that you
+can still write an insecure system call or exec, but only by explicitly
+doing something like the last example above.  You can also bypass the
+tainting mechanism by referencing subpatterns--I<perl> presumes that if
+you reference a substring using $1, $2, etc, you knew what you were
+doing when you wrote the pattern:
+
+    $ARGV[0] =~ /^-P(\w+)$/;
+    $printer = $1;		# Not tainted
+
+This is fairly secure since \w+ doesn't match shell metacharacters.
+Use of .+ would have been insecure, but I<perl> doesn't check for that,
+so you must be careful with your patterns.  This is the ONLY mechanism
+for untainting user supplied filenames if you want to do file
+operations on them (unless you make $> equal to $<).
+
+It's also possible to get into trouble with other operations that don't
+care whether they use tainted values.  Make judicious use of the file
+tests in dealing with any user-supplied filenames.  When possible, do
+opens and such after setting $> = $<.  I<Perl> doesn't prevent you from
+opening tainted filenames for reading, so be careful what you print
+out.  The tainting mechanism is intended to prevent stupid mistakes,
+not to remove the need for thought.
+

@@ -1,0 +1,417 @@
+=head1 NAME
+
+perlop - Perl operators and precedence
+
+=head1 SYNOPSIS
+
+I<Perl> operators have the following associativity and precedence:
+
+    left	or
+    left	and
+    left	not
+    nonassoc	list operators
+    left	,
+    right	= += -= *= etc.
+    right	?:
+    nonassoc	..
+    left	||
+    left	&&
+    left	| ^
+    left	&
+    nonassoc	== != <=> eq ne cmp
+    nonassoc	< > <= >= lt gt le ge
+    nonassoc	named unary operators
+    left	<< >>
+    left	+ - .
+    left	* / % x
+    left	=~ !~ 
+    right	! ~ and unary minus
+    right	**
+    nonassoc	++ --
+    left	'('
+
+=head1 DESCRIPTION
+
+=head2 General rules
+
+If any list operator (print, etc.) or any unary
+operator (chdir, etc.) is followed by a left parenthesis as the next
+token on the same line, the operator and arguments within parentheses
+are taken to be of highest precedence, just like a normal function
+call.  Examples:
+
+    chdir $foo || die;	# (chdir $foo) || die
+    chdir($foo) || die;	# (chdir $foo) || die
+    chdir ($foo) || die;	# (chdir $foo) || die
+    chdir +($foo) || die;	# (chdir $foo) || die
+
+but, because * is higher precedence than ||:
+
+    chdir $foo * 20;	# chdir ($foo * 20)
+    chdir($foo) * 20;	# (chdir $foo) * 20
+    chdir ($foo) * 20;	# (chdir $foo) * 20
+    chdir +($foo) * 20;	# chdir ($foo * 20)
+
+    rand 10 * 20;	# rand (10 * 20)
+    rand(10) * 20;	# (rand 10) * 20
+    rand (10) * 20;	# (rand 10) * 20
+    rand +(10) * 20;	# rand (10 * 20)
+
+In the absence of parentheses, the precedence of list operators such as
+print, sort or chmod is either very high or very low depending on
+whether you look at the left side of operator or the right side of it.
+For example, in
+
+    @ary = (1, 3, sort 4, 2);
+    print @ary;		# prints 1324
+
+the commas on the right of the sort are evaluated before the sort, but
+the commas on the left are evaluated after.  In other words, list
+operators tend to gobble up all the arguments that follow them, and
+then act like a simple term with regard to the preceding expression.
+Note that you have to be careful with parens:
+
+    # These evaluate exit before doing the print:
+    print($foo, exit);	# Obviously not what you want.
+    print $foo, exit;	# Nor is this.
+
+    # These do the print before evaluating exit:
+    (print $foo), exit;	# This is what you want.
+    print($foo), exit;	# Or this.
+    print ($foo), exit;	# Or even this.
+
+Also note that
+
+    print ($foo & 255) + 1, "\n";
+
+probably doesn't do what you expect at first glance.
+
+=head2 Expressions
+
+Since I<perl> expressions work almost exactly like C expressions, only
+the differences will be mentioned here.
+
+Here's what I<perl> has that C doesn't:
+
+=over 8
+
+=item **
+
+The exponentiation operator.
+
+=item **=
+
+The exponentiation assignment operator.
+
+=item ()
+
+The null list, used to initialize an array to null.
+
+=item .
+
+Concatenation of two strings.
+
+=item .=
+
+The concatenation assignment operator.
+
+=item eq
+
+String equality (== is numeric equality).  For a mnemonic just think of
+"eq" as a string.  (If you are used to the I<awk> behavior of using ==
+for either string or numeric equality based on the current form of the
+comparands, beware!  You must be explicit here.)
+
+=item ne
+
+String inequality (!= is numeric inequality).
+
+=item lt
+
+String less than.
+
+=item gt
+
+String greater than.
+
+=item le
+
+String less than or equal.
+
+=item ge
+
+String greater than or equal.
+
+=item cmp
+
+String comparison, returning -1, 0, or 1.
+
+=item <=>
+
+Numeric comparison, returning -1, 0, or 1.
+
+=item =~
+
+Certain operations search or modify the string "$_" by default.  This
+operator makes that kind of operation work on some other string.  The
+right argument is a search pattern, substitution, or translation.  The
+left argument is what is supposed to be searched, substituted, or
+translated instead of the default "$_".  The return value indicates the
+success of the operation.  (If the right argument is an expression
+other than a search pattern, substitution, or translation, it is
+interpreted as a search pattern at run time.  This is less efficient
+than an explicit search, since the pattern must be compiled every time
+the expression is evaluated.)  The precedence of this operator is lower
+than unary minus and autoincrement/decrement, but higher than
+everything else.
+
+=item !~
+
+Just like =~ except the return value is negated.
+
+=item x
+
+The repetition operator.  Returns a string consisting of the left
+operand repeated the number of times specified by the right operand.
+In an array context, if the left operand is a list in parens, it
+repeats the list.
+
+    print '-' x 80;		# print row of dashes
+
+    print "\t" x ($tab/8), ' ' x ($tab%8);	# tab over
+
+    @ones = (1) x 80;		# an array of 80 1's
+    @ones = (5) x @ones;		# set all elements to 5
+
+=item x=
+
+The repetition assignment operator.  Only works on scalars.
+
+=item ..
+
+The range operator, which is really two different operators depending
+on the context.  In an array context, returns an array of values
+counting (by ones) from the left value to the right value.  This is
+useful for writing "for (1..10)" loops and for doing slice operations
+on arrays.
+
+In a scalar context, .. returns a boolean value.  The operator is
+bistable, like a flip-flop, and emulates the line-range (comma)
+operator of sed, awk, and various editors.  Each .. operator maintains
+its own boolean state.  It is false as long as its left operand is
+false.  Once the left operand is true, the range operator stays true
+until the right operand is true, AFTER which the range operator becomes
+false again.  (It doesn't become false till the next time the range
+operator is evaluated.  It can test the right operand and become false
+on the same evaluation it became true (as in awk), but it still returns
+true once.  If you don't want it to test the right operand till the
+next evaluation (as in sed), use three dots (...) instead of two.)  The
+right operand is not evaluated while the operator is in the "false"
+state, and the left operand is not evaluated while the operator is in
+the "true" state.  The precedence is a little lower than || and &&.
+The value returned is either the null string for false, or a sequence
+number (beginning with 1) for true.  The sequence number is reset for
+each range encountered.  The final sequence number in a range has the
+string 'E0' appended to it, which doesn't affect its numeric value, but
+gives you something to search for if you want to exclude the endpoint.
+You can exclude the beginning point by waiting for the sequence number
+to be greater than 1.  If either operand of scalar .. is static, that
+operand is implicitly compared to the $. variable, the current line
+number.  Examples:
+
+ As a scalar operator:
+    if (101 .. 200) { print; }	# print 2nd hundred lines
+
+    next line if (1 .. /^$/);	# skip header lines
+
+    s/^/> / if (/^$/ .. eof());	# quote body
+
+
+ As an array operator:
+    for (101 .. 200) { print; }	# print $_ 100 times
+
+    @foo = @foo[$[ .. $#foo];	# an expensive no-op
+    @foo = @foo[$#foo-4 .. $#foo];	# slice last 5 items
+
+
+=item -x 8
+
+A file test.  This unary operator takes one argument, either a filename
+or a filehandle, and tests the associated file to see if something is
+true about it.  If the argument is omitted, tests $_, except for -t,
+which tests I<STDIN>.  It returns 1 for true and '' for false, or the
+undefined value if the file doesn't exist.  Precedence is higher than
+logical and relational operators, but lower than arithmetic operators.
+The operator may be any of:
+
+    -r	File is readable by effective uid/gid.
+    -w	File is writable by effective uid/gid.
+    -x	File is executable by effective uid/gid.
+    -o	File is owned by effective uid.
+    -R	File is readable by real uid/gid.
+    -W	File is writable by real uid/gid.
+    -X	File is executable by real uid/gid.
+    -O	File is owned by real uid.
+    -e	File exists.
+    -z	File has zero size.
+    -s	File has non-zero size (returns size).
+    -f	File is a plain file.
+    -d	File is a directory.
+    -l	File is a symbolic link.
+    -p	File is a named pipe (FIFO).
+    -S	File is a socket.
+    -b	File is a block special file.
+    -c	File is a character special file.
+    -u	File has setuid bit set.
+    -g	File has setgid bit set.
+    -k	File has sticky bit set.
+    -t	Filehandle is opened to a tty.
+    -T	File is a text file.
+    -B	File is a binary file (opposite of -T).
+    -M	Age of file in days when script started.
+    -A	Same for access time.
+    -C	Same for inode change time.
+
+The interpretation of the file permission operators -r, -R, -w, -W, -x
+and -X is based solely on the mode of the file and the uids and gids of
+the user.  There may be other reasons you can't actually read, write or
+execute the file.  Also note that, for the superuser, -r, -R, -w and -W
+always return 1, and -x and -X return 1 if any execute bit is set in
+the mode.  Scripts run by the superuser may thus need to do a stat() in
+order to determine the actual mode of the file, or temporarily set the
+uid to something else.
+
+Example:
+
+    while (<>) {
+	chop;
+	next unless -f $_;	# ignore specials
+	...
+    }
+
+Note that -s/a/b/ does not do a negated substitution.  Saying
+-exp($foo) still works as expected, however--only single letters
+following a minus are interpreted as file tests.
+
+The -T and -B switches work as follows.  The first block or so of the
+file is examined for odd characters such as strange control codes or
+characters with the high bit set.  If too many odd characters (>30%)
+are found, it's a -B file, otherwise it's a -T file.  Also, any file
+containing null in the first block is considered a binary file.  If -T
+or -B is used on a filehandle, the current stdio buffer is examined
+rather than the first block.  Both -T and -B return TRUE on a null
+file, or a file at EOF when testing a filehandle.
+
+If any of the file tests (or either stat operator) are given the
+special filehandle consisting of a solitary underline, then the stat
+structure of the previous file test (or stat operator) is used, saving
+a system call.  (This doesn't work with -t, and you need to remember
+that lstat and -l will leave values in the stat structure for the
+symbolic link, not the real file.)  Example:
+
+    print "Can do.\n" if -r $a || -w _ || -x _;
+
+    stat($filename);
+    print "Readable\n" if -r _;
+    print "Writable\n" if -w _;
+    print "Executable\n" if -x _;
+    print "Setuid\n" if -u _;
+    print "Setgid\n" if -g _;
+    print "Sticky\n" if -k _;
+    print "Text\n" if -T _;
+    print "Binary\n" if -B _;
+
+=back
+
+Here is what C has that I<perl> doesn't:
+
+=over 8
+
+=item unary &
+
+Address-of operator.
+
+=item unary *
+
+Dereference-address operator.
+
+=item (TYPE)
+
+Type casting operator.
+
+=back
+
+Like C, I<perl> does a certain amount of expression evaluation at
+compile time, whenever it determines that all of the arguments to an
+operator are static and have no side effects.  In particular, string
+concatenation happens at compile time between literals that don't do
+variable substitution.  Backslash interpretation also happens at
+compile time.  You can say
+
+    'Now is the time for all' . "\n" .
+	'good men to come to.'
+
+and this all reduces to one string internally.
+
+Unlike in C, the assignment operator is a valid lvalue.  Modifying
+an assignment is equivalent to doing the assignment and then modifying
+the variable that was assigned to.  This is useful for modifying
+a copy of something, like this:
+
+    ($tmp = $global) =~ tr [A-Z] [a-z];
+
+The autoincrement operator has a little extra built-in magic to it.  If
+you increment a variable that is numeric, or that has ever been used in
+a numeric context, you get a normal increment.  If, however, the
+variable has only been used in string contexts since it was set, and
+has a value that is not null and matches the pattern
+/^[a-zA-Z]*[0-9]*$/, the increment is done as a string, preserving each
+character within its range, with carry:
+
+    print ++($foo = '99');	# prints '100'
+    print ++($foo = 'a0');	# prints 'a1'
+    print ++($foo = 'Az');	# prints 'Ba'
+    print ++($foo = 'zz');	# prints 'aaa'
+
+The autodecrement is not magical.
+
+The range operator (in an array context) makes use of the magical
+autoincrement algorithm if the minimum and maximum are strings.  You
+can say
+
+    @alphabet = ('A' .. 'Z');
+
+to get all the letters of the alphabet, or
+
+    $hexdigit = (0 .. 9, 'a' .. 'f')[$num & 15];
+
+to get a hexadecimal digit, or
+
+    @z2 = ('01' .. '31');  print @z2[$mday];
+
+to get dates with leading zeros.  (If the final value specified is not
+in the sequence that the magical increment would produce, the sequence
+goes until the next value would be longer than the final value
+specified.)
+
+The || and && operators differ from C's in that, rather than returning
+0 or 1, they return the last value evaluated.  Thus, a portable way to
+find out the home directory might be:
+
+    $home = $ENV{'HOME'} || $ENV{'LOGDIR'} ||
+	(getpwuid($<))[7] || die "You're homeless!\n";
+
+As more readable alternatives to && and ||, Perl provides "and" and
+"or" operators.  The short-circuit behavior is identical.  The
+precedence of "and" and "or" is much lower, however, so that you can
+safely use them after a list operator without the need for
+parentheses:
+
+    unlink "alpha", "beta", "gamma"
+	    or gripe(), next LINE;
+
+With the old-style operators that would have been written like this:
+
+    unlink("alpha", "beta", "gamma")
+	    || (gripe(), next LINE);
+

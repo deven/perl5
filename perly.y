@@ -17,9 +17,11 @@
 #include "EXTERN.h"
 #include "perl.h"
 
-/*SUPPRESS 530*/
-/*SUPPRESS 593*/
-/*SUPPRESS 595*/
+static void
+dep()
+{
+    deprecate("\"do\" to call subroutines");
+}
 
 %}
 
@@ -34,7 +36,7 @@
 
 %token <ival> '{' ')'
 
-%token <opval> WORD METHOD THING PMFUNC PRIVATEREF
+%token <opval> WORD METHOD FUNCMETH THING PMFUNC PRIVATEREF
 %token <pval> LABEL
 %token <ival> FORMAT SUB ANONSUB PACKAGE USE
 %token <ival> WHILE UNTIL IF UNLESS ELSE ELSIF CONTINUE FOR
@@ -43,8 +45,8 @@
 %token <ival> RELOP EQOP MULOP ADDOP
 %token <ival> DOLSHARP DO LOCAL HASHBRACK NOAMP
 
-%type <ival> prog decl format remember crp crb crhb
-%type <opval> block lineseq line loop cond nexpr else
+%type <ival> prog decl format remember startsub
+%type <opval> block lineseq line loop cond nexpr else argexpr
 %type <opval> expr term scalar ary hsh arylen star amper sideff
 %type <opval> listexpr listexprcom indirob
 %type <opval> texpr listop method
@@ -86,41 +88,15 @@ prog	:	/* NULL */
 		    expect = XSTATE;
 		}
 	/*CONTINUED*/	lineseq
-			{   if (in_eval) {
-				eval_root = newUNOP(OP_LEAVEEVAL, 0, $2);
-				eval_start = linklist(eval_root);
-				eval_root->op_next = 0;
-				peep(eval_start);
-			    }
-			    else
-				main_root = block_head($2, &main_start);
-			}
+			{ newPROG($2); }
 	;
 
 block	:	'{' remember lineseq '}'
-			{   int needblockscope = hints & HINT_BLOCK_SCOPE;
-			    $$ = scalarseq($3);
-			    if (copline > (line_t)$1)
-				copline = $1;
-			    LEAVE_SCOPE($2);
-			    pad_reset_pending = FALSE;
-			    if (needblockscope)
-				hints |= HINT_BLOCK_SCOPE; /* propagate out */
-			    pad_leavemy(comppad_name_fill); }
+			{ $$ = block_end($1,$2,$3); }
 	;
 
-remember:	/* NULL */	/* in case they push a package name */
-			{ $$ = savestack_ix;
-			    comppad_name_fill = AvFILL(comppad_name);
-			    SAVEINT(min_intro_pending);
-			    SAVEINT(max_intro_pending);
-			    min_intro_pending = 0;
-			    SAVEINT(comppad_name_fill);
-			    SAVEINT(padix_floor);
-			    padix_floor = padix;
-			    pad_reset_pending = FALSE;
-			    SAVEINT(hints);
-			    hints &= ~HINT_BLOCK_SCOPE; }
+remember:	/* NULL */	/* start a lexical scope */
+			{ $$ = block_start(); }
 	;
 
 lineseq	:	/* NULL */
@@ -217,10 +193,10 @@ loop	:	label WHILE '(' texpr ')' block cont
 			    $$ = newSTATEOP(0, $1,
 				    newWHILEOP(0, 1, (LOOP*)Nullop,
 					invert(scalar(scope($3))), $4, $5)); }
-	|	label FOR scalar '(' expr crp block cont
+	|	label FOR scalar '(' expr ')' block cont
 			{ $$ = newFOROP(0, $1, $2, mod($3, OP_ENTERLOOP),
 				$5, $7, $8); }
-	|	label FOR '(' expr crp block cont
+	|	label FOR '(' expr ')' block cont
 			{ $$ = newFOROP(0, $1, $2, Nullop, $4, $6, $7); }
 	|	label FOR '(' nexpr ';' texpr ';' nexpr ')' block
 			/* basically fake up an initialize-while lineseq */
@@ -261,16 +237,20 @@ decl	:	format
 			{ $$ = 0; }
 	;
 
-format	:	FORMAT WORD block
-			{ newFORM($1, $2, $3); }
-	|	FORMAT block
-			{ newFORM($1, Nullop, $2); }
+format	:	FORMAT startsub WORD block
+			{ newFORM($2, $3, $4); }
+	|	FORMAT startsub block
+			{ newFORM($2, Nullop, $3); }
 	;
 
-subrout	:	SUB WORD block
-			{ newSUB($1, $2, $3); }
-	|	SUB WORD ';'
-			{ newSUB($1, $2, Nullop); expect = XSTATE; }
+subrout	:	SUB startsub WORD block
+			{ newSUB($2, $3, $4); }
+	|	SUB startsub WORD ';'
+			{ newSUB($2, $3, Nullop); expect = XSTATE; }
+	;
+
+startsub:	/* NULL */	/* start a subroutine scope */
+			{ $$ = start_subparse(); }
 	;
 
 package :	PACKAGE WORD ';'
@@ -283,17 +263,28 @@ use	:	USE WORD listexpr ';'
 			{ utilize($1, $2, $3); }
 	;
 
-expr	:	expr ',' term
+expr	:	expr ANDOP expr
+			{ $$ = newLOGOP(OP_AND, 0, $1, $3); }
+	|	expr OROP expr
+			{ $$ = newLOGOP($2, 0, $1, $3); }
+	|	NOTOP expr
+			{ $$ = newUNOP(OP_NOT, 0, scalar($2)); }
+	|	argexpr
+	;
+
+argexpr	:	argexpr ','
+			{ $$ = $1; }
+	|	argexpr ',' term
 			{ $$ = append_elem(OP_LIST, $1, $3); }
 	|	term
 	;
 
-listop	:	LSTOP indirob expr
+listop	:	LSTOP indirob argexpr
 			{ $$ = convert($1, OPf_STACKED,
-				prepend_elem(OP_LIST, newGVREF($2), $3) ); }
-	|	FUNC '(' indirob expr crp
+				prepend_elem(OP_LIST, newGVREF($1,$2), $3) ); }
+	|	FUNC '(' indirob expr ')'
 			{ $$ = convert($1, OPf_STACKED,
-				prepend_elem(OP_LIST, newGVREF($3), $4) ); }
+				prepend_elem(OP_LIST, newGVREF($1,$3), $4) ); }
 	|	term ARROW method '(' listexprcom ')'
 			{ $$ = convert(OP_ENTERSUB, OPf_STACKED|OPf_SPECIAL,
 				append_elem(OP_LIST,
@@ -303,6 +294,11 @@ listop	:	LSTOP indirob expr
 			{ $$ = convert(OP_ENTERSUB, OPf_STACKED|OPf_SPECIAL,
 				append_elem(OP_LIST,
 				    prepend_elem(OP_LIST, $2, list($3)),
+				    newUNOP(OP_METHOD, 0, $1))); }
+	|	FUNCMETH indirob '(' listexprcom ')'
+			{ $$ = convert(OP_ENTERSUB, OPf_STACKED|OPf_SPECIAL,
+				append_elem(OP_LIST,
+				    prepend_elem(OP_LIST, $2, list($4)),
 				    newUNOP(OP_METHOD, 0, $1))); }
 	|	LSTOP listexpr
 			{ $$ = convert($1, 0, $2); }
@@ -340,12 +336,6 @@ term	:	term ASSIGNOP term
 			{ $$ = newLOGOP(OP_AND, 0, $1, $3); }
 	|	term OROR term
 			{ $$ = newLOGOP(OP_OR, 0, $1, $3); }
-	|	term ANDOP term
-			{ $$ = newLOGOP(OP_AND, 0, $1, $3); }
-	|	term OROP term
-			{ $$ = newLOGOP($2, 0, $1, $3); }
-	|	NOTOP term
-			{ $$ = newUNOP(OP_NOT, 0, scalar($2)); }
 	|	term '?' term ':' term
 			{ $$ = newCONDOP(0, $1, $3, $5); }
 	|	term MATCHOP term
@@ -375,20 +365,20 @@ term	:	term ASSIGNOP term
 					mod(scalar($2), OP_PREDEC)); }
 	|	LOCAL term	%prec UNIOP
 			{ $$ = localize($2,$1); }
-	|	'(' expr crp
+	|	'(' expr ')'
 			{ $$ = sawparens($2); }
 	|	'(' ')'
 			{ $$ = sawparens(newNULLLIST()); }
-	|	'[' expr crb				%prec '('
+	|	'[' expr ']'				%prec '('
 			{ $$ = newANONLIST($2); }
 	|	'[' ']'					%prec '('
 			{ $$ = newANONLIST(Nullop); }
-	|	HASHBRACK expr crhb			%prec '('
+	|	HASHBRACK expr ';' '}'			%prec '('
 			{ $$ = newANONHASH($2); }
 	|	HASHBRACK ';' '}'				%prec '('
 			{ $$ = newANONHASH(Nullop); }
-	|	ANONSUB block				%prec '('
-			{ $$ = newANONSUB($1, $2); }
+	|	ANONSUB startsub block				%prec '('
+			{ $$ = newANONSUB($2, $3); }
 	|	scalar	%prec '('
 			{ $$ = $1; }
 	|	star	%prec '('
@@ -422,7 +412,7 @@ term	:	term ASSIGNOP term
 					ref(newHVREF($1),OP_RV2HV),
 					jmaybe($3));
 			    expect = XOPERATOR; }
-	|	'(' expr crp '[' expr ']'	%prec '('
+	|	'(' expr ')' '[' expr ']'	%prec '('
 			{ $$ = newSLICEOP(0, $5, $2); }
 	|	'(' ')' '[' expr ']'	%prec '('
 			{ $$ = newSLICEOP(0, $4, Nullop); }
@@ -446,7 +436,7 @@ term	:	term ASSIGNOP term
 				scalar($1)); }
 	|	amper '(' ')'
 			{ $$ = newUNOP(OP_ENTERSUB, OPf_STACKED, scalar($1)); }
-	|	amper '(' expr crp
+	|	amper '(' expr ')'
 			{ $$ = newUNOP(OP_ENTERSUB, OPf_STACKED,
 			    list(append_elem(OP_LIST, $3, scalar($1)))); }
 	|	NOAMP WORD listexpr
@@ -460,21 +450,21 @@ term	:	term ASSIGNOP term
 	|	DO WORD '(' ')'
 			{ $$ = newUNOP(OP_ENTERSUB, OPf_SPECIAL|OPf_STACKED,
 			    list(prepend_elem(OP_LIST,
-				scalar(newCVREF(scalar($2))), Nullop))); }
-	|	DO WORD '(' expr crp
+				scalar(newCVREF(scalar($2))), Nullop))); dep();}
+	|	DO WORD '(' expr ')'
 			{ $$ = newUNOP(OP_ENTERSUB, OPf_SPECIAL|OPf_STACKED,
 			    list(append_elem(OP_LIST,
 				$4,
-				scalar(newCVREF(scalar($2)))))); }
+				scalar(newCVREF(scalar($2)))))); dep();}
 	|	DO scalar '(' ')'
 			{ $$ = newUNOP(OP_ENTERSUB, OPf_SPECIAL|OPf_STACKED,
 			    list(prepend_elem(OP_LIST,
-				scalar(newCVREF(scalar($2))), Nullop)));}
-	|	DO scalar '(' expr crp
+				scalar(newCVREF(scalar($2))), Nullop))); dep();}
+	|	DO scalar '(' expr ')'
 			{ $$ = newUNOP(OP_ENTERSUB, OPf_SPECIAL|OPf_STACKED,
 			    list(prepend_elem(OP_LIST,
 				$4,
-				scalar(newCVREF(scalar($2)))))); }
+				scalar(newCVREF(scalar($2)))))); dep();}
 	|	LOOPEX
 			{ $$ = newOP($1, OPf_SPECIAL);
 			    hints |= HINT_BLOCK_SCOPE; }
@@ -504,7 +494,7 @@ term	:	term ASSIGNOP term
 
 listexpr:	/* NULL */
 			{ $$ = Nullop; }
-	|	expr
+	|	argexpr
 			{ $$ = $1; }
 	;
 
@@ -537,7 +527,7 @@ arylen	:	DOLSHARP indirob
 	;
 
 star	:	'*' indirob
-			{ $$ = newGVREF($2); }
+			{ $$ = newGVREF(0,$2); }
 	;
 
 indirob	:	WORD
@@ -545,28 +535,10 @@ indirob	:	WORD
 	|	scalar
 			{ $$ = scalar($1);  }
 	|	block
-			{ $$ = scalar(scope($1)); }
+			{ $$ = scope($1); }
 
 	|	PRIVATEREF
 			{ $$ = $1; }
-	;
-
-crp	:	',' ')'
-			{ $$ = 1; }
-	|	')'
-			{ $$ = 0; }
-	;
-
-crb	:	',' ']'
-			{ $$ = 1; }
-	|	']'
-			{ $$ = 0; }
-	;
-
-crhb	:	',' ';' '}'
-			{ $$ = 1; }
-	|	';' '}'
-			{ $$ = 0; }
 	;
 
 %% /* PROGRAM */

@@ -9,7 +9,7 @@ sub unctrl {
 }
 sub main'dumpvar {
     ($package,@vars) = @_;
-    local(*stab) = *{"::_$package"};
+    local(*stab) = *{"${package}::"};
     while (($key,$val) = each(%stab)) {
 	{
 	    next if @vars && !grep($key eq $_,@vars);
@@ -24,7 +24,7 @@ sub main'dumpvar {
 		}
 		print ")\n";
 	    }
-	    if ($key ne "_$package" && $key ne "_DB" && defined %entry
+	    if ($key ne "${package}::" && $key ne "DB::" && defined %entry
 		&& !($package eq "dumpvar" and $key eq "stab")) {
 		print "\%$key = (\n";
 		foreach $key (sort keys(%entry)) {

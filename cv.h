@@ -26,7 +26,6 @@ struct xpvcv {
     GV *	xcv_filegv;
     long	xcv_depth;		/* >= 2 indicates recursive call */
     AV *	xcv_padlist;
-    bool	xcv_deleted;
     bool	xcv_oldstyle;
 };
 #define Nullcv Null(CV*)
@@ -39,6 +38,5 @@ struct xpvcv {
 #define CvFILEGV(sv)	((XPVCV*)SvANY(sv))->xcv_filegv
 #define CvDEPTH(sv)	((XPVCV*)SvANY(sv))->xcv_depth
 #define CvPADLIST(sv)	((XPVCV*)SvANY(sv))->xcv_padlist
-#define CvDELETED(sv)	((XPVCV*)SvANY(sv))->xcv_deleted
 #define CvOLDSTYLE(sv)	((XPVCV*)SvANY(sv))->xcv_oldstyle
 

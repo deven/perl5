@@ -1,0 +1,80 @@
+?RCS: $Id: orderlib.U,v 3.0.1.1 1994/08/29 16:31:17 ram Exp $
+?RCS:
+?RCS: Copyright (c) 1991-1993, Raphael Manfredi
+?RCS: 
+?RCS: You may redistribute only under the terms of the Artistic Licence,
+?RCS: as specified in the README file that comes with the distribution.
+?RCS: You may reuse parts of this distribution only within the terms of
+?RCS: that same Artistic Licence; a copy of which may be found at the root
+?RCS: of the source tree for dist 3.0.
+?RCS:
+?RCS: $Log: orderlib.U,v $
+?RCS: Revision 3.0.1.1  1994/08/29  16:31:17  ram
+?RCS: patch32: use cc variable instead of hardwired 'cc' in 1st compile
+?RCS:
+?RCS: Revision 3.0  1993/08/18  12:09:26  ram
+?RCS: Baseline for dist 3.0 netwide release.
+?RCS:
+?MAKE:orderlib ranlib: cat test rm +cc +ccflags +ldflags +libs
+?MAKE:	-pick add $@ %<
+?S:orderlib:
+?S:	This variable is "true" if the components of libraries must be ordered
+?S:	(with `lorder $* | tsort`) before placing them in an archive.  Set to
+?S:	"false" if ranlib or ar can generate random libraries.
+?S:.
+?S:ranlib:
+?S:	This variable is set to the pathname of the ranlib program, if it is
+?S:	needed to generate random libraries.  Set to ":" if ar can generate
+?S:	random libraries or if random libraries are not supported
+?S:.
+: see if ar generates random libraries by itself
+echo " "
+echo "Checking how to generate random libraries on your machine..." >&4
+?X: Some systems (like MIPS) complain when running ar... Others like Ultrix
+?X: need an explicit 'ar ts' to add the table of contents.
+?X: Still others like Linux run ar ts successfully, but still need ranlib.
+?X: This set of tests seems the minimum necessary to check out Linux.
+?X: We need to explicitly put the entries in out-of-order so that
+?X: Sun's ld will fail.  (Otherwise it complains, but gives an exit
+?X: status of 0.)
+echo 'int bar1() { return bar2(); }' > bar1.c
+echo 'int bar2() { return 2; }' > bar2.c
+$cat > foo.c <<'EOP'
+main() { printf("%d\n", bar1()); exit(0); }
+EOP
+$cc $ccflags -c bar1.c >/dev/null 2>&1
+$cc $ccflags -c bar2.c >/dev/null 2>&1
+$cc $ccflags -c foo.c >/dev/null 2>&1
+ar rc bar.a bar2.o bar1.o >/dev/null 2>&1
+if $cc $ccflags $ldflags -o foobar foo.o bar.a $libs > /dev/null 2>&1 &&
+	./foobar >/dev/null 2>&1; then
+	echo "ar appears to generate random libraries itself."
+	orderlib=false
+	ranlib=":"
+elif ar ts bar.a >/dev/null 2>&1 &&
+	$cc $ccflags $ldflags -o foobar foo.o bar.a $libs > /dev/null 2>&1 &&
+	./foobar >/dev/null 2>&1; then
+		echo "a table of contents needs to be added with 'ar ts'."
+		orderlib=false
+		ranlib="ar ts"
+else
+	if $test -f /usr/bin/ranlib; then
+		ranlib=/usr/bin/ranlib
+	elif $test -f /bin/ranlib; then
+		ranlib=/bin/ranlib
+	elif $test -f /usr/local/bin/ranlib; then
+		ranlib=/usr/local/bin/ranlib
+	fi
+
+	if $test -n "$ranlib"; then
+		echo "your system has $ranlib; we'll use that."
+		orderlib=false
+	else
+		echo "your system doesn't seem to support random libraries"
+		echo "so we'll use lorder and tsort to order the libraries."
+		orderlib=true
+		ranlib=":"
+	fi
+fi
+$rm -f foo* bar* 
+

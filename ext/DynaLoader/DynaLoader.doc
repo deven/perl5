@@ -42,11 +42,11 @@ DynaLoader Interface Summary
   $dl_debug
                                                   Implemented in:
   bootstrap($modulename)                               Perl
-  @filepaths = dl_findfile(@names)                   Perl
+  @filepaths = dl_findfile(@names)                     Perl
 
   $libref  = dl_load_file($filename)                   C
   $symref  = dl_find_symbol($libref, $symbol)          C
-  @symbols = dl_undefined_symbols()                    C
+  @symbols = dl_undef_symbols()                        C
   dl_install_xsub($name, $symref [, $filename])        C
   $message = dl_error                                  C
 
@@ -128,7 +128,9 @@ $dl_debug is set to $ENV{'PERL_DL_DEBUG'} if defined.
 
 For the DynaLoader developer/porter there is a similar debugging
 variable added to the C code (see dlutils.c) and enabled if perl is
-compiled with the -DDEBUGGING flag.
+compiled with the -DDEBUGGING flag.  This can also be set via the
+PERL_DL_DEBUG environment variable. Set to 1 for minimal information or
+higher for more.
 
 
 ----------------------------------------------------------------------
@@ -155,6 +157,19 @@ are treated as filenames to be searched for.
 Using arguments of the form -Ldir and -lname is recommended.
 
 Example: @dl_resolve_using = dl_findfile(qw(-L/usr/5lib -lposix));
+
+
+----------------------------------------------------------------------
+$filepath = dl_expandspec($spec)
+
+Some unusual systems, such as VMS, require special filename handling in
+order to deal with symbolic names for files (i.e., VMS's Logical Names).
+
+To support these systems a dl_expandspec function can be implemented
+either in the dl_*.xs file or code can be added to the autoloadable
+dl_expandspec function in DynaLoader.pm. See DynaLoader.pm for more
+information.
+
 
 
 ----------------------------------------------------------------------
@@ -199,17 +214,11 @@ VMS:   lib$find_image_symbol($libref,$symbol)
 
 
 ----------------------------------------------------------------------
-@symbols = dl_undefined_symbols()
+@symbols = dl_undef_symbols()
 
 Return a list of symbol names which remain undefined after load_file().
 Returns () if not known. Don't worry if your platform does not provide
 a mechanism for this. Most do not need it and hence do not provide it.
-
-SunOS: return ()
-HP-UX: return ()
-Linux: dld_list_undefined_sym()
-NeXT:  return ()
-VMS:   return ()
 
 
 ----------------------------------------------------------------------
@@ -234,11 +243,11 @@ It performs the following actions:
  1.  locates an auto/$module directory by searching @INC
  2.  uses dl_findfile() to determine the filename to load
  3.  sets @dl_require_symbols to ("boot_$module")
- 4.  executes an auto/$module/$module.bs file if it exists
-     (typically used to add to @resolve_using any files which
+ 4.  executes an auto/$module/$^R/$module.bs file if it exists
+     (typically used to add to @dl_resolve_using any files which
      are required to load the module on the current platform)
  5.  calls dl_load_file() to load the file
- 6.  calls dl_undefined_symbols() and warns if any symbols are undefined
+ 6.  calls dl_undef_symbols() and warns if any symbols are undefined
  7.  calls dl_find_symbol() for "boot_$module"
  8.  calls dl_install_xsub() to install it as "${module}::bootstrap"
  9.  calls &{"${module}::bootstrap"} to bootstrap the module

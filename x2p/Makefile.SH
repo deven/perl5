@@ -26,8 +26,6 @@ cat >Makefile <<!GROK!THIS!
 
 CC = $cc
 YACC = $yacc
-bin = $bin
-lib = $lib
 mansrc = $mansrc
 manext = $manext
 LDFLAGS = $ldflags
@@ -75,28 +73,12 @@ a2p: $(obj) a2p.o
 	$(CC) $(LDFLAGS) $(obj) a2p.o $(libs) -o a2p
 
 a2p.c: a2p.y
-	@ echo Expect 231 shift/reduce conflicts...
+	@ echo Expect many shift/reduce and reduce/reduce conflicts...
 	$(YACC) a2p.y
 	mv y.tab.c a2p.c
 
 a2p.o: a2p.c a2py.c a2p.h EXTERN.h util.h INTERN.h handy.h ../config.h str.h hash.h
 	$(CCCMD) $(LARGE) a2p.c
-
-install: a2p s2p
-# won't work with csh
-	export PATH || exit 1
-	- mv $(bin)/a2p $(bin)/a2p.old 2>/dev/null
-	- mv $(bin)/s2p $(bin)/s2p.old 2>/dev/null
-	- if test `pwd` != $(bin); then cp $(public) $(bin); fi
-	cd $(bin); \
-for pub in $(public); do \
-chmod +x `basename $$pub`; \
-done
-	- if test `pwd` != $(mansrc); then \
-for page in $(manpages); do \
-cp $$page $(mansrc)/`basename $$page .man`.$(manext); \
-done; \
-fi
 
 clean:
 	rm -f a2p *.o a2p.c

@@ -52,8 +52,7 @@ struct block_sub {
 	}								\
 	if (cx->blk_sub.cv) {						\
 	    if (!(CvDEPTH(cx->blk_sub.cv) = cx->blk_sub.olddepth)) {	\
-		if (CvDELETED(cx->blk_sub.cv))				\
-		    SvREFCNT_dec((SV*)cx->blk_sub.cv);			\
+		SvREFCNT_dec((SV*)cx->blk_sub.cv);			\
 	    }								\
 	}
 

@@ -2,7 +2,9 @@
 #include "perl.h"
 
 /*
- * "Until it joins some larger way/Where many paths and errands meet."  --Bilbo
+ * "Away now, Shadowfax!  Run, greatheart, run as you have never run before!
+ * Now we are come to the lands where you were foaled, and every stone you
+ * know.  Run now!  Hope is in speed!"  --Gandalf
  */
 
 char **watchaddr = 0;
@@ -21,6 +23,8 @@ run() {
 
 #else
 
+static void debprof _((OP*op));
+
 int
 run() {
     if (!op) {
@@ -38,12 +42,11 @@ run() {
 		    (long)watchaddr, (long)watchok, (long)*watchaddr);
 	    DEBUG_s(debstack());
 	    DEBUG_t(debop(op));
+	    DEBUG_P(debprof(op));
 	}
     } while ( op = (*op->op_ppaddr)() );
     return 0;
 }
-
-#endif
 
 I32
 debop(op)
@@ -82,3 +85,27 @@ char **addr;
     fprintf(stderr, "WATCHING, %lx is currently %lx\n",
 	(long)watchaddr, (long)watchok);
 }
+
+static void
+debprof(op)
+OP* op;
+{
+    if (!profiledata)
+	New(000, profiledata, MAXO, U32);
+    ++profiledata[op->op_type];
+}
+
+void
+debprofdump()
+{
+    U32 i;
+    if (!profiledata)
+	return;
+    for (i = 0; i < MAXO; i++) {
+	if (profiledata[i])
+	    fprintf(stderr, "%d\t%lu\n", i, profiledata[i]);
+    }
+}
+
+#endif
+

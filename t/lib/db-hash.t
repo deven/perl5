@@ -10,7 +10,7 @@ BEGIN {
 }
 
 use DB_File; 
-use POSIX 'fcntl_h' ;	# only want O_RDWR & O_CREAT
+use Fcntl;
 
 print "1..43\n";
 
@@ -19,27 +19,9 @@ unlink $Dfile;
 
 umask(0);
 
-sub myhash
-{
-    my($key) = @_ ;
-    my(@key) = unpack("C*", $key) ;
-
-    my ($h) = 0 ;
-
-
-    $h ;
-    foreach(unpack("C*", $key))
-    {
-      $h = $h * $PRIME1 ^ ($_ - ' ') ;
-      $h %= $PRIME2 ;
-    }
-    
-    $h ;
-}
-
 # Check the interface to HASHINFO
 
-$dbh = DB_File::HASHINFO::create ;
+$dbh = TIEHASH DB_File::HASHINFO ;
 print (($dbh->{bsize} == undef) ? "ok 1\n" : "not ok 1\n") ;
 print (($dbh->{ffactor} == undef) ? "ok 2\n" : "not ok 2\n") ;
 print (($dbh->{nelem} == undef) ? "ok 3\n" : "not ok 3\n") ;
@@ -215,11 +197,6 @@ print ($status == 0 ? "ok 34\n" : "not ok 34\n") ;
 # Make sure that the key deleted, cannot be retrieved
 print (($h{'q'} eq undef) ? "ok 35\n" : "not ok 35\n") ;
 
-#untie %h ;
-#undef $X ;
-
-#print (($X = dbopen($Dfile, O_RDWR, 0640)) ? "ok 36\n" : "not ok 36: $!\n");
-
 # Attempting to delete a non-existant key should fail
 
 $status = $X->del('joe') ;
@@ -260,9 +237,6 @@ print ($status != 0 ? "ok 41\n" : "not ok 41\n") ;
 
 undef $X ;
 untie %h ;
-#$status = $X->close ;
-#print ($status == 0 ? "ok 52\n" : "not ok 52\n") ;
-undef $X ;
 
 unlink $Dfile;
 

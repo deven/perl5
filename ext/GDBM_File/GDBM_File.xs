@@ -8,7 +8,7 @@
 typedef GDBM_FILE GDBM_File;
 
 #define GDBM_BLOCKSIZE 0 /* gdbm defaults to stat blocksize */
-#define gdbm_new(dbtype, name, read_write, mode, fatal_func) \
+#define gdbm_TIEHASH(dbtype, name, read_write, mode, fatal_func) \
 	gdbm_open(name, GDBM_BLOCKSIZE, read_write, mode, fatal_func)
 
 #define gdbm_FETCH(db,key)			gdbm_fetch(db,key)
@@ -160,7 +160,7 @@ constant(name,arg)
 
 
 GDBM_File
-gdbm_new(dbtype, name, read_write, mode, fatal_func = (FATALFUNC)croak)
+gdbm_TIEHASH(dbtype, name, read_write, mode, fatal_func = (FATALFUNC)croak)
 	char *		dbtype
 	char *		name
 	int		read_write
@@ -189,6 +189,14 @@ gdbm_STORE(db, key, value, flags = GDBM_REPLACE)
 	datum		key
 	datum		value
 	int		flags
+    CLEANUP:
+	if (RETVAL) {
+	    if (RETVAL < 0 && errno == EPERM)
+		croak("No write permission to gdbm file");
+	    warn("gdbm store returned %d, errno %d, key \"%.*s\"",
+			RETVAL,errno,key.dsize,key.dptr);
+	    /* gdbm_clearerr(db); */
+	}
 
 int
 gdbm_DELETE(db, key)

@@ -5,6 +5,8 @@
 #include "INTERN.h"
 #include "perl.h"
 
+static void xs_init _((void));
+
 int
 main(argc, argv, env)
 int argc;
@@ -14,12 +16,16 @@ char **env;
     int exitstatus;
     PerlInterpreter *my_perl;
 
+#ifdef VMS
+    getredirection(&argc,&argv);
+#endif
+
     my_perl = perl_alloc();
     if (!my_perl)
 	exit(1);
     perl_construct( my_perl );
 
-    exitstatus = perl_parse( my_perl, argc, argv, env );
+    exitstatus = perl_parse( my_perl, xs_init, argc, argv, env );
     if (exitstatus)
 	exit( exitstatus );
 
@@ -33,8 +39,8 @@ char **env;
 
 /* Register any extra external extensions */
 
-void
-perl_init_ext()
+static void
+xs_init()
 {
     /* Do not delete this line--writemain depends on it */
 }

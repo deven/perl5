@@ -1,0 +1,332 @@
+=head1 NAME
+
+perlrun - how to execute the Perl interpreter
+
+=head1 SYNOPSIS
+
+B<perl> [options] filename args
+
+=head1 DESCRIPTION
+
+Upon startup, I<perl> looks for your script in one of the following
+places:
+
+=over 4
+
+=item 1.
+
+Specified line by line via B<-e> switches on the command line.
+
+=item 2.
+
+Contained in the file specified by the first filename on the command line.
+(Note that systems supporting the #! notation invoke interpreters this way.)
+
+=item 3.
+
+Passed in implicitly via standard input.  This only works if there are
+no filename arguments--to pass arguments to a I<stdin> script you
+must explicitly specify a "-" for the script name.
+
+=back
+
+After locating your script, I<perl> compiles it to an internal form.
+If the script is syntactically correct, it is executed.  If the script
+runs off the end without hitting an exit or die operator, an implicit
+exit(0) is provided to indicate successful completion.
+
+=head2 Options
+
+Note: on first reading this section may not make much sense to you.
+It's here at the front for easy reference.
+
+A single-character option may be combined with the following option, if
+any.  This is particularly useful when invoking a script using the #!
+construct which only allows one argument.  Example:
+
+    #!/usr/bin/perl -spi.bak	# same as -s -p -i.bak
+    ...
+
+Options include:
+
+=over 5
+
+=item B<-0>I<digits>
+
+specifies the record separator ($/) as an octal number.  If there are
+no digits, the null character is the separator.  Other switches may
+precede or follow the digits.  For example, if you have a version of
+I<find> which can print filenames terminated by the null character, you
+can say this:
+
+    find . -name '*.bak' -print0 | perl -n0e unlink
+
+The special value 00 will cause Perl to slurp files in paragraph mode.
+The value 0777 will cause Perl to slurp files whole since there is no
+legal character with that value.
+
+=item B<-a>
+
+turns on autosplit mode when used with a B<-n> or B<-p>.  An implicit
+split command to the @F array is done as the first thing inside the
+implicit while loop produced by the B<-n> or B<-p>.
+
+    perl -ane 'print pop(@F), "\n";'
+
+is equivalent to
+
+    while (<>) {
+	@F = split(' ');
+	print pop(@F), "\n";
+    }
+
+=item B<-c>
+
+causes I<perl> to check the syntax of the script and then exit without
+executing it.
+
+=item B<-d>
+
+runs the script under the perl debugger.  See the section on
+Debugging.
+
+=item B<-D>I<number>
+
+=item B<-D>I<list>
+
+sets debugging flags.  To watch how it executes your script, use
+B<-D14>.  (This only works if debugging is compiled into your
+I<perl>.)  Another nice value is -D1024, which lists your compiled
+syntax tree.  And -D512 displays compiled regular expressions. As an
+alternative specify a list of letters instead of numbers (e.g. -D14 is
+equivalent to -Dtls):
+
+        1  p  Tokenizing and Parsing
+        2  s  Stack Snapshots
+        4  l  Label Stack Processing
+        8  t  Trace Execution
+       16  o  Operator Node Construction
+       32  c  String/Numeric Conversions
+       64  P  Print Preprocessor Command for -P
+      128  m  Memory Allocation
+      256  f  Format Processing
+      512  r  Regular Expression Parsing
+     1024  x  Syntax Tree Dump
+     2048  u  Tainting Checks
+     4096  L  Memory Leaks (with -DLEAKTEST)
+     8192  H  Hash Dump--Usurps values()
+    16384  X  Scratchpad Allocation
+    32768  D  Cleaning Up
+
+=item B<-e> I<commandline>
+
+may be used to enter one line of script.  Multiple B<-e> commands may
+be given to build up a multi-line script.  If B<-e> is given, I<perl>
+will not look for a script filename in the argument list.
+
+=item B<-i>I<extension>
+
+specifies that files processed by the <> construct are to be edited
+in-place.  It does this by renaming the input file, opening the output
+file by the same name, and selecting that output file as the default
+for print statements.  The extension, if supplied, is added to the name
+of the old file to make a backup copy.  If no extension is supplied, no
+backup is made.  Saying "perl -p -i.bak -e "s/foo/bar/;S<" ... "> is the
+same as using the script:
+
+    #!/usr/bin/perl -pi.bak
+    s/foo/bar/;
+
+which is equivalent to
+
+    #!/usr/bin/perl
+    while (<>) {
+	if ($ARGV ne $oldargv) {
+	    rename($ARGV, $ARGV . '.bak');
+	    open(ARGVOUT, ">$ARGV");
+	    select(ARGVOUT);
+	    $oldargv = $ARGV;
+	}
+	s/foo/bar/;
+    }
+    continue {
+	print;	# this prints to original filename
+    }
+    select(STDOUT);
+
+except that the B<-i> form doesn't need to compare $ARGV to $oldargv to
+know when the filename has changed.  It does, however, use ARGVOUT for
+the selected filehandle.  Note that I<STDOUT> is restored as the
+default output filehandle after the loop.
+
+You can use eof to locate the end of each input file, in case you want
+to append to each file, or reset line numbering (see example under
+eof).
+
+=item B<-I>I<directory>
+
+may be used in conjunction with B<-P> to tell the C preprocessor where
+to look for include files.  By default /usr/include and /usr/lib/perl
+are searched.
+
+=item B<-l>I<octnum>
+
+enables automatic line-ending processing.  It has two effects:  first,
+it automatically chops the line terminator when used with B<-n> or
+B<-p>, and second, it assigns $\ to have the value of I<octnum> so that
+any print statements will have that line terminator added back on.  If
+I<octnum> is omitted, sets $\ to the current value of $/.  For
+instance, to trim lines to 80 columns:
+
+    perl -lpe 'substr($_, 80) = ""'
+
+Note that the assignment $\ = $/ is done when the switch is processed,
+so the input record separator can be different than the output record
+separator if the B<-l> switch is followed by a B<-0> switch:
+
+    gnufind / -print0 | perl -ln0e 'print "found $_" if -p'
+
+This sets $\ to newline and then sets $/ to the null character.
+
+=item B<-n>
+
+causes I<perl> to assume the following loop around your script, which
+makes it iterate over filename arguments somewhat like "sed -n" or
+I<awk>:
+
+    while (<>) {
+	...		# your script goes here
+    }
+
+Note that the lines are not printed by default.  See B<-p> to have
+lines printed.  Here is an efficient way to delete all files older than
+a week:
+
+    find . -mtime +7 -print | perl -nle 'unlink;'
+
+This is faster than using the -exec switch of find because you don't
+have to start a process on every filename found.
+
+BEGIN and END blocks may be used to capture control before or after
+the implicit loop, just as in awk.
+
+=item B<-p>
+
+causes I<perl> to assume the following loop around your script, which
+makes it iterate over filename arguments somewhat like I<sed>:
+
+
+    while (<>) {
+	...		# your script goes here
+    } continue {
+	print;
+    }
+
+Note that the lines are printed automatically.  To suppress printing
+use the B<-n> switch.  A B<-p> overrides a B<-n> switch.
+
+BEGIN and END blocks may be used to capture control before or after
+the implicit loop, just as in awk.
+
+=item B<-P>
+
+causes your script to be run through the C preprocessor before
+compilation by I<perl>.  (Since both comments and cpp directives begin
+with the # character, you should avoid starting comments with any words
+recognized by the C preprocessor such as "if", "else" or "define".)
+
+=item B<-s>
+
+enables some rudimentary switch parsing for switches on the command
+line after the script name but before any filename arguments (or before
+a --).  Any switch found there is removed from @ARGV and sets the
+corresponding variable in the I<perl> script.  The following script
+prints "true" if and only if the script is invoked with a -xyz switch.
+
+    #!/usr/bin/perl -s
+    if ($xyz) { print "true\n"; }
+
+=item B<-S>
+
+makes I<perl> use the PATH environment variable to search for the
+script (unless the name of the script starts with a slash).  Typically
+this is used to emulate #! startup on machines that don't support #!,
+in the following manner:
+
+    #!/usr/bin/perl
+    eval "exec /usr/bin/perl -S $0 $*"
+	    if $running_under_some_shell;
+
+The system ignores the first line and feeds the script to /bin/sh,
+which proceeds to try to execute the I<perl> script as a shell script.
+The shell executes the second line as a normal shell command, and thus
+starts up the I<perl> interpreter.  On some systems $0 doesn't always
+contain the full pathname, so the B<-S> tells I<perl> to search for the
+script if necessary.  After I<perl> locates the script, it parses the
+lines and ignores them because the variable $running_under_some_shell
+is never true.  A better construct than $* would be ${1+"$@"}, which
+handles embedded spaces and such in the filenames, but doesn't work if
+the script is being interpreted by csh.  In order to start up sh rather
+than csh, some systems may have to replace the #! line with a line
+containing just a colon, which will be politely ignored by perl.  Other
+systems can't control that, and need a totally devious construct that
+will work under any of csh, sh or perl, such as the following:
+
+	eval '(exit $?0)' && eval 'exec /usr/bin/perl -S $0 ${1+"$@"}'
+	& eval 'exec /usr/bin/perl -S $0 $argv:q'
+		if 0;
+
+=item B<-T>
+
+forces "taint" checks to be turned on.  Ordinarily these checks are
+done only when running setuid or setgid.
+
+=item B<-u>
+
+causes I<perl> to dump core after compiling your script.  You can then
+take this core dump and turn it into an executable file by using the
+undump program (not supplied).  This speeds startup at the expense of
+some disk space (which you can minimize by stripping the executable).
+(Still, a "hello world" executable comes out to about 200K on my
+machine.)  If you are going to run your executable as a set-id program
+then you should probably compile it using taintperl rather than normal
+perl.  If you want to execute a portion of your script before dumping,
+use the dump operator instead.  Note: availability of undump is
+platform specific and may not be available for a specific port of
+perl.
+
+=item B<-U>
+
+allows I<perl> to do unsafe operations.  Currently the only "unsafe"
+operations are the unlinking of directories while running as superuser,
+and running setuid programs with fatal taint checks turned into
+warnings.
+
+=item B<-v>
+
+prints the version and patchlevel of your I<perl> executable.
+
+=item B<-w>
+
+prints warnings about identifiers that are mentioned only once, and
+scalar variables that are used before being set.  Also warns about
+redefined subroutines, and references to undefined filehandles or
+filehandles opened readonly that you are attempting to write on.  Also
+warns you if you use == on values that don't look like numbers, and if
+your subroutines recurse more than 100 deep.
+
+=item B<-x> I<directory>
+
+tells I<perl> that the script is embedded in a message.  Leading
+garbage will be discarded until the first line that starts with #! and
+contains the string "perl".  Any meaningful switches on that line will
+be applied (but only one group of switches, as with normal #!
+processing).  If a directory name is specified, Perl will switch to
+that directory before running the script.  The B<-x> switch only
+controls the the disposal of leading garbage.  The script must be
+terminated with __END__ if there is trailing garbage to be ignored (the
+script can process any or all of the trailing garbage via the DATA
+filehandle if desired).
+
+
+=back

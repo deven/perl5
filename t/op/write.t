@@ -92,6 +92,7 @@ $fox
 jumped
 @*
 $multiline
+and
 ^<<<<<<<<< ~~
 $foo
 now @<<the@>>>> for all@|||||men to come @<<<<
@@ -114,6 +115,7 @@ jumped
 forescore
 and
 seven years
+and
 when in
 the course
 of human

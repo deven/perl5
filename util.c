@@ -181,7 +181,7 @@ safexrealloc(where,size)
 char *where;
 MEM_SIZE size;
 {
-    register char *new = saferealloc(where - ALIGN, size + ALIGN)
+    register char *new = saferealloc(where - ALIGN, size + ALIGN);
     return new + ALIGN;
 }
 
@@ -651,7 +651,7 @@ register I32 len;
 /* copy a string to a safe spot */
 
 char *
-savestr(sv)
+savepv(sv)
 char *sv;
 {
     register char *newaddr;
@@ -664,7 +664,7 @@ char *sv;
 /* same thing but with a known length */
 
 char *
-nsavestr(sv, len)
+savepvn(sv, len)
 char *sv;
 register I32 len;
 {
@@ -712,13 +712,12 @@ long a1, a2, a3, a4;
 		  SvPVX(GvSV(curcop->cop_filegv)), (long)curcop->cop_line);
 		s += strlen(s);
 	    }
-	    if (last_in_gv &&
-		GvIO(last_in_gv) &&
-		IoLINES(GvIO(last_in_gv)) ) {
+	    if (GvIO(last_in_gv) &&
+		IoLINES(GvIOp(last_in_gv)) ) {
 		(void)sprintf(s,", <%s> %s %ld",
 		  last_in_gv == argvgv ? "" : GvENAME(last_in_gv),
 		  strEQ(rs,"\n") ? "line" : "chunk", 
-		  (long)IoLINES(GvIO(last_in_gv)));
+		  (long)IoLINES(GvIOp(last_in_gv)));
 		s += strlen(s);
 	    }
 	    (void)strcpy(s,".\n");
@@ -741,6 +740,10 @@ long a1, a2, a3, a4;
     char *message;
 
     message = mess(pat,a1,a2,a3,a4);
+    if (in_eval) {
+	restartop = die_where(message);
+	longjmp(top_env, 3);
+    }
     fputs(message,stderr);
     (void)fflush(stderr);
     if (e_fp)
@@ -810,13 +813,12 @@ mess(pat, args)
 		  SvPVX(GvSV(curcop->cop_filegv)), (long)curcop->cop_line);
 		s += strlen(s);
 	    }
-	    if (last_in_gv &&
-		GvIO(last_in_gv) &&
-		IoLINES(GvIO(last_in_gv)) ) {
+	    if (GvIO(last_in_gv) &&
+		IoLINES(GvIOp(last_in_gv)) ) {
 		(void)sprintf(s,", <%s> %s %ld",
 		  last_in_gv == argvgv ? "" : GvNAME(last_in_gv),
 		  strEQ(rs,"\n") ? "line" : "chunk", 
-		  (long)IoLINES(GvIO(last_in_gv)));
+		  (long)IoLINES(GvIOp(last_in_gv)));
 		s += strlen(s);
 	    }
 	    (void)strcpy(s,".\n");
@@ -852,8 +854,10 @@ croak(pat, va_alist)
 #endif
     message = mess(pat, &args);
     va_end(args);
-    if (restartop = die_where(message))
+    if (in_eval) {
+	restartop = die_where(message);
 	longjmp(top_env, 3);
+    }
     fputs(message,stderr);
     (void)fflush(stderr);
     if (e_fp)
@@ -907,7 +911,7 @@ char *nam, *val;
 	for (max = i; environ[max]; max++) ;
 	New(901,tmpenv, max+2, char*);
 	for (j=0; j<max; j++)		/* copy environment */
-	    tmpenv[j] = savestr(environ[j]);
+	    tmpenv[j] = savepv(environ[j]);
 	tmpenv[max] = Nullch;
 	environ = tmpenv;		/* tell exec where it is now */
     }
@@ -1274,7 +1278,7 @@ char	*mode;
 	p[this] = p[that];
     }
     sv = *av_fetch(fdpid,p[this],TRUE);
-    SvUPGRADE(sv,SVt_IV);
+    (void)SvUPGRADE(sv,SVt_IV);
     SvIVX(sv) = pid;
     forkprocess = pid;
     return fdopen(p[this], mode);
@@ -1434,7 +1438,7 @@ int status;
 
     sprintf(spid, "%d", pid);
     sv = *hv_fetch(pidstatus,spid,strlen(spid),TRUE);
-    SvUPGRADE(sv,SVt_IV);
+    (void)SvUPGRADE(sv,SVt_IV);
     SvIVX(sv) = status;
     return;
 }
@@ -1505,6 +1509,22 @@ double f;
     if (f <= BIGNEGDOUBLE)
 	return (I32)fmod(f, BIGNEGDOUBLE);
     return (I32) f;
+}
+# undef BIGDOUBLE
+# undef BIGNEGDOUBLE
+
+IV
+cast_iv(f)
+double f;
+{
+    /* XXX  This should be fixed.  It assumes 32 bit IV's. */
+#   define BIGDOUBLE 2147483648.0        /* Assume 32 bit IV's ! */
+#   define BIGNEGDOUBLE (-2147483648.0)
+    if (f >= BIGDOUBLE)
+	return (IV)fmod(f, BIGDOUBLE);
+    if (f <= BIGNEGDOUBLE)
+	return (IV)fmod(f, BIGNEGDOUBLE);
+    return (IV) f;
 }
 # undef BIGDOUBLE
 # undef BIGNEGDOUBLE

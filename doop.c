@@ -42,7 +42,12 @@ OP *arg;
     STRLEN len;
 
     tbl = (short*) cPVOP->op_pv;
-    s = SvPV_force(sv, len);
+    s = SvPV(sv, len);
+    if (!len)
+	return 0;
+    if (!SvPOKp(sv))
+	s = SvPV_force(sv, len);
+    (void)SvPOK_only(sv);
     send = s + len;
     if (!tbl || !s)
 	croak("panic: do_trans");
@@ -410,7 +415,9 @@ register SV *sv;
             do_chop(astr,hv_iterval(hv,entry));
         return;
     }
-    s = SvPV_force(sv, len);
+    s = SvPV(sv, len);
+    if (len && !SvPOKp(sv))
+	s = SvPV_force(sv, len);
     if (s && len) {
 	s += --len;
 	sv_setpvn(astr, s, 1);
@@ -424,7 +431,7 @@ register SV *sv;
 } 
 
 I32
-do_safechop(sv)
+do_chomp(sv)
 register SV *sv;
 {
     register I32 count = 0;
@@ -439,7 +446,7 @@ register SV *sv;
         for (i = 0; i <= max; i++) {
 	    sv = (SV*)av_fetch(av, i, FALSE);
 	    if (sv && ((sv = *(SV**)sv), sv != &sv_undef))
-		count += do_safechop(sv);
+		count += do_chomp(sv);
 	}
         return count;
     }
@@ -449,10 +456,12 @@ register SV *sv;
         (void)hv_iterinit(hv);
         /*SUPPRESS 560*/
         while (entry = hv_iternext(hv))
-            count += do_safechop(hv_iterval(hv,entry));
+            count += do_chomp(hv_iterval(hv,entry));
         return count;
     }
-    s = SvPV_force(sv, len); 
+    s = SvPV(sv, len);
+    if (len && !SvPOKp(sv))
+	s = SvPV_force(sv, len);
     if (s && len) {
 	s += --len;
 	if (rspara) {
@@ -504,7 +513,7 @@ SV *right;
 	(void)memzero(dc + SvCUR(sv), len - SvCUR(sv) + 1);
     }
     SvCUR_set(sv, len);
-    SvPOK_only(sv);
+    (void)SvPOK_only(sv);
 #ifdef LIBERAL
     if (len >= sizeof(long)*4 &&
 	!((long)dc % sizeof(long)) &&
@@ -527,7 +536,7 @@ SV *right;
 		*dl++ = *ll++ & *rl++;
 	    }
 	    break;
-	case OP_XOR:
+	case OP_BIT_XOR:
 	    while (len--) {
 		*dl++ = *ll++ ^ *rl++;
 		*dl++ = *ll++ ^ *rl++;
@@ -561,7 +570,7 @@ SV *right;
 	    while (len--)
 		*dc++ = *lc++ & *rc++;
 	    break;
-	case OP_XOR:
+	case OP_BIT_XOR:
 	    while (len--)
 		*dc++ = *lc++ ^ *rc++;
 	    goto mop_up;

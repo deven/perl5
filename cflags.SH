@@ -40,6 +40,20 @@ case $CONFIG in
 	;;
 esac
 
+perltype=''
+optdebug=''	# ensure -g used if building a -DDEBUGGING libperl
+case $# in
+2) case $1 in
+    *perl.*)    perltype='';;
+    *perld.*)   perltype='-DDEBUGGING'; optdebug='-g' ;;
+    *perle.*)   perltype='-DEMBED';;
+    *perlde.*)  perltype='-DDEBUGGING -DEMBED'; optdebug='-g' ;;
+    *perlm.*)   perltype='-DEMBED -DMULTIPLICITY';;
+    *perldm.*)  perltype='-DDEBUGGING -DEMBED -DMULTIPLICITY'; optdebug='-g' ;;
+    esac
+    shift ;;
+esac
+
 also=': '
 case $# in
 1) also='echo 1>&2 "	  CCCMD = "'
@@ -88,6 +102,9 @@ for file do
     perlmain) ;;
     perly) ;;
     pp) ;;
+    pp_ctl) ;;
+    pp_hot) ;;
+    pp_sys) ;;
     regcomp) ;;
     regexec) ;;
     run) ;;
@@ -100,8 +117,12 @@ for file do
     *) ;;
     esac
 
-    echo "$cc -c $ccflags $optimize $large $split"
-    eval "$also "'"$cc -c $ccflags $optimize $large $split"'
+	if test "X$optdebug" != "X"; then
+		optimize="$optdebug"
+	fi
+
+    echo "$cc -c $ccflags $optimize $perltype $large $split"
+    eval "$also "'"$cc -c $ccflags $optimize $perltype $large $split"'
 
     . $TOP/config.sh
 

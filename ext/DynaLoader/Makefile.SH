@@ -35,7 +35,7 @@ else
 fi
 
 : This extension might need additional libraries.
-potential_libs=" "
+potential_libs=""
 . $TOP/ext/util/extliblist
 
 echo "Extracting ext/$ext/Makefile (with variable substitutions)"
@@ -72,6 +72,7 @@ LDDLFLAGS = $lddlflags
 CCDLFLAGS = $ccdlflags
 CCCDLFLAGS = $cccdlflags
 SO = $so
+DLEXT = $dlext
 
 # $ext might need to be linked with some extra libraries.
 # EXTRALIBS =  full list of libraries needed for static linking.
@@ -95,7 +96,7 @@ $spitshell >>Makefile <<'!NO!SUBS!'
 
 # Where to put things:
 AUTO = $(TOP)/lib/auto
-INSTALLSTATIC = $(TOP)/$(EXT).a
+INSTALLSTATIC = $(EXT).a
 INSTALLPM = $(TOP)/lib/$(EXT).pm
 
 PERL = $(ABSTOP)/miniperl
@@ -109,6 +110,8 @@ CCCMD = `sh $(shellflags) $(TOP)/cflags $@`
 all:	static
 # Phony target to force checking subdirectories.
 FORCE:
+
+config:
 
 # Target for Dynamic Loading:
 # If we hit here, there's a mistake somewhere.
@@ -124,13 +127,19 @@ $(INSTALLSTATIC):	$(EXT).o
 	$(RANLIB) $@
 	echo $(EXTRALIBS) >> $(TOP)/ext.libs
 
-$(EXT).c:	$(DLSRC) dlutils.c $(XSUBPP) $(TOP)/ext/typemap $(EXTTYPEMAP) $(TOP)/cflags
+$(EXT).c:	$(DLSRC) dlutils.c $(XSUBPP) $(TOP)/ext/typemap $(EXTTYPEMAP) $(TOP)/cflags Makefile
 	$(PERL) $(XSUBPP) $(DLSRC) >tmp
 	mv tmp $@
 
 $(INSTALLPM):	$(EXT).pm
+	rm -f $@
 	cp $(EXT).pm $@
 	cd $(TOP); $(PERL) autosplit $(EXT)
+
+# Perform very simple tests just to check for major gaffs.
+# We can't do much more for platforms we are not executing on.
+test-xs:
+	for i in dl_*xs; do $(PERL) $(XSUBPP) $$i > /dev/null; done
 
 clean:
 	rm -f *.o *.a mon.out core $(EXT).c so_locations $(BOOTSTRAP)

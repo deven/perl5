@@ -8,8 +8,8 @@
 ?RCS:
 ?RCS: $Log: Extensions.U,v $
 ?RCS:
-?MAKE:known_extensions extensions dynamic_ext static_ext : Myread usedl \
-	d_socket i_db i_dbm i_ndbm i_gdbm package test cat
+?MAKE:known_extensions extensions dynamic_ext static_ext useposix : \
+	Myread usedl d_socket i_db i_dbm i_ndbm i_gdbm package test cat
 ?MAKE:	-pick add $@ %<
 ?S:known_extensions:
 ?S:	This variable holds a list of all extensions included in 
@@ -29,7 +29,16 @@
 ?S:	and is typically used to test whether a particular extesion 
 ?S:	is available.
 ?S:.
+?S:useposix:
+?S:	This variable holds either 'true' or 'false' to indicate
+?S:	whether the POSIX extension should be used.  The sole
+?S:	use for this currently is to allow an easy mechanism
+?S:	for hints files to indicate that POSIX will not compile
+?S:	on a particular system.
+?S:.
 ?T:xxx avail_ext
+?INIT:: set useposix=false in your hint file to disable the POSIX extension.
+?INIT:useposix=true
 echo " "
 echo "Looking for extensions..." >&4
 cd ../ext
@@ -66,6 +75,10 @@ for xxx in $known_extensions ; do
 	    $define) avail_ext="$avail_ext $xxx" ;;
 	    esac
 	    ;;
+    POSIX) case "$useposix" in 
+	    true|define|y) avail_ext="$avail_ext $xxx" ;;
+	    esac
+	    ;;
     Socket) case "$d_socket" in 
 	    $define) avail_ext="$avail_ext $xxx" ;;
 	    esac
@@ -85,16 +98,16 @@ $define)
 A number of extensions are supplied with $package.  You may choose to
 compile these extensions for dynamic loading (the default), compile
 them into the $package executable (static loading), or not include
-them at all.  Answer "none" to include no extensions.  You should
-always include DynaLoader as a static extension.
+them at all.  Answer "none" to include no extensions.
 
 EOM
 	case "$dynamic_ext" in
 	''|' ') dflt="$avail_ext" ;;
-	*)  dflt="$dynamic_ext" ;;
+	*)	dflt="$dynamic_ext" ;;
 	esac
-	: DynaLoader must be loaded statically.
-	dflt=`echo "$dflt" | sed -e 's/ *DynaLoader */ /' -e 's/^ //'`
+	case "$dflt" in
+	'')	dflt=none;;
+	esac
 	rp="What extensions do you wish to load dynamically?"
 	. ./myread
 	case "$ans" in
@@ -121,9 +134,8 @@ EOM
 	esac
 
 	case "$dflt" in
-	'') dflt=DynaLoader ;;
+	'')	dflt=none;;
 	esac
-
 	rp="What extensions do you wish to load statically?"
 	. ./myread
 	case "$ans" in
@@ -134,18 +146,17 @@ EOM
 *)
 	$cat <<EOM
 A number of extensions are supplied with $package.  Answer "none" 
-to include no extensions.  You should always include DynaLoader even 
-though you are not using dynamic loading.
+to include no extensions. 
 
 EOM
 	case "$static_ext" in
 	''|' ') dflt="$avail_ext" ;;
 	*)	dflt="$static_ext" ;;
 	esac
-	case "$dflt" in
-	'') dflt=DynaLoader ;;
-	esac
 
+	case "$dflt" in
+	'')	dflt=none;;
+	esac
 	rp="What extensions do you wish to include?"
 	. ./myread
 	case "$ans" in

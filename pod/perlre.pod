@@ -1,0 +1,100 @@
+=head1 NAME
+
+perlre - Perl regular expressions
+
+=head1 DESCRIPTION
+
+=head2 Regular Expressions
+
+The patterns used in pattern matching are regular expressions such as
+those supplied in the Version 8 regexp routines.  (In fact, the
+routines are derived from Henry Spencer's freely redistributable
+reimplementation of the V8 routines.)  In addition, \w matches an
+alphanumeric character (including "_") and \W a nonalphanumeric.  Word
+boundaries may be matched by \b, and non-boundaries by \B.  A
+whitespace character is matched by \s, non-whitespace by \S.  A numeric
+character is matched by \d, non-numeric by \D.  You may use \w, \s and
+\d within character classes.  Also, \n, \r, \f, \t and \NNN have their
+normal interpretations.  Within character classes \b represents
+backspace rather than a word boundary.  Alternatives may be separated
+by |.  The bracketing construct ( ... ) may also be used, in which case
+\<digit> matches the digit'th substring.  (Outside of the pattern,
+always use $ instead of \ in front of the digit.  The scope of $<digit>
+(and $`, $& and $') extends to the end of the enclosing BLOCK or eval
+string, or to the next pattern match with subexpressions.  The \<digit>
+notation sometimes works outside the current pattern, but should not be
+relied upon.)  You may have as many parentheses as you wish.  If you
+have more than 9 substrings, the variables $10, $11, ... refer to the
+corresponding substring.  Within the pattern, \10, \11, etc. refer back
+to substrings if there have been at least that many left parens before
+the backreference.  Otherwise (for backward compatibilty) \10 is the
+same as \010, a backspace, and \11 the same as \011, a tab.  And so
+on.  (\1 through \9 are always backreferences.)
+
+$+ returns whatever the last bracket match matched.  $& returns the
+entire matched string.  ($0 used to return the same thing, but not any
+more.) $` returns everything before the matched string.  $' returns
+everything after the matched string.  Examples:
+
+    s/^([^ ]*) *([^ ]*)/$2 $1/;     # swap first two words
+
+    if (/Time: (..):(..):(..)/) {
+	$hours = $1;
+	$minutes = $2;
+	$seconds = $3;
+    }
+
+By default, the ^ character is guaranteed to match only at the
+beginning of the string, the $ character only at the end (or before the
+newline at the end) and I<perl> does certain optimizations with the
+assumption that the string contains only one line.  Embedded newlines
+will not be matched by ^ or $.  You may, however, wish to treat a
+string as a multi-line buffer, such that the ^ will match after any
+newline within the string, and $ will match before any newline.  At the
+cost of a little more overhead, you can do this by setting the variable
+$* to 1.  Setting it back to 0 makes I<perl> revert to its old
+behavior.  You can use \A and \Z to match at the beginning and end of
+the string, in case $* is set.  A \G will match where the previous
+pattern left off, if you used a g modifier.
+
+To facilitate multi-line substitutions, the . character never matches a
+newline (even when $* is 0).  In particular, the following leaves a
+newline on the $_ string:
+
+    $_ = <STDIN>;
+    s/.*(some_string).*/$1/;
+
+If the newline is unwanted, try one of
+
+    s/.*(some_string).*\n/$1/;
+    s/.*(some_string)[^\000]*/$1/;
+    s/.*(some_string)(.|\n)*/$1/;
+    chop; s/.*(some_string).*/$1/;
+    /(some_string)/ && ($_ = $1);
+
+Or you can force . to match newline by using the s modifier.
+
+Any item of a regular expression may be followed with digits in curly
+brackets of the form {n,m}, where n gives the minimum number of times
+to match the item and m gives the maximum.  The form {n} is equivalent
+to {n,n} and matches exactly n times.  The form {n,} matches n or more
+times.  (If a curly bracket occurs in any other context, it is treated
+as a regular character.)  The * modifier is equivalent to {0,}, the +
+modifier to {1,} and the ? modifier to {0,1}.  There is no limit to the
+size of n or m, but large numbers will chew up more memory.
+
+You will note that all backslashed metacharacters in I<perl> are
+alphanumeric, such as \b, \w, \n.  Unlike some other regular expression
+languages, there are no backslashed symbols that aren't alphanumeric.
+So anything that looks like \\, \(, \), \<, \>, \{, or \} is always
+interpreted as a literal character, not a metacharacter.  This makes it
+simple to quote a string that you want to use for a pattern but that
+you are afraid might contain metacharacters.  Simply quote all the
+non-alphanumeric characters:
+
+    $pattern =~ s/(\W)/\\$1/g;
+
+You can also use the built-in quotemeta() function to do this.
+An even easier way to quote metacharacters right in the match operator
+is to say /$unquoted\Q$quoted\E$unquoted/.
+

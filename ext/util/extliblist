@@ -45,6 +45,7 @@ esac
 extralibs=''
 dynaloadlibs=''
 statloadlibs=''
+Llibpth=''
 for thislib in `echo "XXX $potential_libs " | $sed 's/ -l/ /g'` ; do
 	case "$thislib" in
 	XXX)
@@ -54,16 +55,18 @@ for thislib in `echo "XXX $potential_libs " | $sed 's/ -l/ /g'` ; do
 		: Handle possible linker path arguments.
 		newpath=`echo $thislib | $sed 's/^-L//'`
 		if $test -d $newpath; then
-			libpth="$libpth $newpath"
+			Llibpth="$Llibpth $newpath"
 			extralibs="$extralibs $thislib"
 			statloadlibs="$statloadlibs $thislib"
 		fi
 		;;
 	*)
 		: Handle possible library arguments.
-		for thispth in $libpth; do
-			fullname=`echo $thispth/lib$thislib.$so.[0-9]* |
-				tr ' ' '\012' | tail -1`
+		for thispth in $Llibpth $libpth; do
+			: Loop over possible wildcards and take the last one.
+			for fullname in $thispth/lib$thislib.$so.[0-9]* ; do
+				:
+			done
 			if $test -f $fullname; then
 				break
 			elif fullname=$thispth/lib$thislib.$so && $test -f $fullname; then
@@ -81,32 +84,58 @@ for thislib in `echo "XXX $potential_libs " | $sed 's/ -l/ /g'` ; do
 		done
 		: Now update library lists
 		case "$fullname" in
-		*.$so|*.$so.[0-9]*)
-			: Do not add it into the list if it is already linked in
+		'') 
+			: Skip nonexistent files
+			;;
+		*)
+			: Do not add it into the extralibs if it is already linked in
 			: with the main perl executable.
 			case " $libs " in
-			*" -l$thislib "*) ;;
-			*)	extralibs="$extralibs -l$thislib"
-				dynaloadlibs="$dynaloadlibs $fullname"
-				;;
-			esac
-			;;
-		*.a)
-			case " $libs " in
-			*" -l$thislib "*) ;;
+			*" -l$thislib "*|*" -l${thislib}_s "*) ;;
 			*)	extralibs="$extralibs -l$thislib" ;;
 			esac
-			: We might be able to load this archive file dynamically
+			:
+			: For NeXT and DLD, put files into DYNALOADLIBS to be
+			: converted into a boostrap file.  For other systems,
+			: we will use ld with what I have misnamed STATLOADLIBS
+			: to assemble the shared object.
 			case "$dlsrc" in
 			dl_dld*|dl_next*)
-				dynaloadlibs="$dynaloadlibs $fullname" ;;
-			*)	statloadlibs="$statloadlibs -l$thislib"  ;;
+				dynaloadlibs="$dynaloadlibs $fullname"   ;;
+			*)
+				case "$fullname" in
+				*.a)
+					statloadlibs="$statloadlibs -l$thislib" 
+					;;
+				*)   
+					: For SunOS4, do not add in this shared library
+					: if it is already linked in the main
+					: perl executable
+					case "$osname" in
+					sunos)
+						case " $libs " in
+						*" -l$thislib "*) ;;
+						*)	statloadlibs="$statloadlibs -l$thislib" ;;
+						esac
+						;;
+					*)
+						statloadlibs="$statloadlibs -l$thislib" 
+						;;
+					esac
+					;;
+				esac
+				;;
 			esac
 			;;
 		esac
 		;;
 	esac
 done
+
+case "$dlsrc" in
+dl_next*)
+	extralibs=`echo " $extralibs "| $sed -e 's/ -lm / /'` ;;
+esac
 
 set X $extralibs
 shift
@@ -119,3 +148,4 @@ dynaloadlibs="$*"
 set X $statloadlibs
 shift
 statloadlibs="$*"
+

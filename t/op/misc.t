@@ -1,13 +1,19 @@
 #!./perl
+
 chdir 't' if -d 't';
 @INC = "../lib";
 $ENV{PERL5LIB} = "../lib";
+
 $|=1;
+
 undef $/;
 @prgs = split "\n########\n", <DATA>;
 print "1..", scalar @prgs, "\n";
+
 $tmpfile = "misctmp000";
 1 while -f ++$tmpfile;
+END { unlink $tmpfile if $tmpfile; }
+
 for (@prgs){
     my $switch;
     if (s/^\s*-\w+//){
@@ -29,7 +35,6 @@ for (@prgs){
     }
     print "ok ", ++$i, "\n";
 }
-unlink $tmpfile;
 
 __END__
 $foo=undef; $foo->go;
@@ -136,8 +141,8 @@ sub ShowShell
    {
        package FAKEARRAY;
    
-       sub new 
-       { print "new @_\n"; 
+       sub TIEARRAY
+       { print "TIEARRAY @_\n"; 
          die "bomb out\n" unless $count ++ ;
          bless ['foo'] 
        }
@@ -149,6 +154,21 @@ sub ShowShell
 eval 'tie @h, FAKEARRAY, fred' ;
 tie @h, FAKEARRAY, fred ;
 EXPECT
-new FAKEARRAY fred
-new FAKEARRAY fred
+TIEARRAY FAKEARRAY fred
+TIEARRAY FAKEARRAY fred
 DESTROY 
+########
+BEGIN { die "phooey\n" }
+EXPECT
+phooey
+BEGIN failed--execution aborted at - line 1.
+########
+BEGIN { 1/$zero }
+EXPECT
+Illegal division by zero at - line 1.
+BEGIN failed--execution aborted at - line 1.
+########
+BEGIN { undef = 0 }
+EXPECT
+Modification of a read-only value attempted at - line 1.
+BEGIN failed--execution aborted at - line 1.

@@ -1,6 +1,6 @@
 #define ST(off) stack_base[ax + off]
 
-#ifdef STANDARD_C
+#ifdef CAN_PROTOTYPE
 #define XS(name) void name(CV* cv)
 #else
 #define XS(name) void name(cv) CV* cv;

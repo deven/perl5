@@ -12,12 +12,13 @@ EOF
 ;;
 esac
 case "$tmp" in
-*4.1*)	ccflags="$ccflags -DLANGUAGE_C -Olimit 2900" ;;
+*4.1*)	ccflags="$ccflags -DLANGUAGE_C -Olimit 2900" 
+	;;
 *4.2*)	ccflags="$ccflags -DLANGUAGE_C -Olimit 2900"
 	libswanted=`echo $libswanted | sed 's/ malloc / /'`
 	;;
 *4.4*)	ccflags="$ccflags -std -Olimit 2900"
 	ranlib='ranlib'
-	groupstype='int'
 	;;
 esac
+groupstype='int'

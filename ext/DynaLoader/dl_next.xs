@@ -137,56 +137,56 @@ char *symbol;
 }
 
 
-MODULE = DynaLoader	PACKAGE = DynaLoader
+/* ----- code from dl_dlopen.xs below here ----- */
 
 
-void
+static void
 dl_private_init()
-	PPCODE:
-	dl_generic_private_init();
+{
+    (void)dl_generic_private_init();
+}
+ 
+MODULE = DynaLoader     PACKAGE = DynaLoader
+
+BOOT:
+    (void)dl_private_init();
 
 
 
 void *
 dl_load_file(filename)
-	char *		filename
-	CODE:
-	int mode = 1;     /* Solaris 1 */
-#ifdef RTLD_LAZY
-	mode = RTLD_LAZY; /* Solaris 2 */
-#endif
-	DLDEBUG(1,fprintf(stderr,"dl_load_file(%s): ", filename));
-	RETVAL = dlopen(filename, mode) ;
-	DLDEBUG(2,fprintf(stderr," libref=%x\n", RETVAL));
-	ST(0) = sv_newmortal() ;
-	if (RETVAL == NULL)
-	    SaveError("%s",dlerror()) ;
-	else
-	    sv_setiv( ST(0), (IV)RETVAL);
+    char *	filename
+    CODE:
+    int mode = 1;
+    DLDEBUG(1,fprintf(stderr,"dl_load_file(%s):\n", filename));
+    RETVAL = dlopen(filename, mode) ;
+    DLDEBUG(2,fprintf(stderr," libref=%x\n", RETVAL));
+    ST(0) = sv_newmortal() ;
+    if (RETVAL == NULL)
+	SaveError("%s",dlerror()) ;
+    else
+	sv_setiv( ST(0), (IV)RETVAL);
 
 
 void *
 dl_find_symbol(libhandle, symbolname)
-	void *		libhandle
-	char *		symbolname
-	CODE:
-#ifdef DL_ADD_UNDERSCORE
- code to add a leading underscore to symbolname needed here
-#endif
-	DLDEBUG(2,fprintf(stderr,"dl_find_symbol(handle=%x, symbol=%s)\n",
-		libhandle, symbolname));
-	RETVAL = dlsym(libhandle, symbolname);
-	DLDEBUG(2,fprintf(stderr,"  symbolref = %x\n", RETVAL));
-	ST(0) = sv_newmortal() ;
-	if (RETVAL == NULL)
-	    SaveError("%s",dlerror()) ;
-	else
-	    sv_setiv( ST(0), (IV)RETVAL);
+    void *		libhandle
+    char *		symbolname
+    CODE:
+    DLDEBUG(2,fprintf(stderr,"dl_find_symbol(handle=%x, symbol=%s)\n",
+	    libhandle, symbolname));
+    RETVAL = dlsym(libhandle, symbolname);
+    DLDEBUG(2,fprintf(stderr,"  symbolref = %x\n", RETVAL));
+    ST(0) = sv_newmortal() ;
+    if (RETVAL == NULL)
+	SaveError("%s",dlerror()) ;
+    else
+	sv_setiv( ST(0), (IV)RETVAL);
 
 
 void
-dl_undefined_symbols()
-	PPCODE:
+dl_undef_symbols()
+    PPCODE:
 
 
 
@@ -194,21 +194,20 @@ dl_undefined_symbols()
 
 void
 dl_install_xsub(perl_name, symref, filename="$Package")
-	char *		perl_name
-	void *		symref 
-	char *		filename
-	CODE:
-	DLDEBUG(2,fprintf(stderr,"dl_install_xsub(name=%s, symref=%x)\n",
-		perl_name, symref));
-	/* is this a valid way to return a function reference? */
-	ST(0) = (SV*)newXS(perl_name, (void (*)())symref, filename) ;
+    char *	perl_name
+    void *	symref 
+    char *	filename
+    CODE:
+    DLDEBUG(2,fprintf(stderr,"dl_install_xsub(name=%s, symref=%x)\n",
+	    perl_name, symref));
+    ST(0)=sv_2mortal(newRV((SV*)newXS(perl_name, (void(*)())symref, filename)));
 
 
 char *
-dl_dl_error()
-	CODE:
-	RETVAL = LastError ;
-	OUTPUT:
-	  RETVAL
+dl_error()
+    CODE:
+    RETVAL = LastError ;
+    OUTPUT:
+    RETVAL
 
 # end.

@@ -14,6 +14,10 @@ unsigned char *		T_PV
 caddr_t			T_PV
 wchar_t *		T_PV
 wchar_t			T_IV
+bool_t			T_IV
+size_t			T_IV
+ssize_t			T_IV
+time_t			T_NV
 unsigned long *		T_OPAQUEPTR
 char **			T_PACKED
 void *			T_PTR
@@ -32,11 +36,12 @@ U32			T_U_LONG
 U16			T_U_SHORT
 U8			T_IV
 Result			T_U_CHAR
-Boolean			T_U_CHAR
+Boolean			T_IV
 double			T_DOUBLE
 SysRet			T_SYSRET
 SysRetLong		T_SYSRET
 FILE *			T_IN
+FileHandle		T_PTROBJ
 InputStream		T_IN
 InOutStream		T_INOUT
 OutputStream		T_OUT
@@ -219,15 +224,15 @@ T_PV
 T_PTR
 	sv_setiv($arg, (IV)$var);
 T_PTRREF
-	sv_setref_iv($arg, Nullch, (IV)$var);
+	sv_setref_pv($arg, Nullch, (void*)$var);
 T_REF_IV_REF
-	sv_setref_iv($arg, \"${ntype}\", (IV)new $ntype($var));
+	sv_setref_pv($arg, \"${ntype}\", (void*)new $ntype($var));
 T_REF_IV_PTR
-	sv_setref_iv($arg, \"${ntype}\", (IV)$var);
+	sv_setref_pv($arg, \"${ntype}\", (void*)$var);
 T_PTROBJ
-	sv_setref_iv($arg, \"${ntype}\", (IV)$var);
+	sv_setref_pv($arg, \"${ntype}\", (void*)$var);
 T_PTRDESC
-	sv_setref_iv($arg, \"${ntype}\", (IV)new\U${type}_DESC\E($var));
+	sv_setref_pv($arg, \"${ntype}\", (void*)new\U${type}_DESC\E($var));
 T_REFREF
 	sv_setrefref($arg, \"${ntype}\", XS_service_$ntype,
 		    ($var ? (void*)new $ntype($var) : 0));

@@ -1,0 +1,93 @@
+=head1 NAME
+
+perlstyle - Perl style guide
+
+=head1 DESCRIPTION
+
+=head2 Style
+
+Each programmer will, of course, have his or her own preferences in
+regards to formatting, but there are some general guidelines that will
+make your programs easier to read.
+
+=over 4
+
+=item 1.
+
+Just because you CAN do something a particular way doesn't mean that
+you SHOULD do it that way.  I<Perl> is designed to give you several
+ways to do anything, so consider picking the most readable one.  For
+instance
+
+    open(FOO,$foo) || die "Can't open $foo: $!";
+
+is better than
+
+    die "Can't open $foo: $!" unless open(FOO,$foo);
+
+because the second way hides the main point of the statement in a
+modifier.  On the other hand
+
+    print "Starting analysis\n" if $verbose;
+
+is better than
+
+    $verbose && print "Starting analysis\n";
+
+since the main point isn't whether the user typed -v or not.
+
+Similarly, just because an operator lets you assume default arguments
+doesn't mean that you have to make use of the defaults.  The defaults
+are there for lazy systems programmers writing one-shot programs.  If
+you want your program to be readable, consider supplying the argument.
+
+Along the same lines, just because you I<can> omit parentheses in many
+places doesn't mean that you ought to:
+
+    return print reverse sort num values array;
+    return print(reverse(sort num (values(%array))));
+
+When in doubt, parenthesize.  At the very least it will let some poor
+schmuck bounce on the % key in vi.
+
+Even if you aren't in doubt, consider the mental welfare of the person
+who has to maintain the code after you, and who will probably put
+parens in the wrong place.
+
+=item 2.
+
+Don't go through silly contortions to exit a loop at the top or the
+bottom, when I<perl> provides the "last" operator so you can exit in
+the middle.  Just outdent it a little to make it more visible:
+
+    LINE:
+	for (;;) {
+	    statements;
+	last LINE if $foo;
+	    next LINE if /^#/;
+	    statements;
+	}
+
+=item 3.
+
+Don't be afraid to use loop labels--they're there to enhance
+readability as well as to allow multi-level loop breaks.  See last
+example.
+
+=item 4.
+
+For portability, when using features that may not be implemented on
+every machine, test the construct in an eval to see if it fails.  If
+you know what version or patchlevel a particular feature was
+implemented, you can test $] to see if it will be there.
+
+=item 5.
+
+Choose mnemonic identifiers.
+
+=item 6.
+
+Be consistent.
+
+=back
+

@@ -18,18 +18,9 @@
  */
 #define HAS_UTIME		/**/
 
-#define HAS_ALARM
-#define HAS_CHOWN
-#define HAS_CHROOT
-#define HAS_FORK
-#define HAS_GETLOGIN
-#define HAS_GETPPID
 #define HAS_KILL
 #define HAS_LINK
-#define HAS_PIPE
 #define HAS_WAIT
-#define HAS_UMASK
-#define HAS_PAUSE
 /*
  * The following symbols are defined if your operating system supports
  * password and group functions in general.  All Unix systems do.

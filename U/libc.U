@@ -1,4 +1,4 @@
-?RCS: $Id: libc.U,v 3.0.1.5 1994/06/20 07:03:24 ram Exp $
+?RCS: $Id: libc.U,v 3.0.1.6 1994/08/29 16:28:10 ram Exp $
 ?RCS:
 ?RCS: Copyright (c) 1991-1993, Raphael Manfredi
 ?RCS: 
@@ -9,6 +9,9 @@
 ?RCS: of the source tree for dist 3.0.
 ?RCS:
 ?RCS: $Log: libc.U,v $
+?RCS: Revision 3.0.1.6  1994/08/29  16:28:10  ram
+?RCS: patch32: added I-type symbols for nm output parsing on Linux
+?RCS:
 ?RCS: Revision 3.0.1.5  1994/06/20  07:03:24  ram
 ?RCS: patch30: checks are now presented by succession of if/elif
 ?RCS: patch30: uniformized checks for shared objects with new so symbol
@@ -29,7 +32,7 @@
 ?RCS: Baseline for dist 3.0 netwide release.
 ?RCS:
 ?MAKE:libc +nm_extract: echo n c rm test grep Getfile Myread Oldconfig Loc \
-	sed libs incpath libnames libpth runnm nm_opt contains xlibpth so
+	sed libs incpath libpth runnm nm_opt contains xlibpth so
 ?MAKE:	-pick add $@ %<
 ?S:libc:
 ?S:	This variable contains the location of the C library.
@@ -39,8 +42,8 @@
 ?S:	the output of nm and yield the list of defined symbols. It is used
 ?S:	internally by Configure.
 ?S:.
-?T:xxx xscan xrun thisname com tans
-?LINT:change nm_opt libnames
+?T:thislib try libnames xxx xscan xrun thisname com tans
+?LINT:change nm_opt
 case "$runnm" in
 true)
 ?X: indentation is wrong on purpose--RAM
@@ -53,7 +56,41 @@ case "$libc" in
 	esac
 	;;
 esac
-
+libnames='';
+case "$libs" in
+'') ;;
+*)  for thislib in $libs; do
+	case "$thislib" in
+	-lc|-lc_s)
+		: Handle C library specially below.
+		;;
+	-l*)
+?X:		try to be robust against weird linker things like -Wl,-a,shared
+?X:		that might get into $libs.
+?X:		thislib=`expr X$thislib : 'X-l\(.*\)'`
+		thislib=`echo X$thislib | $sed -e 's/^X//' -e 's/^-l//'`
+		if try=`./loc lib$thislib.$so.'*' X $libpth`; $test -f "$try"; then
+			:
+		elif try=`./loc lib$thislib.$so X $libpth`; $test -f "$try"; then
+			:
+		elif try=`./loc lib$thislib.a X $libpth`; $test -f "$try"; then
+			:
+		elif try=`./loc lib$thislib X $libpth`; $test -f "$try"; then
+			:
+		elif try=`./loc $thislib X $libpth`; $test -f "$try"; then
+			:
+		elif try=`./loc Slib$thislib.a X $xlibpth`; $test -f "$try"; then
+			:
+		else
+			try=''
+		fi
+		libnames="$libnames $try"
+		;;
+	*) libnames="$libnames $thislib" ;;
+	esac
+	done
+	;;
+esac
 ?X:
 ?X: Some systems (e.g. DG/UX) use "environmental" links, which make the test
 ?X: -f fail. Ditto for symbolic links. So in order to reliably check the
@@ -72,8 +109,6 @@ unknown)
 	$test -r $1 || set /usr/shlib/libc.$so
 	$test -r $1 || set /usr/lib/libc.$so.[0-9]*
 	$test -r $1 || set /lib/libc.$so
-	$test -r $1 || set /lib/libc_s.a
-	$test -r $1 || set /usr/lib/libc_s.a
 	$test -r $1 || set /lib/libsys_s.a
 	eval set \$$#
 	;;
@@ -166,7 +201,6 @@ echo " "
 $sed 's/^/	/' libnames >&4
 echo " "
 $echo $n "This may take a while...$c" >&4
-
 nm $nm_opt $* 2>/dev/null >libc.tmp
 $echo $n ".$c"
 ?X:
@@ -181,8 +215,8 @@ $grep fprintf libc.tmp > libc.ptf
 ?X:
 xscan='eval "<libc.ptf $com >libc.list"; $echo $n ".$c" >&4'
 xrun='eval "<libc.tmp $com >libc.list"; echo "done" >&4'
-?X: BSD-like output
-if com="$sed -n -e 's/^.* [ADTS]  *_[_.]*//p' -e 's/^.* [ADTS] //p'";\
+?X: BSD-like output, I-type for Linux
+if com="$sed -n -e 's/^.* [ADTSI]  *_[_.]*//p' -e 's/^.* [ADTSI] //p'";\
 	eval $xscan;\
 	$contains '^fprintf$' libc.list >/dev/null 2>&1; then
 		eval $xrun
@@ -218,6 +252,10 @@ elif com="$sed -n -e 's/^.*|FUNC |GLOB .*|//p' -e 's/^.*|FUNC |WEAK .*|//p'";\
 		eval $xrun
 ?X: mips nm output (sysV)
 elif com="$sed -n -e 's/^__//' -e '/|Undef/d' -e '/|Proc/s/ .*//p'";\
+	eval $xscan;\
+	$contains '^fprintf$' libc.list >/dev/null 2>&1; then
+		eval $xrun
+elif com="$sed -n -e '/Def. Text/s/.* \([^ ]*\)\$/\1/p'";\
 	eval $xscan;\
 	$contains '^fprintf$' libc.list >/dev/null 2>&1; then
 		eval $xrun

@@ -1,4 +1,4 @@
-?RCS: $Id: d_safemcpy.U,v 3.0 1993/08/18 12:06:58 ram Exp $
+?RCS: $Id: d_safemcpy.U,v 3.0.1.1 1994/05/06 14:53:12 ram Exp $
 ?RCS:
 ?RCS: Copyright (c) 1991-1993, Raphael Manfredi
 ?RCS: 
@@ -9,14 +9,13 @@
 ?RCS: of the source tree for dist 3.0.
 ?RCS:
 ?RCS: $Log: d_safemcpy.U,v $
-?RCS: 
-?RCS: Copy "abcde..." string to char abc[] so that
-?RCS: gcc doesn't try to store the string in read-only memory.
-?RCS: 
+?RCS: Revision 3.0.1.1  1994/05/06  14:53:12  ram
+?RCS: patch23: ensure string is not optimized in read-only memory (ADO)
+?RCS:
 ?RCS: Revision 3.0  1993/08/18  12:06:58  ram
 ?RCS: Baseline for dist 3.0 netwide release.
 ?RCS:
-?MAKE:d_safemcpy: cat d_memcpy +cc +ccflags +libs rm Oldconfig Setvar
+?MAKE:d_safemcpy: cat d_memcpy +cc +ccflags +ldflags +libs rm Oldconfig Setvar
 ?MAKE:	-pick add $@ %<
 ?S:d_safemcpy:
 ?S:	This variable conditionally defines the HAS_SAFE_MEMCPY symbol if
@@ -47,6 +46,8 @@ int len;
 int off;
 int align;
 
+?X: Copy "abcde..." string to char abc[] so that
+?X: gcc doesn't try to store the string in read-only memory.
 memcpy(abc, "abcdefghijklmnopqrstuvwxyz0123456789", 36);
 
 for (align = 7; align >= 0; align--) {
@@ -64,7 +65,7 @@ for (align = 7; align >= 0; align--) {
 exit(0);
 }
 EOCP
-	if $cc foo.c -o safemcpy $ccflags $libs >/dev/null 2>&1 ; then
+	if $cc foo.c -o safemcpy $ccflags $ldflags $libs >/dev/null 2>&1 ; then
 		if ./safemcpy 2>/dev/null; then
 			echo "Yes, it can."
 			val="$define"

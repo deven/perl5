@@ -1,4 +1,4 @@
-?RCS: $Id: Loc.U,v 3.0.1.3 1994/01/24 14:01:44 ram Exp $
+?RCS: $Id: Loc.U,v 3.0.1.5 1994/06/20 06:54:55 ram Exp $
 ?RCS:
 ?RCS: Copyright (c) 1991-1993, Raphael Manfredi
 ?RCS: 
@@ -7,7 +7,15 @@
 ?RCS: You may reuse parts of this distribution only within the terms of
 ?RCS: that same Artistic Licence; a copy of which may be found at the root
 ?RCS: of the source tree for dist 3.0.
+?RCS:
 ?RCS: $Log: Loc.U,v $
+?RCS: Revision 3.0.1.5  1994/06/20  06:54:55  ram
+?RCS: patch30: now locates find
+?RCS:
+?RCS: Revision 3.0.1.4  1994/05/13  15:18:15  ram
+?RCS: patch27: added byacc to the trylist (ADO)
+?RCS: patch27: lint lines reformatted (ADO)
+?RCS:
 ?RCS: Revision 3.0.1.3  1994/01/24  14:01:44  ram
 ?RCS: patch16: added metalint hint on changed PATH variable
 ?RCS:
@@ -34,21 +42,22 @@
 ?X: I put startsh at the end of the dependency list, in order to avoid the
 ?X: loading of the spitshell unit before the instructions.
 ?X:
-?MAKE:Loc Mcc awk bash bison byacc cat chgrp chmod chown compress cp cpio \
-	cpp csh date echo egrep emacs expr find flex gcc grep inews ksh \
-	less line lint ln lp lpr ls mail mailx make mkdir more mv nroff \
-	perl pg pmake pr rm rmail sed sendmail sh shar sleep smail sort \
-	submit tail tar tbl test touch tr troff uname uniq uuname vi \
-	zcat: eunicefix n c Instruct Myread startsh
+?MAKE:Loc Mcc awk bash bison byacc cat chgrp chmod chown \
+	compress cp cpio cpp csh date echo egrep emacs expr find flex \
+	gcc grep inews ksh less line lint ln lp lpr ls mail mailx make \
+	mkdir more mv nroff perl pg pmake pr rm rmail sed sendmail sh \
+	shar sleep smail sort submit tail tar tbl test touch tr troff \
+	uname uniq uuname vi zcat:  eunicefix n c Instruct Myread \
+	startsh
 ?MAKE:	-pick weed $@ %<
-?LINT:describe Loc Mcc awk bash bison byacc cat chgrp chmod chown compress \
-	cp cpio cpp csh date echo egrep emacs expr find flex gcc grep \
-	inews ksh less line lint ln lp lpr ls mail mailx make mkdir more \
-	mv nroff perl pg pmake pr rm rmail sed sendmail sh shar sleep \
-	smail sort submit tail tar tbl test touch tr troff uname uniq \
-	uuname vi zcat
+?LINT:describe Loc Mcc awk bash bison byacc cat chgrp chmod chown \
+	compress cp cpio cpp csh date echo egrep emacs expr find flex \
+	gcc grep inews ksh less line lint ln lp lpr ls mail mailx make \
+	mkdir more mv nroff perl pg pmake pr rm rmail sed sendmail sh \
+	shar sleep smail sort submit tail tar tbl test touch tr troff \
+	uname uniq uuname vi zcat
 ?V::pth loclist trylist
-?T:thing xxx dir file say _test
+?T:thisthing thing xxx dir file say _test
 ?LINT:change PATH
 : find out where common programs are
 echo " "
@@ -71,8 +80,16 @@ for dir in \$*; do
 	fi
 	;;
 	*)
-	if test -f \$dir/\$thing; then
-		echo \$dir/\$thing
+?X:	: be careful in case thing includes wildcards that might
+?X:	: expand to multiple files.  Choose the last one.
+?X:	: This happens when searching for
+?X:	: shared libraries with version numbers.  How to choose which one
+?X:	: we want is probably an insoluble problem, in general.
+	for thisthing in \$dir/\$thing; do
+		: Just loop through to pick last element
+	done
+	if test -f \$thisthing; then
+		echo \$thisthing
 		exit 0
 	elif test -f \$dir/\$thing.exe; then
 		: on Eunice apparently
@@ -96,6 +113,7 @@ loclist="
 ?cp:cp
 ?echo:echo
 ?expr:expr
+?find:find
 ?grep:grep
 ?ln:ln
 ?ls:ls
@@ -123,7 +141,6 @@ trylist="
 ?date:date
 ?egrep:egrep
 ?emacs:emacs
-?find:find
 ?flex:flex
 ?gcc:gcc
 ?inews:inews
@@ -156,12 +173,12 @@ trylist="
 ?vi:vi
 ?zcat:zcat
 "
-?LINT:set Loc Mcc awk bash bison byacc cat chgrp chmod chown compress cp \
-	cpio cpp csh date echo egrep emacs expr find flex gcc grep inews \
-	ksh less line lint ln lp lpr ls mail mailx make mkdir more mv \
-	nroff perl pg pmake pr rm rmail sed sendmail sh shar sleep \
-	smail sort submit tail tar tbl test touch tr troff uname uniq \
-	uuname vi zcat
+?LINT:set Loc Mcc awk bash bison byacc cat chgrp chmod chown \
+	compress cp cpio cpp csh date echo egrep emacs expr find flex \
+	gcc grep inews ksh less line lint ln lp lpr ls mail mailx make \
+	mkdir more mv nroff perl pg pmake pr rm rmail sed sendmail sh \
+	shar sleep smail sort submit tail tar tbl test touch tr troff \
+	uname uniq uuname vi zcat
 pth=`echo $PATH | sed -e 's/:/ /g'`
 pth="$pth /lib /usr/lib"
 for file in $loclist; do

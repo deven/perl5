@@ -82,9 +82,9 @@
 #define MINMOD	29	/* no	Next operator is not greedy. */
 #define GBOL	30	/* no	Matches where last m//g left off. */
 #define IFMATCH	31	/* no	Succeeds if the following matches. */
-#define UNLESS	32	/* no	Fails if the following matches. */
+#define UNLESSM	32	/* no	Fails if the following matches. */
 #define SUCCEED	33	/* no	Return from a subroutine, basically. */
-#define WHILE	34	/* no	Do curly processing and see if rest matches. */
+#define WHILEM	34	/* no	Do curly processing and see if rest matches. */
 
 /*
  * Opcode notes:
@@ -152,7 +152,7 @@ char regkind[] = {
 	BRANCH,
 	BRANCH,
 	END,
-	WHILE
+	WHILEM
 };
 #endif
 
@@ -160,7 +160,7 @@ char regkind[] = {
 #ifndef DOINIT
 extern char varies[];
 #else
-char varies[] = {BRANCH,BACK,STAR,PLUS,CURLY,CURLYX,REF,WHILE,0};
+char varies[] = {BRANCH,BACK,STAR,PLUS,CURLY,CURLYX,REF,WHILEM,0};
 #endif
 
 /* The following always have a length of 1. */

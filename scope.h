@@ -33,11 +33,15 @@
 #define SSPOPPTR (savestack[--savestack_ix].any_ptr)
 #define SSPOPDPTR (savestack[--savestack_ix].any_dptr)
 
-#define FREE_TMPS() if (tmps_ix > tmps_floor) free_tmps()
-#define LEAVE_SCOPE(old) if (savestack_ix > old) leave_scope(old)
+#define SAVETMPS save_int((int*)&tmps_floor), tmps_floor = tmps_ix
+#define FREETMPS if (tmps_ix > tmps_floor) free_tmps()
+#ifdef DEPRECATED
+#define FREE_TMPS() FREETMPS
+#endif
 
 #define ENTER push_scope()
 #define LEAVE pop_scope()
+#define LEAVE_SCOPE(old) if (savestack_ix > old) leave_scope(old)
 
 #define SAVEINT(i) save_int((int*)(&i));
 #define SAVEIV(i) save_iv((IV*)(&i));
@@ -45,7 +49,6 @@
 #define SAVELONG(l) save_long((long*)(&l));
 #define SAVESPTR(s) save_sptr((SV**)(&s))
 #define SAVEPPTR(s) save_pptr((char**)(&s))
-#define SAVETMPS save_int((int*)&tmps_floor), tmps_floor = tmps_ix
 #define SAVEFREESV(s) save_freesv((SV*)(s))
 #define SAVEFREEOP(o) save_freeop((OP*)(o))
 #define SAVEFREEPV(p) save_freepv((char*)(p))

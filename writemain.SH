@@ -38,6 +38,8 @@ args=''
 : Remove any .a suffixes and any leading path components
 for file in `echo $orig | sed 's/\.a//g'` ; do
 	case "$file" in
+	ext/*)	file=`echo $file | sed 's:ext/\(.*\)/[^/]*:\1:'`
+		;;
 	*/*)
 		file=`expr X$file : 'X.*/\(.*\)'`
 		;;
@@ -49,19 +51,38 @@ done
 sed '/Do not delete this line--writemain depends on it/q' miniperlmain.c
 if test X"$args" != "X" ; then
     echo "    char *file = __FILE__;"
-    for ext in $args ; do
-        echo "extern void	boot_${ext} _((CV* cv));"
-    done
+    ai=''
 
     for ext in $args ; do
+
+	: $ext will either be 'Name' or 'Name1/Name2' etc
+	: convert ext into cname and mname
+	mname=`echo $ext   | sed 's!/!::!g'`
+	cname=`echo $mname | sed 's!:!_!g'`
+
+	echo "    {   extern void boot_${cname} _((CV* cv));"
 	if test "$ext" = "DynaLoader"; then
 	    : Must NOT install 'DynaLoader::boot_DynaLoader' as 'bootstrap'!
 	    : boot_DynaLoader is called directly in DynaLoader.pm
-	    echo "    newXS(\"${ext}::boot_${ext}\", boot_${ext}, file);"
+	    echo "        newXS(\"${mname}::boot_${ext}\", boot_${cname}, file);"
 	else
-	    echo "    newXS(\"${ext}::bootstrap\", boot_${ext}, file);"
+	    echo "        newXS(\"${mname}::bootstrap\", boot_${cname}, file);"
 	fi
+	# does this extension wish to supply automatic booting code?
+    for aifile in ext/$ext/AutoInit.* ; do
+		case $aifile in
+		*.c)echo "	/* autoinit code from $aifile follows: */"
+			echo "	{"; cat $aifile; echo "	}"
+			;;
+		*.pl) ai="$ai `cat $aifile | tr '\012' ' '`;"
+			;;
+		esac
+	done
+	echo "    }"
     done
+    if test "X$ai" != "X"; then
+	echo "    autoboot_preamble = \"BEGIN { $ai }\";"
+    fi
 fi
 
 cat << 'EOP'

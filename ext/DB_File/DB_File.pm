@@ -5,8 +5,9 @@
 # version 0.1
 
 package DB_File::HASHINFO ;
+use Carp;
 
-sub new
+sub TIEHASH
 {
     bless {} ;
 }
@@ -23,7 +24,7 @@ sub FETCH
 {  
     return $_[0]{$_[1]} if defined $elements{$_[1]}  ;
 
-    die "DB_File::HASHINFO::FETCH - Unknown element '$_[1]'" ;
+    croak "DB_File::HASHINFO::FETCH - Unknown element '$_[1]'" ;
 }
 
 
@@ -35,7 +36,7 @@ sub STORE
         return ;
     }
     
-    die "DB_File::HASHINFO::STORE - Unknown element '$_[1]'" ;
+    croak "DB_File::HASHINFO::STORE - Unknown element '$_[1]'" ;
 }
 
 sub DELETE 
@@ -46,19 +47,20 @@ sub DELETE
         return ;
     }
     
-    die "DB_File::HASHINFO::DELETE - Unknown element '$_[1]'" ;
+    croak "DB_File::HASHINFO::DELETE - Unknown element '$_[1]'" ;
 }
 
 
 sub DESTROY {undef %{$_[0]} }
-sub FIRSTKEY { die "DB_File::HASHINFO::FIRSTKEY is not implemented" }
-sub NEXTKEY { die "DB_File::HASHINFO::NEXTKEY is not implemented" }
-sub EXISTS { die "DB_File::HASHINFO::EXISTS is not implemented" }
-sub CLEAR { die "DB_File::HASHINFO::CLEAR is not implemented" }
+sub FIRSTKEY { croak "DB_File::HASHINFO::FIRSTKEY is not implemented" }
+sub NEXTKEY { croak "DB_File::HASHINFO::NEXTKEY is not implemented" }
+sub EXISTS { croak "DB_File::HASHINFO::EXISTS is not implemented" }
+sub CLEAR { croak "DB_File::HASHINFO::CLEAR is not implemented" }
 
 package DB_File::BTREEINFO ;
+use Carp;
 
-sub new
+sub TIEHASH
 {
     bless {} ;
 }
@@ -77,7 +79,7 @@ sub FETCH
 {  
     return $_[0]{$_[1]} if defined $elements{$_[1]}  ;
 
-    die "DB_File::BTREEINFO::FETCH - Unknown element '$_[1]'" ;
+    croak "DB_File::BTREEINFO::FETCH - Unknown element '$_[1]'" ;
 }
 
 
@@ -89,7 +91,7 @@ sub STORE
         return ;
     }
     
-    die "DB_File::BTREEINFO::STORE - Unknown element '$_[1]'" ;
+    croak "DB_File::BTREEINFO::STORE - Unknown element '$_[1]'" ;
 }
 
 sub DELETE 
@@ -100,19 +102,20 @@ sub DELETE
         return ;
     }
     
-    die "DB_File::BTREEINFO::DELETE - Unknown element '$_[1]'" ;
+    croak "DB_File::BTREEINFO::DELETE - Unknown element '$_[1]'" ;
 }
 
 
 sub DESTROY {undef %{$_[0]} }
-sub FIRSTKEY { die "DB_File::BTREEINFO::FIRSTKEY is not implemented" }
-sub NEXTKEY { die "DB_File::BTREEINFO::NEXTKEY is not implemented" }
-sub EXISTS { die "DB_File::HASHINFO::EXISTS is not implemented" }
-sub CLEAR { die "DB_File::HASHINFO::CLEAR is not implemented" }
+sub FIRSTKEY { croak "DB_File::BTREEINFO::FIRSTKEY is not implemented" }
+sub NEXTKEY { croak "DB_File::BTREEINFO::NEXTKEY is not implemented" }
+sub EXISTS { croak "DB_File::BTREEINFO::EXISTS is not implemented" }
+sub CLEAR { croak "DB_File::BTREEINFO::CLEAR is not implemented" }
 
 package DB_File::RECNOINFO ;
+use Carp;
 
-sub new
+sub TIEHASH
 {
     bless {} ;
 }
@@ -129,7 +132,7 @@ sub FETCH
 {  
     return $_[0]{$_[1]} if defined $elements{$_[1]}  ;
 
-    die "DB_File::RECNOINFO::FETCH - Unknown element '$_[1]'" ;
+    croak "DB_File::RECNOINFO::FETCH - Unknown element '$_[1]'" ;
 }
 
 
@@ -141,7 +144,7 @@ sub STORE
         return ;
     }
     
-    die "DB_File::RECNOINFO::STORE - Unknown element '$_[1]'" ;
+    croak "DB_File::RECNOINFO::STORE - Unknown element '$_[1]'" ;
 }
 
 sub DELETE 
@@ -152,35 +155,32 @@ sub DELETE
         return ;
     }
     
-    die "DB_File::RECNOINFO::DELETE - Unknown element '$_[1]'" ;
+    croak "DB_File::RECNOINFO::DELETE - Unknown element '$_[1]'" ;
 }
 
 
 sub DESTROY {undef %{$_[0]} }
-sub FIRSTKEY { die "DB_File::RECNOINFO::FIRSTKEY is not implemented" }
-sub NEXTKEY { die "DB_File::RECNOINFO::NEXTKEY is not implemented" }
-sub EXISTS { die "DB_File::HASHINFO::EXISTS is not implemented" }
-sub CLEAR { die "DB_File::HASHINFO::CLEAR is not implemented" }
+sub FIRSTKEY { croak "DB_File::RECNOINFO::FIRSTKEY is not implemented" }
+sub NEXTKEY { croak "DB_File::RECNOINFO::NEXTKEY is not implemented" }
+sub EXISTS { croak "DB_File::BTREEINFO::EXISTS is not implemented" }
+sub CLEAR { croak "DB_File::BTREEINFO::CLEAR is not implemented" }
 
 
 
 package DB_File ;
-
-
+use Carp;
 
 #typedef enum { DB_BTREE, DB_HASH, DB_RECNO } DBTYPE;
-$DB_BTREE = new DB_File::BTREEINFO ;
-$DB_HASH  = new DB_File::HASHINFO ;
-$DB_RECNO = new DB_File::RECNOINFO ;
+$DB_BTREE = TIEHASH DB_File::BTREEINFO ;
+$DB_HASH  = TIEHASH DB_File::HASHINFO ;
+$DB_RECNO = TIEHASH DB_File::RECNOINFO ;
 
+require TieHash;
 require Exporter;
 require AutoLoader;
 require DynaLoader;
-@ISA = (Exporter, AutoLoader, DynaLoader);
+@ISA = (TieHash, Exporter, AutoLoader, DynaLoader);
 @EXPORT = qw(
-	new FETCH STORE DELETE DESTROY FIRSTKEY NEXTKEY
-	push pop shift unshift length
-        dbopen close get put fd sync seq 
         $DB_BTREE $DB_HASH $DB_RECNO 
 	BTREEMAGIC
 	BTREEVERSION
@@ -227,7 +227,7 @@ sub AUTOLOAD {
 	}
 	else {
 	    ($pack,$file,$line) = caller;
-	    die "Your vendor has not defined DB macro $constname, used at $file line $line.
+	    croak "Your vendor has not defined DB macro $constname, used at $file line $line.
 ";
 	}
     }
@@ -243,23 +243,6 @@ bootstrap DB_File @liblist;
 
 # Preloaded methods go here.  Autoload methods go after __END__, and are
 # processed by the autosplit program.
-
-sub EXISTS {
-    defined FETCH(@_);
-}
-
-sub CLEAR {
-    my $key = FIRSTKEY(@_);
-    my @keys;
-
-    while (defined $key) {
-	push @keys, $key;
-	$key = NEXTKEY(@_, $key);
-    }
-    foreach $key (@keys) {
-	DELETE(@_, $key);
-    }
-}
 
 1;
 __END__

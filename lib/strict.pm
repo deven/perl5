@@ -11,10 +11,12 @@ sub bits {
 }
 
 sub import {
+    shift;
     $^H |= bits(@_ ? @_ : qw(refs subs vars));
 }
 
 sub unimport {
+    shift;
     $^H &= ~ bits(@_ ? @_ : qw(refs subs vars));
 }
 

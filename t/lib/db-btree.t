@@ -10,9 +10,9 @@ BEGIN {
 }
 
 use DB_File; 
-use POSIX 'fcntl_h' ;	# only want O_RDWR & O_CREAT
+use Fcntl;
 
-print "1..74\n";
+print "1..73\n";
 
 $Dfile = "Op.db-btree";
 unlink $Dfile;
@@ -21,7 +21,7 @@ umask(0);
 
 # Check the interface to BTREEINFO
 
-$dbh = new DB_File::BTREEINFO ;
+$dbh = TIEHASH DB_File::BTREEINFO ;
 print (($dbh->{flags} == undef) ? "ok 1\n" : "not ok 1\n") ;
 print (($dbh->{cachesize} == undef) ? "ok 2\n" : "not ok 2\n") ;
 print (($dbh->{psize} == undef) ? "ok 3\n" : "not ok 3\n") ;
@@ -217,13 +217,10 @@ print ($status == 0 ? "ok 40\n" : "not ok 40\n") ;
 print (($h{'q'} eq undef) ? "ok 41\n" : "not ok 41\n") ;
 print (($h{''} eq undef) ? "ok 42\n" : "not ok 42\n") ;
 
-#undef $X ;
-#untie %h ;
+undef $X ;
+untie %h ;
 
-# Check dbopen
-#print (($X = dbopen($Dfile, O_RDWR, 0640, $DB_BTREE)) ? "ok 43\n" : "not ok 43\n");
-
-print "ok 43\n" ; # temp hack for now
+print (($X = tie(%h, DB_File,$Dfile, O_RDWR, 0640, $DB_BTREE )) ? "ok 43\n" : "not ok 43");
 
 # Attempting to delete a non-existant key should fail
 
@@ -336,20 +333,17 @@ $status = $X->fd ;
 print ($status != 0 ? "ok 71\n" : "not ok 71\n") ;
 
 
-untie %h ;
-#$status = $X->close ;
-#print ($status == 0 ? "ok 72\n" : "not ok 72\n") ;
-print "ok 72\n" ; #<< temp hack
 undef $X ;
+untie %h ;
 
 unlink $Dfile;
 
 # Now try an in memory file
-print (($Y = tie(%h, DB_File,undef, O_RDWR|O_CREAT, 0640, $DB_BTREE )) ? "ok 73\n" : "not ok 73");
+print (($Y = tie(%h, DB_File,undef, O_RDWR|O_CREAT, 0640, $DB_BTREE )) ? "ok 72\n" : "not ok 72");
 
 # fd with an in memory file should return failure
 $status = $Y->fd ;
-print ($status == -1 ? "ok 74\n" : "not ok 74\n") ;
+print ($status == -1 ? "ok 73\n" : "not ok 73\n") ;
 
 undef $Y ;
 untie %h ;

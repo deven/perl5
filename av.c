@@ -32,7 +32,7 @@ AV* av;
 	sv = AvARRAY(av)[--key];
 	assert(sv);
 	if (sv != &sv_undef)
-	    SvREFCNT_inc(sv);
+	    (void)SvREFCNT_inc(sv);
     }
     AvREAL_on(av);
 }
@@ -198,9 +198,8 @@ newAV()
 {
     register AV *av;
 
-    Newz(1,av,1,AV);
-    SvREFCNT(av) = 1;
-    sv_upgrade((SV *)av,SVt_PVAV);
+    av = (AV*)NEWSV(3,0);
+    sv_upgrade((SV *)av, SVt_PVAV);
     AvREAL_on(av);
     AvALLOC(av) = 0;
     SvPVX(av) = 0;
@@ -217,7 +216,7 @@ register SV **strp;
     register I32 i;
     register SV** ary;
 
-    av = (AV*)newSV(0);
+    av = (AV*)NEWSV(8,0);
     sv_upgrade((SV *) av,SVt_PVAV);
     New(4,ary,size+1,SV*);
     AvALLOC(av) = ary;
@@ -242,9 +241,8 @@ register SV **strp;
     register AV *av;
     register SV** ary;
 
-    Newz(3,av,1,AV);
-    SvREFCNT(av) = 1;
-    sv_upgrade((SV *) av,SVt_PVAV);
+    av = (AV*)NEWSV(9,0);
+    sv_upgrade((SV *)av, SVt_PVAV);
     New(4,ary,size+1,SV*);
     AvALLOC(av) = ary;
     Copy(strp,ary,size,SV*);

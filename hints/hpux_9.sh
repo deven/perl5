@@ -1,4 +1,3 @@
-hintfile='hpux_9'
 libswanted='ndbm m dld'
 ccflags="$ccflags -Aa -D_POSIX_SOURCE -D_HPUX_SOURCE"
 # ldflags="-Wl,-E -Wl,-a,shared"  # Force all shared?

@@ -18,6 +18,13 @@
 
 #include <fcntl.h> 
 
+#ifndef DBXS_HASH_TYPE
+#define DBXS_HASH_TYPE u_int32_t
+#endif
+
+#ifndef DBXS_PREFIX_TYPE
+#define DBXS_PREFIX_TYPE size_t
+#endif
 
 typedef DB * DB_File;
 typedef DBT DBTKEY ;
@@ -40,7 +47,7 @@ typedef struct {
 #define db_STORE(db, key, value, flags) (db->put)(db, &key, &value, flags)
 #define db_FETCH(db, key, flags)        (db->get)(db, &key, &value, flags)
 
-#define db_close(db)                    (db->close)(db)
+#define db_close(db)			(db->close)(db)
 #define db_del(db, key, flags)          (db->del)(db, &key, flags)
 #define db_fd(db)                       (db->fd)(db) 
 #define db_put(db, key, value, flags)   (db->put)(db, &key, &value, flags)
@@ -72,88 +79,68 @@ static CallBackInfo compare_callback 	= { 0 } ;
 static CallBackInfo prefix_callback 	= { 0 } ;
 
 
-static I32
-Myperl_callsv(sv, spix, gimme, hasargs, numargs)
-SV* sv;
-I32 spix;               /* stack pointer after args are pushed */
-I32 gimme;              /* TRUE if called in list context */
-I32 hasargs;            /* whether to create a @_ array for routine */
-I32 numargs;            /* how many args are pushed on the stack */
-{
-    BINOP myop;         /* fake syntax tree node */
-    int ret_val ;
-    SV** sp = stack_base + spix;
- 
-    ENTER;
-    SAVETMPS;
-    SAVESPTR(op);
-    stack_base = AvARRAY(stack);
-    stack_sp = stack_base + spix - numargs;
-    op = (OP*)&myop;
-    Zero(op, 1, BINOP);
-    pp_pushmark();      /* doesn't look at op, actually, except to return */
-    stack_sp += numargs;
-    EXTEND(stack_sp, 1);
-    *++stack_sp = sv;
- 
-    if (hasargs) {
-        myop.op_flags = OPf_STACKED;
-        myop.op_last = (OP*)&myop;
-    }
-    myop.op_next = Nullop;
-    myop.op_flags |= OPf_KNOW;
- 
-    if (op = pp_entersub())
-        run();
-
-    /* Get the return code from the perl sub */
-    ret_val = SvIV(*(stack_sp)) ;
-
-    FREE_TMPS();
-    LEAVE;
-
-    return ret_val ;
-}
-
-
 static int
 btree_compare(key1, key2)
-DBT * key1 ;
-DBT * key2 ;
+const DBT * key1 ;
+const DBT * key2 ;
 {
-    I32 ax = stack_sp - stack_base ;
+    dSP ;
     void * data1, * data2 ;
+    int retval ;
+    int count ;
     
     data1 = key1->data ;
     data2 = key2->data ;
 
     /* As newSVpv will assume that the data pointer is a null terminated C 
-       string if the size paramater is 0, make sure that data points to an 
+       string if the size parameter is 0, make sure that data points to an 
        empty string if the length is 0
     */
     if (key1->size == 0)
         data1 = "" ; 
     if (key2->size == 0)
         data2 = "" ;
-    av_store(stack, ++ax, sv_2mortal(newSVpv(data1,key1->size)));
-    av_store(stack, ++ax, sv_2mortal(newSVpv(data2,key2->size)));
 
-    return (Myperl_callsv(compare_callback.sub, ax, G_SCALAR, TRUE, 2) ); 
+    ENTER ;
+    SAVETMPS;
+
+    PUSHMARK(sp) ;
+    EXTEND(sp,2) ;
+    PUSHs(sv_2mortal(newSVpv(data1,key1->size)));
+    PUSHs(sv_2mortal(newSVpv(data2,key2->size)));
+    PUTBACK ;
+
+    count = perl_call_sv(compare_callback.sub, G_SCALAR); 
+
+    SPAGAIN ;
+
+    if (count != 1)
+        croak ("DB_File btree_compare: expected 1 return value from %s, got %d\n", count) ;
+
+    retval = POPi ;
+
+    PUTBACK ;
+    FREETMPS ;
+    LEAVE ;
+    return (retval) ;
+
 }
 
-static size_t
+static DBXS_PREFIX_TYPE
 btree_prefix(key1, key2)
-DBT * key1 ;
-DBT * key2 ;
+const DBT * key1 ;
+const DBT * key2 ;
 {
-    I32 sp = stack_sp - stack_base ;
+    dSP ;
     void * data1, * data2 ;
+    int retval ;
+    int count ;
     
     data1 = key1->data ;
     data2 = key2->data ;
 
     /* As newSVpv will assume that the data pointer is a null terminated C 
-       string if the size paramater is 0, make sure that data points to an 
+       string if the size parameter is 0, make sure that data points to an 
        empty string if the length is 0
     */
     if (key1->size == 0)
@@ -161,25 +148,61 @@ DBT * key2 ;
     if (key2->size == 0)
         data2 = "" ;
 
-    av_store(stack, ++sp, sv_2mortal(newSVpv(data1,key1->size)));
-    av_store(stack, ++sp, sv_2mortal(newSVpv(data2,key2->size)));
+    ENTER ;
+    SAVETMPS;
 
-    return Myperl_callsv(prefix_callback.sub, sp, G_SCALAR, TRUE, 2);
+    PUSHMARK(sp) ;
+    EXTEND(sp,2) ;
+    PUSHs(sv_2mortal(newSVpv(data1,key1->size)));
+    PUSHs(sv_2mortal(newSVpv(data2,key2->size)));
+    PUTBACK ;
+
+    count = perl_call_sv(prefix_callback.sub, G_SCALAR); 
+
+    SPAGAIN ;
+
+    if (count != 1)
+        croak ("DB_File btree_prefix: expected 1 return value from %s, got %d\n", count) ;
+ 
+    retval = POPi ;
+ 
+    PUTBACK ;
+    FREETMPS ;
+    LEAVE ;
+
+    return (retval) ;
 }
 
-static U32
+static DBXS_HASH_TYPE
 hash_cb(data, size)
-void * data ;
+const void * data ;
 size_t size ;
 {
-    I32 sp = stack_sp - stack_base ;
+    dSP ;
+    int retval ;
+    int count ;
 
     if (size == 0)
         data = "" ;
 
-    av_store(stack, ++sp, sv_2mortal(newSVpv(data,size)));
+    PUSHMARK(sp) ;
+    XPUSHs(sv_2mortal(newSVpv((char*)data,size)));
+    PUTBACK ;
 
-    return Myperl_callsv(hash_callback.sub, sp, G_SCALAR, TRUE, 1);
+    count = perl_call_sv(hash_callback.sub, G_SCALAR); 
+
+    SPAGAIN ;
+
+    if (count != 1)
+        croak ("DB_File hash_cb: expected 1 return value from %s, got %d\n", count) ;
+
+    retval = POPi ;
+
+    PUTBACK ;
+    FREETMPS ;
+    LEAVE ;
+
+    return (retval) ;
 }
 
 
@@ -371,8 +394,21 @@ char * string ;
             svp = hv_fetch(action, "reclen", 6, FALSE);
             info.recno.reclen = (size_t) svp ? SvIV(*svp) : 0;
          
-            svp = hv_fetch(action, "bval", 4, FALSE);
-            info.recno.bval = (u_char)(unsigned long) svp ? SvIV(*svp) : 0 ;
+	    svp = hv_fetch(action, "bval", 4, FALSE);
+            if (svp && SvOK(*svp))
+            {
+                if (SvPOKp(*svp))
+		    info.recno.bval = (u_char)*SvPV(*svp, na) ;
+		else
+		    info.recno.bval = (u_char)(unsigned long) SvIV(*svp) ;
+            }
+            else
+ 	    {
+		if (info.recno.flags & R_FIXEDLEN)
+                    info.recno.bval = (u_char) ' ' ;
+		else
+                    info.recno.bval = (u_char) '\n' ;
+	    }
          
             svp = hv_fetch(action, "bfname", 6, FALSE); 
             info.recno.bfname = (char *) svp ? SvPV(*svp,na) : 0;
@@ -449,7 +485,7 @@ int arg;
 #endif
 	if (strEQ(name, "DB_TXN"))
 #ifdef DB_TXN
-	    return DB_TXN;
+	    return (U32)DB_TXN;
 #else
 	    goto not_there;
 #endif
@@ -485,7 +521,7 @@ int arg;
     case 'M':
 	if (strEQ(name, "MAX_PAGE_NUMBER"))
 #ifdef MAX_PAGE_NUMBER
-	    return MAX_PAGE_NUMBER;
+	    return (U32)MAX_PAGE_NUMBER;
 #else
 	    goto not_there;
 #endif
@@ -497,7 +533,7 @@ int arg;
 #endif
 	if (strEQ(name, "MAX_REC_NUMBER"))
 #ifdef MAX_REC_NUMBER
-	    return MAX_REC_NUMBER;
+	    return (U32)MAX_REC_NUMBER;
 #else
 	    goto not_there;
 #endif
@@ -656,7 +692,7 @@ constant(name,arg)
 
 
 DB_File
-db_new(dbtype, name=undef, flags=O_RDWR, mode=0640, type=DB_HASH)
+db_TIEHASH(dbtype, name=undef, flags=O_RDWR, mode=0640, type=DB_HASH)
 	char *		dbtype
 	int		flags
 	int		mode
@@ -676,6 +712,9 @@ db_new(dbtype, name=undef, flags=O_RDWR, mode=0640, type=DB_HASH)
 	OUTPUT:	
 	    RETVAL
 
+BOOT:
+    newXS("DB_File::TIEARRAY", XS_DB_File_db_TIEHASH, file);
+
 int
 db_DESTROY(db)
 	DB_File		db
@@ -686,7 +725,6 @@ db_DELETE(db, key, flags=0)
 	DB_File		db
 	DBTKEY		key
 	u_int		flags
-
 
 int
 db_FETCH(db, key, flags=0)
@@ -749,7 +787,6 @@ db_NEXTKEY(db, key)
 	    }
 	}
 
-
 #
 # These would be nice for RECNO
 #
@@ -764,6 +801,7 @@ unshift(db, ...)
 	    int		i ;
 	    int		One ;
 
+	    RETVAL = -1 ;
 	    for (i = items-1 ; i > 0 ; --i)
 	    {
 	        value.data = SvPV(ST(i), na) ;
@@ -860,31 +898,6 @@ length(db)
 #
 # Now provide an interface to the rest of the DB functionality
 #
-
-DB_File
-dbopen(name=undef, flags=O_RDWR, mode=0640, type=DB_HASH)
-	int		flags
-	int		mode
-	CODE:
-	 {
-	    char *	name = (char*) NULL ; 
-	    SV * 	sv = (SV *) NULL ;
-
-	    if (items && SvOK(ST(0)) )
-	        name = (char*) SvPV(ST(0), na) ; 
-
-            if (items == 4)
-	        sv = ST(3) ;
-
-	    RETVAL = ParseOpenInfo(name, flags, mode, sv, "dbopen") ;
-	 }
-	OUTPUT:	
-	    RETVAL
-
-int
-db_close(db)
-	DB_File		db
-
 
 int
 db_del(db, key, flags=0)
